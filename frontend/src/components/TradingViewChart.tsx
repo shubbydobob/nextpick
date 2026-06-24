@@ -7,9 +7,10 @@ declare global {
 interface Props {
   ticker: string
   height?: number
+  onFallback?: () => void
 }
 
-export default function TradingViewChart({ ticker, height = 460 }: Props) {
+export default function TradingViewChart({ ticker, height = 460, onFallback }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -22,6 +23,12 @@ export default function TradingViewChart({ ticker, height = 460 }: Props) {
     container.id = containerId
     container.style.height = `${height}px`
     wrapRef.current.appendChild(container)
+
+    // onChartReady 12초 내 미수신 시 폴백 (심볼 없는 종목 대응)
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    if (onFallback) {
+      timeoutId = setTimeout(() => { onFallback() }, 12000)
+    }
 
     const init = () => {
       new window.TradingView.widget({
@@ -42,6 +49,9 @@ export default function TradingViewChart({ ticker, height = 460 }: Props) {
         hide_legend: false,
         container_id: containerId,
         studies: ['RSI@tv-basicstudies', 'Volume@tv-basicstudies'],
+        onChartReady: function() {
+          if (timeoutId !== null) { clearTimeout(timeoutId); timeoutId = null }
+        },
       })
     }
 
@@ -56,6 +66,7 @@ export default function TradingViewChart({ ticker, height = 460 }: Props) {
     }
 
     return () => {
+      if (timeoutId !== null) clearTimeout(timeoutId)
       if (wrapRef.current) wrapRef.current.innerHTML = ''
     }
   }, [ticker, height])

@@ -76,19 +76,25 @@ def main():
     load_investor_flow(as_of_date=target_date)
     logger.info("[3/5] KIS 수급 수집 완료")
 
-    # ── 4. derived_metrics 가격 컬럼 계산 ─────────────────────
-    logger.info("[4/5] derived_metrics 계산 시작")
+    # ── 4. financial_normalizer: DART EPS → derived_metrics ───
+    logger.info("[4/6] financial_normalizer 시작")
+    from .financial_normalizer import normalize_all
+    normalize_all(target_date)
+    logger.info("[4/6] financial_normalizer 완료")
+
+    # ── 5. derived_metrics 가격 컬럼 계산 ─────────────────────
+    logger.info("[5/6] derived_metrics 계산 시작")
     from .derived_metrics_calculator import calculate as calc_derived
     updated = calc_derived(target_date)
-    logger.info("[4/5] derived_metrics 계산 완료: %d 행", updated)
+    logger.info("[5/6] derived_metrics 계산 완료: %d 행", updated)
 
-    # ── 5. 스코어링 트리거 ─────────────────────────────────────
-    logger.info("[5/5] 스코어링 트리거")
+    # ── 6. 스코어링 트리거 ─────────────────────────────────────
+    logger.info("[6/6] 스코어링 트리거")
     ok = trigger_scoring()
     if ok:
-        logger.info("[5/5] 스코어링 완료")
+        logger.info("[6/6] 스코어링 완료")
     else:
-        logger.warning("[5/5] 스코어링 실패 — 수동 트리거 필요")
+        logger.warning("[6/6] 스코어링 실패 — 수동 트리거 필요")
 
     logger.info("=" * 60)
     logger.info("KR 일별 ETL 완료: %s", target_date)

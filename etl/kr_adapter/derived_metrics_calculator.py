@@ -17,6 +17,51 @@ from ..shared.db_writer import get_session
 logger = logging.getLogger(__name__)
 
 
+# 재무 컬럼을 전날 행에서 복사 (EPS는 DART 로드 시에만 갱신, 매일 carry-forward)
+CARRY_FORWARD_SQL = """
+UPDATE derived_metrics dm
+SET
+    eps_standalone_latest  = prev.eps_standalone_latest,
+    eps_standalone_prev_yq = prev.eps_standalone_prev_yq,
+    eps_qoq_yoy_pct        = prev.eps_qoq_yoy_pct,
+    eps_qoq_accel          = prev.eps_qoq_accel,
+    eps_3yr_cagr           = prev.eps_3yr_cagr,
+    eps_annual_consistency = prev.eps_annual_consistency,
+    roe_latest             = prev.roe_latest
+FROM (
+    SELECT DISTINCT ON (security_id)
+        security_id,
+        eps_standalone_latest, eps_standalone_prev_yq,
+        eps_qoq_yoy_pct, eps_qoq_accel,
+        eps_3yr_cagr, eps_annual_consistency, roe_latest
+    FROM derived_metrics
+    WHERE as_of_date < :as_of_date
+      AND eps_standalone_latest IS NOT NULL
+    ORDER BY security_id, as_of_date DESC
+) prev
+WHERE dm.security_id = prev.security_id
+  AND dm.as_of_date  = :as_of_date
+  AND dm.eps_standalone_latest IS NULL
+"""
+
+FLOW_CARRY_FORWARD_SQL = """
+UPDATE derived_metrics dm
+SET
+    inst_net_buy_10d    = prev.inst_net_buy_10d,
+    foreign_net_buy_10d = prev.foreign_net_buy_10d
+FROM (
+    SELECT DISTINCT ON (security_id)
+        security_id, inst_net_buy_10d, foreign_net_buy_10d
+    FROM derived_metrics
+    WHERE as_of_date < :as_of_date
+      AND inst_net_buy_10d IS NOT NULL
+    ORDER BY security_id, as_of_date DESC
+) prev
+WHERE dm.security_id = prev.security_id
+  AND dm.as_of_date  = :as_of_date
+  AND dm.inst_net_buy_10d IS NULL
+"""
+
 UPDATE_SQL = """
 WITH price_stats AS (
     SELECT
@@ -97,6 +142,15 @@ def calculate(as_of_date: date | None = None) -> int:
                 return 0
             as_of_date = row
 
+        # 1) 재무 컬럼 carry-forward (EPS 등 DART 데이터)
+        cf = sess.execute(text(CARRY_FORWARD_SQL), {"as_of_date": as_of_date})
+        logger.info("재무 컬럼 carry-forward: %d 행", cf.rowcount)
+
+        # 1b) 수급 컬럼 carry-forward (KIS flow 데이터)
+        cf2 = sess.execute(text(FLOW_CARRY_FORWARD_SQL), {"as_of_date": as_of_date})
+        logger.info("수급 컬럼 carry-forward: %d 행", cf2.rowcount)
+
+        # 2) 가격 기반 컬럼 계산
         logger.info("derived_metrics 계산 중 (as_of_date=%s) ...", as_of_date)
         result = sess.execute(text(UPDATE_SQL), {"as_of_date": as_of_date})
         updated = result.rowcount

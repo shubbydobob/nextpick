@@ -280,7 +280,7 @@ export default function StockDetailPage() {
             </div>
           </div>
           {chartTab === 'tv'
-            ? <TradingViewChart ticker={stock.ticker} height={480} />
+            ? <TradingViewChart ticker={stock.ticker} height={480} onFallback={() => setChartTab('own')} />
             : <PriceChart securityId={id} height={480} />}
         </div>
 

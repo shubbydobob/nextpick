@@ -144,28 +144,31 @@ def _compute_metrics(
         if yoy is not None and prev_yoy is not None:
             accel = yoy - prev_yoy
 
-    # 3년 CAGR (연간 EPS)
+    # EPS CAGR (3년 우선, 부족하면 2년으로 폴백)
     annual_by_year = {r["year"]: r["eps"] for r in annual}
     cagr  = None
     recent_years = sorted(annual_by_year.keys(), reverse=True)
-    if len(recent_years) >= 4:
+    if len(recent_years) >= 3:
         y_latest = recent_years[0]
-        y_base   = recent_years[3]   # 3년 전
         eps_l = annual_by_year[y_latest]
+        base_idx = 3 if len(recent_years) >= 4 else 2   # 3yr 우선, 없으면 2yr
+        y_base = recent_years[base_idx]
+        n_years = y_latest - y_base
         eps_b = annual_by_year[y_base]
-        if eps_b and eps_b > 0 and eps_l and eps_l > 0:
-            cagr = (eps_l / eps_b) ** (1 / 3) - 1
+        if eps_b and eps_b > 0 and eps_l and eps_l > 0 and n_years > 0:
+            cagr = (eps_l / eps_b) ** (1 / n_years) - 1
 
-    # 연간 일관성: 최근 3년 중 전년 대비 성장 횟수 / 3
+    # 연간 일관성: 전년 대비 EPS 성장 횟수 / 비교 쌍 수 (최소 2년 데이터 필요)
     consistency = None
-    if len(recent_years) >= 4:
+    if len(recent_years) >= 3:
+        pairs = min(3, len(recent_years) - 1)
         growth_count = sum(
-            1 for i in range(3)
+            1 for i in range(pairs)
             if annual_by_year.get(recent_years[i]) is not None
             and annual_by_year.get(recent_years[i + 1]) is not None
             and annual_by_year[recent_years[i]] > annual_by_year[recent_years[i + 1]]
         )
-        consistency = growth_count / 3
+        consistency = growth_count / pairs
 
     # 최근 ROE
     roe_latest = next(

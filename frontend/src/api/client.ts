@@ -7,11 +7,25 @@ export async function fetchScreener(
   page = 0,
   size = 30,
   q = '',
+  sector = '',
+  minCap?: number,
+  maxCap?: number,
+  sortBy = 'compositeScore',
+  sortDir = 'desc',
 ): Promise<ScreenerPage> {
-  const params = new URLSearchParams({ market, page: String(page), size: String(size) })
+  const params = new URLSearchParams({ market, page: String(page), size: String(size), sortBy, sortDir })
   if (q) params.set('q', q)
+  if (sector) params.set('sector', sector)
+  if (minCap != null) params.set('minCap', String(minCap))
+  if (maxCap != null) params.set('maxCap', String(maxCap))
   const res = await fetch(`${BASE}/screener?${params}`)
   if (!res.ok) throw new Error('screener fetch failed')
+  return res.json()
+}
+
+export async function fetchSectors(): Promise<string[]> {
+  const res = await fetch(`${BASE}/screener/sectors`)
+  if (!res.ok) return []
   return res.json()
 }
 

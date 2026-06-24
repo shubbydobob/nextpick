@@ -12,6 +12,13 @@ body {
 
 a { color: inherit; text-decoration: none; }
 
+.hide-scrollbar {
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 button {
   cursor: pointer;
   border: none;

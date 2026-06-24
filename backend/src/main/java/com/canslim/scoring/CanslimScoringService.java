@@ -139,6 +139,12 @@ public class CanslimScoringService {
                 new double[]{nullOr(c), nullOr(a), nullOr(n), nullOr(s), nullOr(l), nullOr(i)},
                 new boolean[]{c != null, a != null, n != null, s != null, l != null, i != null});
 
+        // completeness discount: 핵심 재무 팩터 누락 시 감산
+        double discount = 0.0;
+        if (c == null) discount += 5.0;   // 분기실적 누락
+        if (a == null) discount += 3.0;   // 연간성장 누락
+        composite = Math.max(0.0, composite - discount);
+
         return new ScoringResult(c, a, n, s, l, i, composite, false, null);
     }
 

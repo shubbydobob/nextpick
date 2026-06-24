@@ -47,12 +47,22 @@ public class ScreenerController {
         this.jdbc      = jdbc;
     }
 
+    // 가격 기반 정렬 필드 (all-load path 필요)
+    private static final java.util.Set<String> PRICE_SORT_FIELDS = java.util.Set.of(
+            "closePrice", "changeRate", "weekHigh52", "volume",
+            "turnover", "foreignNetBuy10d", "instNetBuy10d", "marketCap");
+
     @GetMapping
     public ResponseEntity<ScreenerPageResponse> screen(
             @RequestParam String market,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0.0") double minScore,
+            @RequestParam(required = false) String sector,
+            @RequestParam(required = false) Long minCap,
+            @RequestParam(required = false) Long maxCap,
+            @RequestParam(defaultValue = "compositeScore") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "30") int size) {
 
@@ -60,39 +70,81 @@ public class ScreenerController {
         if (scoreDate == null) return ResponseEntity.ok(new ScreenerPageResponse(List.of(), 0, page, size));
 
         boolean isSearch = q != null && !q.isBlank();
+        boolean hasFilter = isSearch || sector != null || minCap != null || maxCap != null;
+        boolean isPriceSort = PRICE_SORT_FIELDS.contains(sortBy);
+        boolean isDefaultSort = "compositeScore".equals(sortBy) && "desc".equals(sortDir);
+        boolean useAllPath = hasFilter || isPriceSort || !isDefaultSort;
         final String keyword = isSearch ? q.trim().toLowerCase() : null;
 
-        List<CanslimScore> scores;
-        long total;
-
-        if (isSearch) {
-            // 검색 시: 전체 로드 후 필터
+        if (useAllPath) {
+            // 전체 로드 후 필터 + 정렬 + 수동 페이징
             List<CanslimScore> all = scoreRepo
                     .findByScoreDateAndMarketOrderByCompositeScoreDesc(scoreDate, market)
                     .stream()
                     .filter(s -> s.getCompositeScore().doubleValue() >= minScore)
                     .toList();
-            Map<Long, Instrument> allInst = loadInstrumentMap(
-                    all.stream().map(CanslimScore::getSecurityId).toList());
-            scores = all.stream()
+
+            List<Long> allIds = all.stream().map(CanslimScore::getSecurityId).toList();
+            Map<Long, Instrument> allInst = loadInstrumentMap(allIds);
+
+            // 1차 필터: keyword + sector
+            List<CanslimScore> filtered = all.stream()
+                    .filter(s -> allInst.containsKey(s.getSecurityId()))
                     .filter(s -> {
+                        if (!isSearch) return true;
                         Instrument inst = allInst.get(s.getSecurityId());
-                        if (inst == null) return false;
                         return inst.getTicker().contains(keyword.toUpperCase()) ||
                                inst.getName().toLowerCase().contains(keyword);
                     })
+                    .filter(s -> {
+                        if (sector == null) return true;
+                        return sector.equals(allInst.get(s.getSecurityId()).getSector());
+                    })
                     .toList();
-            total = scores.size();
-        } else {
-            // 페이징 조회
-            var pageable = PageRequest.of(page, size,
-                    Sort.by(Sort.Direction.DESC, "compositeScore"));
-            var pageResult = scoreRepo.findByScoreDateAndMarket(scoreDate, market, pageable);
-            scores = pageResult.getContent().stream()
-                    .filter(s -> s.getCompositeScore().doubleValue() >= minScore)
+
+            List<Long> filteredIds = filtered.stream().map(CanslimScore::getSecurityId).toList();
+            Map<Long, BigDecimal[]> pf = loadPriceAndFlow(filteredIds, scoreDate);
+
+            // 2차 필터: 시가총액 + 정렬
+            List<ScreenerItemResponse> allResult = filtered.stream()
+                    .map(s -> {
+                        Instrument inst = allInst.get(s.getSecurityId());
+                        BigDecimal[] data = pf.getOrDefault(s.getSecurityId(), new BigDecimal[8]);
+                        return ScreenerItemResponse.of(s, inst, data);
+                    })
+                    .filter(r -> {
+                        if (minCap == null && maxCap == null) return true;
+                        BigDecimal cap = r.marketCap();
+                        if (cap == null) return false;
+                        long capVal = cap.longValue();
+                        if (minCap != null && capVal < minCap) return false;
+                        if (maxCap != null && capVal > maxCap) return false;
+                        return true;
+                    })
+                    .sorted(buildComparator(sortBy, "desc".equals(sortDir)))
                     .toList();
-            total = pageResult.getTotalElements();
+
+            long total = allResult.size();
+            int from = Math.min(page * size, allResult.size());
+            int to   = Math.min(from + size, allResult.size());
+            return ResponseEntity.ok(new ScreenerPageResponse(allResult.subList(from, to), total, page, size));
         }
+
+        // 기본 경로: JPA 페이징 (compositeScore DESC)
+        Sort.Direction dir = "asc".equals(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String jpaField = java.util.Map.of(
+                "compositeScore", "compositeScore", "cScore", "cScore",
+                "aScore", "aScore", "nScore", "nScore", "sScore", "sScore",
+                "lScore", "lScore", "iScore", "iScore", "mScore", "mScore",
+                "marketPercentile", "marketPercentile"
+        ).getOrDefault(sortBy, "compositeScore");
+
+        var pageable = PageRequest.of(page, size, Sort.by(dir, jpaField));
+        var pageResult = scoreRepo.findByScoreDateAndMarket(scoreDate, market, pageable);
+        List<CanslimScore> scores = pageResult.getContent().stream()
+                .filter(s -> s.getCompositeScore().doubleValue() >= minScore)
+                .toList();
+        long total = pageResult.getTotalElements();
 
         if (scores.isEmpty())
             return ResponseEntity.ok(new ScreenerPageResponse(List.of(), 0, page, size));
@@ -105,12 +157,45 @@ public class ScreenerController {
                 .filter(s -> instMap.containsKey(s.getSecurityId()))
                 .map(s -> {
                     Instrument inst = instMap.get(s.getSecurityId());
-                    BigDecimal[] pf = priceFlow.getOrDefault(s.getSecurityId(), new BigDecimal[7]);
-                    return ScreenerItemResponse.of(s, inst, pf);
+                    BigDecimal[] data = priceFlow.getOrDefault(s.getSecurityId(), new BigDecimal[8]);
+                    return ScreenerItemResponse.of(s, inst, data);
                 })
                 .toList();
 
         return ResponseEntity.ok(new ScreenerPageResponse(result, total, page, size));
+    }
+
+    private Comparator<ScreenerItemResponse> buildComparator(String sortBy, boolean desc) {
+        java.util.function.Function<ScreenerItemResponse, BigDecimal> extractor = switch (sortBy != null ? sortBy : "compositeScore") {
+            case "cScore"           -> ScreenerItemResponse::cScore;
+            case "aScore"           -> ScreenerItemResponse::aScore;
+            case "nScore"           -> ScreenerItemResponse::nScore;
+            case "sScore"           -> ScreenerItemResponse::sScore;
+            case "lScore"           -> ScreenerItemResponse::lScore;
+            case "iScore"           -> ScreenerItemResponse::iScore;
+            case "mScore"           -> ScreenerItemResponse::mScore;
+            case "marketPercentile" -> ScreenerItemResponse::marketPercentile;
+            case "closePrice"       -> ScreenerItemResponse::closePrice;
+            case "changeRate"       -> ScreenerItemResponse::changeRate;
+            case "weekHigh52"       -> ScreenerItemResponse::weekHigh52;
+            case "volume"           -> ScreenerItemResponse::volume;
+            case "turnover"         -> ScreenerItemResponse::turnover;
+            case "foreignNetBuy10d" -> ScreenerItemResponse::foreignNetBuy10d;
+            case "instNetBuy10d"    -> ScreenerItemResponse::instNetBuy10d;
+            case "marketCap"        -> ScreenerItemResponse::marketCap;
+            default                 -> ScreenerItemResponse::compositeScore;
+        };
+        Comparator<ScreenerItemResponse> cmp = Comparator.comparing(extractor,
+                Comparator.nullsLast(Comparator.naturalOrder()));
+        return desc ? cmp.reversed() : cmp;
+    }
+
+    @GetMapping("/sectors")
+    public ResponseEntity<List<String>> getSectors() {
+        List<String> sectors = jdbc.queryForList(
+                "SELECT DISTINCT sector FROM instruments WHERE sector IS NOT NULL ORDER BY sector",
+                String.class);
+        return ResponseEntity.ok(sectors);
     }
 
     @GetMapping("/{securityId}")
@@ -163,7 +248,7 @@ public class ScreenerController {
         if (!instRepo.existsById(securityId)) return ResponseEntity.notFound().build();
 
         String sql = """
-            SELECT trade_date, open_adj, high_adj, low_adj, close_adj, volume
+            SELECT trade_date, open, high, low, close_adj, volume
             FROM price_daily
             WHERE security_id = ?
               AND trade_date >= CURRENT_DATE - MAKE_INTERVAL(days => ?)
@@ -173,9 +258,9 @@ public class ScreenerController {
         List<PriceBar> result = jdbc.query(sql,
                 (rs, i) -> new PriceBar(
                         rs.getString("trade_date"),
-                        rs.getBigDecimal("open_adj"),
-                        rs.getBigDecimal("high_adj"),
-                        rs.getBigDecimal("low_adj"),
+                        rs.getBigDecimal("open"),
+                        rs.getBigDecimal("high"),
+                        rs.getBigDecimal("low"),
                         rs.getBigDecimal("close_adj"),
                         rs.getLong("volume")),
                 securityId, days);
@@ -293,13 +378,15 @@ public class ScreenerController {
             log.warn("price_daily 조회 실패: {}", e.getMessage());
         }
 
-        // 수급: derived_metrics (스코어 날짜 이전 최신 날짜 사용)
+        // 수급: derived_metrics (수급 데이터가 있는 가장 최근 날짜 사용)
         String flowSql = """
             SELECT security_id, inst_net_buy_10d, foreign_net_buy_10d
             FROM derived_metrics
             WHERE security_id = ANY(?)
               AND as_of_date = (
-                  SELECT MAX(as_of_date) FROM derived_metrics WHERE as_of_date <= ?
+                  SELECT MAX(as_of_date) FROM derived_metrics
+                  WHERE as_of_date <= ?
+                    AND inst_net_buy_10d IS NOT NULL
               )
             """;
         try {
