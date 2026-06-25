@@ -76,7 +76,7 @@ public class ScreenerController {
         boolean useAllPath = hasFilter || isPriceSort || !isDefaultSort;
         final String keyword = isSearch ? q.trim().toLowerCase() : null;
 
-        if (useAllPath) {
+        if (useAllPath || minScore > 0) {
             // 전체 로드 후 필터 + 정렬 + 수동 페이징
             List<CanslimScore> all = scoreRepo
                     .findByScoreDateAndMarketOrderByCompositeScoreDesc(scoreDate, market)
@@ -104,13 +104,20 @@ public class ScreenerController {
 
             List<Long> filteredIds = filtered.stream().map(CanslimScore::getSecurityId).toList();
             Map<Long, BigDecimal[]> pf = loadPriceAndFlow(filteredIds, scoreDate);
+            Map<Long, BigDecimal> deltaMap = loadScoreDeltas(filteredIds, scoreDate);
 
             // 2차 필터: 시가총액 + 정렬
+            Set<Long> breakouts = loadBreakouts(filteredIds, scoreDate);
+            Map<Long, Integer> baseDaysMap = loadBaseDays(filteredIds, scoreDate);
+
             List<ScreenerItemResponse> allResult = filtered.stream()
                     .map(s -> {
                         Instrument inst = allInst.get(s.getSecurityId());
                         BigDecimal[] data = pf.getOrDefault(s.getSecurityId(), new BigDecimal[8]);
-                        return ScreenerItemResponse.of(s, inst, data);
+                        BigDecimal delta = deltaMap.get(s.getSecurityId());
+                        boolean breakout = breakouts.contains(s.getSecurityId());
+                        Integer bd = baseDaysMap.get(s.getSecurityId());
+                        return ScreenerItemResponse.of(s, inst, data, delta, breakout, bd);
                     })
                     .filter(r -> {
                         if (minCap == null && maxCap == null) return true;
@@ -152,13 +159,20 @@ public class ScreenerController {
         List<Long> ids = scores.stream().map(CanslimScore::getSecurityId).toList();
         Map<Long, Instrument> instMap = loadInstrumentMap(ids);
         Map<Long, BigDecimal[]> priceFlow = loadPriceAndFlow(ids, scoreDate);
+        Map<Long, BigDecimal> deltaMap = loadScoreDeltas(ids, scoreDate);
+
+        Set<Long> breakouts2 = loadBreakouts(ids, scoreDate);
+        Map<Long, Integer> baseDaysMap2 = loadBaseDays(ids, scoreDate);
 
         List<ScreenerItemResponse> result = scores.stream()
                 .filter(s -> instMap.containsKey(s.getSecurityId()))
                 .map(s -> {
                     Instrument inst = instMap.get(s.getSecurityId());
                     BigDecimal[] data = priceFlow.getOrDefault(s.getSecurityId(), new BigDecimal[8]);
-                    return ScreenerItemResponse.of(s, inst, data);
+                    BigDecimal delta = deltaMap.get(s.getSecurityId());
+                    boolean breakout = breakouts2.contains(s.getSecurityId());
+                    Integer bd = baseDaysMap2.get(s.getSecurityId());
+                    return ScreenerItemResponse.of(s, inst, data, delta, breakout, bd);
                 })
                 .toList();
 
@@ -317,6 +331,33 @@ public class ScreenerController {
                 .collect(Collectors.toMap(Instrument::getId, Function.identity()));
     }
 
+    private Map<Long, BigDecimal> loadScoreDeltas(List<Long> ids, LocalDate scoreDate) {
+        if (ids.isEmpty()) return Map.of();
+        Map<Long, BigDecimal> result = new HashMap<>();
+        Long[] idArr = ids.toArray(new Long[0]);
+        String deltaSql = """
+            SELECT cs.security_id, cs.composite_score - prev.composite_score AS delta
+            FROM canslim_scores cs
+            JOIN canslim_scores prev ON prev.security_id = cs.security_id
+              AND prev.score_date = cs.score_date - INTERVAL '1 day'
+            WHERE cs.security_id = ANY(?)
+              AND cs.score_date = ?
+            """;
+        try {
+            jdbc.query(con -> {
+                PreparedStatement ps = con.prepareStatement(deltaSql);
+                ps.setArray(1, con.createArrayOf("bigint", idArr));
+                ps.setDate(2, java.sql.Date.valueOf(scoreDate));
+                return ps;
+            }, rs -> {
+                result.put(rs.getLong("security_id"), rs.getBigDecimal("delta"));
+            });
+        } catch (Exception e) {
+            log.warn("score delta 조회 실패: {}", e.getMessage());
+        }
+        return result;
+    }
+
     /**
      * [0]=closePrice [1]=instNetBuy10d [2]=foreignNetBuy10d
      * [3]=changeRate(%) [4]=52wHigh [5]=volume [6]=turnover [7]=marketCap(원)
@@ -406,6 +447,67 @@ public class ScreenerController {
             log.warn("derived_metrics 조회 실패: {}", e.getMessage());
         }
 
+        return result;
+    }
+
+    private Set<Long> loadBreakouts(List<Long> ids, LocalDate scoreDate) {
+        if (ids.isEmpty()) return Set.of();
+        Set<Long> result = new HashSet<>();
+        String sql = """
+            SELECT today.security_id
+            FROM (
+                SELECT security_id, pct_from_52w_high
+                FROM derived_metrics
+                WHERE security_id = ANY(?) AND as_of_date = ?
+            ) today
+            JOIN (
+                SELECT security_id, pct_from_52w_high
+                FROM derived_metrics
+                WHERE security_id = ANY(?) AND as_of_date = ? - INTERVAL '1 day'
+            ) prev ON prev.security_id = today.security_id
+            WHERE today.pct_from_52w_high >= -1.0
+              AND (prev.pct_from_52w_high < -1.0 OR prev.pct_from_52w_high IS NULL)
+            """;
+        try {
+            Long[] idArr = ids.toArray(new Long[0]);
+            jdbc.query(con -> {
+                PreparedStatement ps = con.prepareStatement(sql);
+                ps.setArray(1, con.createArrayOf("bigint", idArr));
+                ps.setDate(2, java.sql.Date.valueOf(scoreDate));
+                ps.setArray(3, con.createArrayOf("bigint", idArr));
+                ps.setDate(4, java.sql.Date.valueOf(scoreDate));
+                return ps;
+            }, rs -> { result.add(rs.getLong("security_id")); });
+        } catch (Exception e) {
+            log.warn("breakout 조회 실패: {}", e.getMessage());
+        }
+        return result;
+    }
+
+    private Map<Long, Integer> loadBaseDays(List<Long> ids, LocalDate scoreDate) {
+        if (ids.isEmpty()) return Map.of();
+        Map<Long, Integer> result = new HashMap<>();
+        String sql = """
+            SELECT security_id, COUNT(*) AS base_days
+            FROM derived_metrics
+            WHERE security_id = ANY(?)
+              AND as_of_date <= ?
+              AND as_of_date >= ? - INTERVAL '365 days'
+              AND pct_from_52w_high >= -15.0
+            GROUP BY security_id
+            """;
+        try {
+            Long[] idArr = ids.toArray(new Long[0]);
+            jdbc.query(con -> {
+                PreparedStatement ps = con.prepareStatement(sql);
+                ps.setArray(1, con.createArrayOf("bigint", idArr));
+                ps.setDate(2, java.sql.Date.valueOf(scoreDate));
+                ps.setDate(3, java.sql.Date.valueOf(scoreDate));
+                return ps;
+            }, rs -> { result.put(rs.getLong("security_id"), rs.getInt("base_days")); });
+        } catch (Exception e) {
+            log.warn("baseDays 조회 실패: {}", e.getMessage());
+        }
         return result;
     }
 }

@@ -23,6 +23,9 @@ export interface ScreenerItem {
   foreignNetBuy10d: number | null
   marketCap: number | null
   sector: string | null
+  scoreDelta: number | null
+  breakoutToday: boolean
+  baseDays: number | null
 }
 
 export interface ScreenerPage {
