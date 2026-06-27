@@ -62,7 +62,7 @@ WHERE dm.security_id = prev.security_id
   AND dm.inst_net_buy_10d IS NULL
 """
 
-UPDATE_SQL = """
+UPSERT_SQL = """
 WITH price_stats AS (
     SELECT
         p.security_id,
@@ -115,14 +115,13 @@ rs_ranked AS (
         AS numeric), 4) AS rs_pct
     FROM price_stats
 )
-UPDATE derived_metrics dm
-SET
-    pct_from_52w_high = rs.pct_from_52w,
-    rs_percentile     = rs.rs_pct,
-    volume_ratio_20d  = rs.vol_ratio
-FROM rs_ranked rs
-WHERE dm.security_id = rs.security_id
-  AND dm.as_of_date  = :as_of_date
+INSERT INTO derived_metrics (security_id, as_of_date, pct_from_52w_high, rs_percentile, volume_ratio_20d, created_at)
+SELECT security_id, :as_of_date, pct_from_52w, rs_pct, vol_ratio, NOW()
+FROM rs_ranked
+ON CONFLICT (security_id, as_of_date) DO UPDATE SET
+    pct_from_52w_high = EXCLUDED.pct_from_52w_high,
+    rs_percentile     = EXCLUDED.rs_percentile,
+    volume_ratio_20d  = EXCLUDED.volume_ratio_20d
 """
 
 
@@ -150,11 +149,11 @@ def calculate(as_of_date: date | None = None) -> int:
         cf2 = sess.execute(text(FLOW_CARRY_FORWARD_SQL), {"as_of_date": as_of_date})
         logger.info("수급 컬럼 carry-forward: %d 행", cf2.rowcount)
 
-        # 2) 가격 기반 컬럼 계산
-        logger.info("derived_metrics 계산 중 (as_of_date=%s) ...", as_of_date)
-        result = sess.execute(text(UPDATE_SQL), {"as_of_date": as_of_date})
+        # 2) 가격 기반 컬럼 upsert (price_daily 있는 전체 종목 대상)
+        logger.info("derived_metrics upsert 중 (as_of_date=%s) ...", as_of_date)
+        result = sess.execute(text(UPSERT_SQL), {"as_of_date": as_of_date})
         updated = result.rowcount
-        logger.info("derived_metrics 업데이트 완료: %d 행", updated)
+        logger.info("derived_metrics upsert 완료: %d 행", updated)
         return updated
 
 
