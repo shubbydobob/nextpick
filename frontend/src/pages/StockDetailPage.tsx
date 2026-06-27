@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, AreaChart, Area,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from 'recharts'
 import { fetchStockScore, fetchStockHistory, fetchStockFinancials } from '../api/client'
 import TradingViewChart from '../components/TradingViewChart'
@@ -49,6 +50,18 @@ function fmtVol(v: number | null) {
   if (v === null) return '—'
   if (v >= 10_000_000) return (v / 10_000_000).toFixed(1) + '천만주'
   return (v / 10_000).toFixed(0) + '만주'
+}
+function fmtCap(v: number | null) {
+  if (v === null) return '—'
+  const b = v / 1e8
+  if (b >= 10000) return (b / 10000).toFixed(1) + '조'
+  if (b >= 1000) return (b / 1000).toFixed(1) + '천억'
+  return b.toFixed(0) + '억'
+}
+function fmtFlow(v: number | null) {
+  if (v === null) return '—'
+  const b = v / 1e8
+  return (b > 0 ? '+' : '') + b.toFixed(1) + '억'
 }
 function fmtFinAmt(v: number | null) {
   if (v === null) return null
@@ -214,9 +227,31 @@ export default function StockDetailPage() {
           <div>
             <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 5, fontWeight: 600, letterSpacing: '0.08em' }}>
               {stock.market} · {stock.scoreDate}
+              {stock.sector && <span style={{ color: '#4b5563', marginLeft: 8 }}>{stock.sector}</span>}
             </div>
             <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: '#e6edf3' }}>{stock.name}</div>
-            <div style={{ fontSize: 14, fontFamily: 'monospace', color: '#58a6ff', marginTop: 3 }}>{stock.ticker}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <span style={{ fontSize: 14, fontFamily: 'monospace', color: '#58a6ff' }}>{stock.ticker}</span>
+              {stock.breakoutToday && (
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>
+                  N 돌파
+                </span>
+              )}
+              {stock.baseDays != null && stock.baseDays > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4, background: 'rgba(88,166,255,0.1)', border: '1px solid rgba(88,166,255,0.3)', color: '#58a6ff' }}>
+                  베이스 {stock.baseDays}일
+                </span>
+              )}
+              {stock.scoreDelta != null && Math.abs(stock.scoreDelta) >= 1 && (
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
+                  background: stock.scoreDelta > 0 ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)',
+                  border: `1px solid ${stock.scoreDelta > 0 ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
+                  color: stock.scoreDelta > 0 ? '#4ade80' : '#f87171',
+                }}>
+                  {stock.scoreDelta > 0 ? '+' : ''}{stock.scoreDelta.toFixed(1)}
+                </span>
+              )}
+            </div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 10, color: '#8b949e', marginBottom: 2, fontWeight: 600 }}>COMPOSITE SCORE</div>
@@ -240,6 +275,7 @@ export default function StockDetailPage() {
             { label: '현재가', value: fmtPrice(stock.closePrice), mono: true },
             { label: '등락률', value: fmtRate(stock.changeRate), color: stock.changeRate !== null ? (stock.changeRate > 0 ? '#68d391' : stock.changeRate < 0 ? '#fc8181' : '#8b949e') : '#8b949e' },
             { label: '52주 신고가', value: fmtPrice(stock.weekHigh52) },
+            { label: '시가총액', value: fmtCap(stock.marketCap) },
             { label: '거래대금', value: fmtAmt(stock.turnover) },
             { label: '거래량', value: fmtVol(stock.volume) },
           ].map(({ label, value, color, mono }, i) => (
@@ -262,6 +298,62 @@ export default function StockDetailPage() {
           {FACTORS.map(f => (
             <FactorCard key={f.key} label={f.label} desc={f.desc} value={stock[f.key]} color={f.color} />
           ))}
+        </div>
+
+        {/* ── 레이더 차트 + 수급 ── */}
+        <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+          {/* 레이더 */}
+          <Card style={{ flex: 1 }}>
+            <SectionTitle>지표 레이더</SectionTitle>
+            <ResponsiveContainer width="100%" height={220}>
+              <RadarChart data={FACTORS.map(f => ({ factor: f.desc, score: stock[f.key] ?? 0 }))}>
+                <PolarGrid stroke="#21262d" />
+                <PolarAngleAxis dataKey="factor" tick={{ fontSize: 10, fill: '#8b949e' }} />
+                <Radar name="점수" dataKey="score" stroke="#58a6ff" fill="#58a6ff" fillOpacity={0.15} strokeWidth={2} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </Card>
+
+          {/* 수급 */}
+          <Card style={{ width: 220, flexShrink: 0 }}>
+            <SectionTitle>10일 순매수</SectionTitle>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
+              {[
+                { label: '기관', value: stock.instNetBuy10d, color: '#f6ad55' },
+                { label: '외국인', value: stock.foreignNetBuy10d, color: '#76e4f7' },
+              ].map(({ label, value, color }) => {
+                const amt = fmtFlow(value)
+                const isPos = value !== null && value > 0
+                const isNeg = value !== null && value < 0
+                return (
+                  <div key={label}>
+                    <div style={{ fontSize: 10, color: '#4b5563', fontWeight: 600, marginBottom: 6 }}>{label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: isPos ? '#4ade80' : isNeg ? '#f87171' : color }}>
+                      {amt}
+                    </div>
+                    <div style={{ marginTop: 6, height: 3, background: '#21262d', borderRadius: 2 }}>
+                      {value !== null && (
+                        <div style={{
+                          height: 3, borderRadius: 2,
+                          width: `${Math.min(100, Math.abs(value) / 5e9 * 100)}%`,
+                          background: isPos ? '#4ade80' : '#f87171',
+                        }} />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              <div style={{ borderTop: '1px solid #21262d', paddingTop: 12, marginTop: 4 }}>
+                <div style={{ fontSize: 10, color: '#4b5563', fontWeight: 600, marginBottom: 4 }}>RS 백분위</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#c9d1d9' }}>
+                  {(stock.marketPercentile * 100).toFixed(1)}%
+                </div>
+                <div style={{ fontSize: 10, color: '#4b5563', marginTop: 2 }}>
+                  상위 {(100 - stock.marketPercentile * 100).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* ── 주가 차트 ── */}
