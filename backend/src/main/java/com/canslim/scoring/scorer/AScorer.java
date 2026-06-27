@@ -20,15 +20,17 @@ import org.springframework.stereotype.Component;
 public class AScorer {
 
     public Double score(DerivedMetric dm, MarketConfig cfg) {
-        if (dm == null || dm.getEps3yrCagr() == null) return null;
+        if (dm == null) return null;
+        // CAGR도 없고 consistency도 없으면 채점 불가
+        if (dm.getEps3yrCagr() == null && dm.getEpsAnnualConsistency() == null) return null;
 
-        double cagr      = dm.getEps3yrCagr().doubleValue();
         double threshold = cfg.getAEpsCagrThreshold() != null ? cfg.getAEpsCagrThreshold().doubleValue() : 0.25;
         double roeMin    = cfg.getARoeMin()            != null ? cfg.getARoeMin().doubleValue()           : 0.17;
 
+        // CAGR 점수 (없으면 0점, 부분 점수 허용)
         double cagrScore = 0.0;
-        if (threshold > 0) {
-            cagrScore = Math.min(70.0, Math.max(0.0, (cagr / threshold) * 70.0));
+        if (dm.getEps3yrCagr() != null && threshold > 0) {
+            cagrScore = Math.min(70.0, Math.max(0.0, (dm.getEps3yrCagr().doubleValue() / threshold) * 70.0));
         }
 
         double consistency = 0.0;

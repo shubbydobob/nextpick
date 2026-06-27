@@ -80,6 +80,7 @@ _REVENUE_KW   = ["매출액", "영업수익", "수익(매출액)", "매출"]
 _OPER_KW      = ["영업이익", "영업손익"]
 _NET_KW       = ["당기순이익", "당기순손익"]
 _EPS_KW       = ["기본주당순이익", "기본주당이익(손실)", "기본주당이익", "기본주당"]
+_EQUITY_KW    = ["자본총계", "총자본"]
 
 
 
@@ -189,6 +190,24 @@ def fetch_financial_statement(
         logger.warning("DART 요청 실패 [%s %s %s]: %s", corp_code, bsns_year, reprt_code, e)
         time.sleep(delay_sec)
         return []
+
+
+def extract_bs_accounts(items: list[dict], fs_div: str) -> dict:
+    """BS(재무상태표)에서 자본총계 추출."""
+    candidates = [
+        x for x in items
+        if x.get("sj_div") == "BS" and x.get("fs_div") == fs_div
+    ]
+    candidates.sort(key=lambda x: int(x.get("ord", 9999)))
+
+    def find(keywords: list[str]) -> Optional[float]:
+        for kw in keywords:
+            for item in candidates:
+                if kw in item.get("account_nm", ""):
+                    return _parse_amount(item.get("thstrm_amount", ""))
+        return None
+
+    return {"total_equity": find(_EQUITY_KW)}
 
 
 def extract_is_accounts(items: list[dict], fs_div: str) -> dict:

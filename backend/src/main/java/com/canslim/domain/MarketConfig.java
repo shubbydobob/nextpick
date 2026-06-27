@@ -46,8 +46,8 @@ public class MarketConfig {
     private BigDecimal nBreakoutVolMin;
 
     // S
-    @Column(name = "s_float_max_billions")
-    private BigDecimal sFloatMaxBillions;
+    @Column(name = "s_cap_max_tril")
+    private BigDecimal sCapMaxTril;
     @Column(name = "s_vol_surge_threshold")
     private BigDecimal sVolSurgeThreshold;
 
@@ -106,7 +106,7 @@ public class MarketConfig {
     public Short getAMinYears() { return aMinYears; }
     public BigDecimal getNMaxPctFromHigh() { return nMaxPctFromHigh; }
     public BigDecimal getNBreakoutVolMin() { return nBreakoutVolMin; }
-    public BigDecimal getSFloatMaxBillions() { return sFloatMaxBillions; }
+    public BigDecimal getSCapMaxTril() { return sCapMaxTril; }
     public BigDecimal getSVolSurgeThreshold() { return sVolSurgeThreshold; }
     public BigDecimal getLRsMinPercentile() { return lRsMinPercentile; }
     public Short getLRsWindowDays() { return lRsWindowDays; }

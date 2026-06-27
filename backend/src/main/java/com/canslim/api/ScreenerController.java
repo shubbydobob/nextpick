@@ -25,7 +25,8 @@ import java.util.stream.Collectors;
 record ScreenerPageResponse(List<ScreenerItemResponse> items, long total, int page, int size) {}
 record FinancialRecord(int fiscalYear, int fiscalQuarter, String periodType,
                        String periodEndDate, BigDecimal revenue,
-                       BigDecimal operatingIncome, BigDecimal netIncome, BigDecimal eps) {}
+                       BigDecimal operatingIncome, BigDecimal netIncome, BigDecimal eps,
+                       BigDecimal roe) {}
 record PriceBar(String date, BigDecimal open, BigDecimal high, BigDecimal low,
                 BigDecimal close, Long volume) {}
 
@@ -291,7 +292,7 @@ public class ScreenerController {
         // 연결 우선, 없으면 별도. 연간 + 분기 누적 모두 반환 (최근 3년)
         String sql = """
             SELECT fiscal_year, fiscal_quarter, period_type, period_end_date,
-                   revenue, operating_income, net_income, eps
+                   revenue, operating_income, net_income, eps, roe
             FROM financials
             WHERE security_id = ?
               AND is_consolidated = (
@@ -299,7 +300,7 @@ public class ScreenerController {
                   FROM financials WHERE security_id = ?
               )
             ORDER BY period_end_date DESC
-            LIMIT 20
+            LIMIT 60
             """;
 
         List<FinancialRecord> result = jdbc.query(sql,
@@ -311,8 +312,110 @@ public class ScreenerController {
                         rs.getBigDecimal("revenue"),
                         rs.getBigDecimal("operating_income"),
                         rs.getBigDecimal("net_income"),
-                        rs.getBigDecimal("eps")),
+                        rs.getBigDecimal("eps"),
+                        rs.getBigDecimal("roe")),
                 securityId, securityId);
+
+        return ResponseEntity.ok(result);
+    }
+
+    record SectorPeer(String ticker, String name, double compositeScore,
+                      Double cScore, Double aScore, Double nScore,
+                      Double sScore, Double iScore, BigDecimal closePrice,
+                      boolean isSelf) {}
+
+    @GetMapping("/{securityId}/sector-peers")
+    public ResponseEntity<List<SectorPeer>> getSectorPeers(@PathVariable Long securityId) {
+        Instrument self = instRepo.findById(securityId).orElse(null);
+        if (self == null || self.getSector() == null) return ResponseEntity.ok(List.of());
+
+        String sql = """
+            SELECT i.ticker, i.name, cs.composite_score,
+                   cs.c_score, cs.a_score, cs.n_score, cs.s_score, cs.i_score,
+                   p.close_adj
+            FROM canslim_scores cs
+            JOIN instruments i ON i.id = cs.security_id
+            LEFT JOIN LATERAL (
+                SELECT close_adj FROM price_daily
+                WHERE security_id = cs.security_id
+                ORDER BY trade_date DESC LIMIT 1
+            ) p ON true
+            WHERE cs.score_date = (SELECT MAX(score_date) FROM canslim_scores WHERE market = ?)
+              AND i.sector = ?
+              AND i.market IN ('KOSPI','KOSDAQ')
+            ORDER BY cs.composite_score DESC
+            LIMIT 7
+            """;
+
+        List<SectorPeer> peers = jdbc.query(sql,
+                (rs, i) -> new SectorPeer(
+                        rs.getString("ticker"),
+                        rs.getString("name"),
+                        rs.getDouble("composite_score"),
+                        (Double) rs.getObject("c_score"),
+                        (Double) rs.getObject("a_score"),
+                        (Double) rs.getObject("n_score"),
+                        (Double) rs.getObject("s_score"),
+                        (Double) rs.getObject("i_score"),
+                        rs.getBigDecimal("close_adj"),
+                        rs.getString("ticker").equals(self.getTicker())),
+                "KR", self.getSector());
+
+        return ResponseEntity.ok(peers);
+    }
+
+    record CorrelationStock(String ticker, String name, double compositeScore, String sector) {}
+
+    @GetMapping("/{securityId}/correlations")
+    public ResponseEntity<List<CorrelationStock>> getCorrelations(@PathVariable Long securityId) {
+        Instrument self = instRepo.findById(securityId).orElse(null);
+        if (self == null) return ResponseEntity.notFound().build();
+
+        String sql = """
+            SELECT i.ticker, i.name, cs.composite_score, i.sector
+            FROM canslim_scores cs
+            JOIN instruments i ON i.id = cs.security_id
+            WHERE cs.score_date = (SELECT MAX(score_date) FROM canslim_scores WHERE market = 'KR')
+              AND cs.security_id != ?
+              AND i.sector = ?
+              AND cs.composite_score IS NOT NULL
+            ORDER BY ABS(cs.composite_score - ?) ASC
+            LIMIT 5
+            """;
+
+        double selfScore = scoreRepo.findFirstBySecurityIdOrderByScoreDateDesc(securityId)
+                .map(s -> s.getCompositeScore().doubleValue())
+                .orElse(50.0);
+        String selfSector = self.getSector() != null ? self.getSector() : "";
+
+        List<CorrelationStock> result = jdbc.query(sql,
+                (rs, i) -> new CorrelationStock(
+                        rs.getString("ticker"),
+                        rs.getString("name"),
+                        rs.getDouble("composite_score"),
+                        rs.getString("sector")),
+                securityId, selfSector, selfScore);
+
+        // sector가 없거나 결과 부족하면 전체에서 비슷한 점수 종목으로 보완
+        if (result.size() < 5) {
+            String fallbackSql = """
+                SELECT i.ticker, i.name, cs.composite_score, i.sector
+                FROM canslim_scores cs
+                JOIN instruments i ON i.id = cs.security_id
+                WHERE cs.score_date = (SELECT MAX(score_date) FROM canslim_scores WHERE market = 'KR')
+                  AND cs.security_id != ?
+                  AND cs.composite_score IS NOT NULL
+                ORDER BY ABS(cs.composite_score - ?) ASC
+                LIMIT 5
+                """;
+            result = jdbc.query(fallbackSql,
+                    (rs, i) -> new CorrelationStock(
+                            rs.getString("ticker"),
+                            rs.getString("name"),
+                            rs.getDouble("composite_score"),
+                            rs.getString("sector")),
+                    securityId, selfScore);
+        }
 
         return ResponseEntity.ok(result);
     }

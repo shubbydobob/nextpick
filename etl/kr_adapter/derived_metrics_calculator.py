@@ -70,7 +70,10 @@ WITH price_stats AS (
         p52.high_52w,
         pv.avg_vol_20d,
         p.volume                                             AS latest_vol,
-        p.close_adj / NULLIF(p1yr.close_adj, 0) - 1         AS return_1yr
+        p.close_adj / NULLIF(p1yr.close_adj, 0) - 1         AS return_1yr,
+        CASE WHEN i.total_shares IS NOT NULL AND i.total_shares > 0
+             THEN p.close_adj * i.total_shares / 1e12
+        END                                                  AS market_cap_tril
     FROM (
         SELECT DISTINCT ON (security_id)
             security_id, close_adj, volume, trade_date
@@ -78,6 +81,7 @@ WITH price_stats AS (
         WHERE trade_date <= :as_of_date
         ORDER BY security_id, trade_date DESC
     ) p
+    LEFT JOIN instruments i ON i.id = p.security_id
     LEFT JOIN LATERAL (
         SELECT MAX(close_adj) AS high_52w
         FROM price_daily p2
@@ -112,16 +116,18 @@ rs_ranked AS (
         END AS vol_ratio,
         ROUND(CAST(
             PERCENT_RANK() OVER (ORDER BY return_1yr NULLS FIRST) * 100
-        AS numeric), 4) AS rs_pct
+        AS numeric), 4) AS rs_pct,
+        ROUND(CAST(market_cap_tril AS numeric), 4) AS market_cap_tril
     FROM price_stats
 )
-INSERT INTO derived_metrics (security_id, as_of_date, pct_from_52w_high, rs_percentile, volume_ratio_20d, created_at)
-SELECT security_id, :as_of_date, pct_from_52w, rs_pct, vol_ratio, NOW()
+INSERT INTO derived_metrics (security_id, as_of_date, pct_from_52w_high, rs_percentile, volume_ratio_20d, market_cap_tril, created_at)
+SELECT security_id, :as_of_date, pct_from_52w, rs_pct, vol_ratio, market_cap_tril, NOW()
 FROM rs_ranked
 ON CONFLICT (security_id, as_of_date) DO UPDATE SET
     pct_from_52w_high = EXCLUDED.pct_from_52w_high,
     rs_percentile     = EXCLUDED.rs_percentile,
-    volume_ratio_20d  = EXCLUDED.volume_ratio_20d
+    volume_ratio_20d  = EXCLUDED.volume_ratio_20d,
+    market_cap_tril   = EXCLUDED.market_cap_tril
 """
 
 

@@ -22,7 +22,7 @@ from typing import Optional
 
 os.environ.setdefault("PYTHONUTF8", "1")
 
-from ..shared.dart_client import download_corp_codes, fetch_financial_statement, extract_is_accounts, DartDailyLimitError
+from ..shared.dart_client import download_corp_codes, fetch_financial_statement, extract_is_accounts, extract_bs_accounts, DartDailyLimitError
 from ..shared.db_writer import get_all_active_security_ids, upsert_financials, get_session
 from ..shared.ingestion_meta import start_run, finish_run, fail_run
 from sqlalchemy import text
@@ -67,6 +67,13 @@ def _calc_eps(net_income: Optional[float], total_shares: Optional[int]) -> Optio
     return net_income / total_shares
 
 
+def _calc_roe(net_income: Optional[float], total_equity: Optional[float]) -> Optional[float]:
+    """ROE = 당기순이익 / 자본총계. 연간 데이터에만 적용."""
+    if net_income is None or not total_equity or total_equity <= 0:
+        return None
+    return net_income / total_equity
+
+
 def _build_rows(
     security_id: int,
     items: list[dict],
@@ -87,6 +94,10 @@ def _build_rows(
         if all(v is None for v in accts.values()):
             continue
         eps = accts["eps"] or _calc_eps(accts["net_income"], total_shares)
+        roe = None
+        if period_type == "ANNUAL":
+            bs = extract_bs_accounts(items, fs_div)
+            roe = _calc_roe(accts["net_income"], bs.get("total_equity"))
         rows.append({
             "security_id":      security_id,
             "period_type":      period_type,
@@ -99,7 +110,7 @@ def _build_rows(
             "net_income":       accts["net_income"],
             "eps":              eps,
             "shares_diluted":   total_shares,
-            "roe":              None,
+            "roe":              roe,
             "is_cumulative":    is_cumulative,
             "is_consolidated":  is_consolidated,
             "currency":         "KRW",

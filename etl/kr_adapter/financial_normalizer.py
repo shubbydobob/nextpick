@@ -107,8 +107,13 @@ def _to_standalone(quarterly: list[dict]) -> dict[tuple, float]:
 # ───────────────────────────────────────────
 
 def _safe_yoy(current: Optional[float], prev: Optional[float]) -> Optional[float]:
-    if current is None or prev is None or prev == 0:
+    if current is None or prev is None:
         return None
+    if prev == 0:
+        # 흑자전환: 전년동기 0 → 양수 = 매우 강한 신호 (999% 처리)
+        if current > 0:
+            return 999.0
+        return None  # 0→0 or 0→음수는 의미없음
     return (current - prev) / abs(prev) * 100
 
 
@@ -144,19 +149,24 @@ def _compute_metrics(
         if yoy is not None and prev_yoy is not None:
             accel = yoy - prev_yoy
 
-    # EPS CAGR (3년 우선, 부족하면 2년으로 폴백)
+    # EPS CAGR (3yr → 2yr → 1yr 순서로 폴백; 적자 기준연도 건너뜀)
     annual_by_year = {r["year"]: r["eps"] for r in annual}
     cagr  = None
     recent_years = sorted(annual_by_year.keys(), reverse=True)
-    if len(recent_years) >= 3:
+    if len(recent_years) >= 2:
         y_latest = recent_years[0]
         eps_l = annual_by_year[y_latest]
-        base_idx = 3 if len(recent_years) >= 4 else 2   # 3yr 우선, 없으면 2yr
-        y_base = recent_years[base_idx]
-        n_years = y_latest - y_base
-        eps_b = annual_by_year[y_base]
-        if eps_b and eps_b > 0 and eps_l and eps_l > 0 and n_years > 0:
-            cagr = (eps_l / eps_b) ** (1 / n_years) - 1
+        if eps_l and eps_l > 0:
+            # 기준연도 후보: 3yr, 2yr, 1yr 순으로 시도
+            for base_idx in [3, 2, 1]:
+                if base_idx >= len(recent_years):
+                    continue
+                y_base = recent_years[base_idx]
+                eps_b = annual_by_year[y_base]
+                n_years = y_latest - y_base
+                if eps_b and eps_b > 0 and n_years > 0:
+                    cagr = (eps_l / eps_b) ** (1 / n_years) - 1
+                    break  # 첫 번째 유효한 기준연도 사용
 
     # 연간 일관성: 전년 대비 EPS 성장 횟수 / 비교 쌍 수 (최소 2년 데이터 필요)
     consistency = None
@@ -234,11 +244,17 @@ def normalize_security(security_id: int, as_of_date: date) -> bool:
 
 def normalize_all(as_of_date: date = None) -> None:
     """전 종목 derived_metrics 계산 (dart_loader 완료 후 실행)."""
-    if as_of_date is None:
-        as_of_date = date.today()
-
     from ..shared.db_writer import get_session
     from sqlalchemy import text as t
+
+    if as_of_date is None:
+        # 오늘 날짜 대신 DB 최신 가격 날짜 사용 → Java DerivedMetricsJob 행과 같은 as_of_date
+        with get_session() as session:
+            row = session.execute(
+                t("SELECT MAX(as_of_date) FROM derived_metrics")
+            ).fetchone()
+            as_of_date = row[0] if row and row[0] else date.today()
+        logger.info("as_of_date 자동 감지: %s", as_of_date)
 
     with get_session() as session:
         ids = [r.security_id for r in session.execute(

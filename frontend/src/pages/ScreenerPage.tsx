@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchScreener, fetchSectors } from '../api/client'
+import { isLoggedIn, isPremium, logout } from '../api/auth'
 import MacroTicker from '../components/MacroTicker'
 import type { ScreenerItem } from '../types'
 
@@ -229,6 +230,8 @@ export default function ScreenerPage() {
     } catch { return new Set<number>() }
   })
   const [showWatchOnly, setShowWatchOnly] = useState(false)
+  const [showBreakoutOnly, setShowBreakoutOnly] = useState(false)
+  const [showPremiumModal, setShowPremiumModal] = useState<'watchlist' | 'pdf' | null>(null)
   const [showGuide, setShowGuide] = useState(() => {
     const until = localStorage.getItem(GUIDE_KEY)
     return !until || Date.now() > parseInt(until)
@@ -279,17 +282,32 @@ export default function ScreenerPage() {
               icon: '/favicon.ico',
             })
           }
+          // 관심종목 브레이크아웃 알림
+          const breakouts = d.items.filter(i => watchlist.has(i.securityId) && i.breakoutToday)
+          if (breakouts.length > 0) {
+            new Notification('관심종목 브레이크아웃 🚀', {
+              body: breakouts.map(i => `${i.name}(${i.ticker}) 52주 신고가 돌파`).join('\n'),
+              icon: '/favicon.ico',
+            })
+          }
         }
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [page, size, query, sector, capRange, sortKey, sortDir, minScore])
 
+  const FREE_WATCHLIST_LIMIT = 5
+
   const toggleWatch = (id: number, e: React.MouseEvent) => {
     e.stopPropagation()
     setWatchlist(prev => {
       const next = new Set(prev)
       const adding = !next.has(id)
+      // 무료 관심종목 5개 제한
+      if (adding && !isPremium() && next.size >= FREE_WATCHLIST_LIMIT) {
+        setShowPremiumModal('watchlist')
+        return prev
+      }
       if (next.has(id)) next.delete(id)
       else next.add(id)
       try { localStorage.setItem('screener_watchlist', JSON.stringify([...next])) } catch {}
@@ -570,13 +588,54 @@ export default function ScreenerPage() {
       height: '100vh', color: '#f87171' }}>{error}</div>
   )
 
-  const displayItems = showWatchOnly ? items.filter(i => watchlist.has(i.securityId)) : items
-  const hasActiveFilter = sector !== '' || capRange !== 'all' || query !== '' || minScore > 0 || showWatchOnly
-  const activeFilterCount = [sector !== '', capRange !== 'all', query !== '', minScore > 0, showWatchOnly].filter(Boolean).length
+  const displayItems = items
+    .filter(i => !showWatchOnly || watchlist.has(i.securityId))
+    .filter(i => !showBreakoutOnly || i.breakoutToday)
+  const hasActiveFilter = sector !== '' || capRange !== 'all' || query !== '' || minScore > 0 || showWatchOnly || showBreakoutOnly
+  const activeFilterCount = [sector !== '', capRange !== 'all', query !== '', minScore > 0, showWatchOnly, showBreakoutOnly].filter(Boolean).length
 
   return (
     <div style={{ minHeight: '100vh', background: '#0b0f17', color: '#e6edf3' }}>
       {showGuide && <GuidePopup onClose={closeGuide} />}
+
+      {/* 프리미엄 게이팅 모달 */}
+      {showPremiumModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 2000,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowPremiumModal(null)}>
+          <div style={{
+            background: '#161b22', border: '1px solid #30363d', borderRadius: 10,
+            padding: '28px 32px', maxWidth: 400, width: '90%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 20, marginBottom: 8 }}>✦</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3', marginBottom: 8 }}>
+              {showPremiumModal === 'watchlist'
+                ? '관심종목은 프리미엄에서 무제한으로'
+                : 'PDF 리포트는 프리미엄 전용'}
+            </div>
+            <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.7, marginBottom: 20 }}>
+              {showPremiumModal === 'watchlist'
+                ? `무료 플랜은 관심종목을 최대 ${FREE_WATCHLIST_LIMIT}개까지 등록할 수 있습니다.\n프리미엄으로 업그레이드하면 무제한으로 이용하실 수 있습니다.`
+                : '종목 상세 PDF 리포트는 프리미엄 전용 기능입니다.'}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowPremiumModal(null)}
+                style={{ flex: 1, padding: '8px 0', fontSize: 12, background: 'none',
+                  border: '1px solid #21262d', borderRadius: 6, color: '#6b7280', cursor: 'pointer' }}>
+                닫기
+              </button>
+              <button onClick={() => { setShowPremiumModal(null); navigate('/premium') }}
+                style={{ flex: 1, padding: '8px 0', fontSize: 12, fontWeight: 700,
+                  background: '#1f6feb', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }}>
+                프리미엄 알아보기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <MacroTicker />
 
       {/* ══ Section 1: 브랜드 네비게이션 ═══════════════════════ */}
@@ -601,6 +660,34 @@ export default function ScreenerPage() {
               }}>{label}</span>
             ))}
           </nav>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isPremium() && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#fabd44', padding: '2px 6px',
+              border: '1px solid rgba(250,189,68,0.4)', borderRadius: 4, background: 'rgba(250,189,68,0.08)' }}>
+              ✦ 프리미엄
+            </span>
+          )}
+          <button onClick={() => navigate('/premium')}
+            style={{ fontSize: 11, color: '#4b5563', background: 'none',
+              border: '1px solid #21262d', borderRadius: 4, padding: '3px 10px',
+              cursor: 'pointer', lineHeight: '20px' }}>
+            구독
+          </button>
+          {isLoggedIn() ? (
+            <button onClick={() => { logout(); window.location.reload() }}
+              style={{ fontSize: 11, color: '#4b5563', background: 'none',
+                border: '1px solid #21262d', borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}>
+              로그아웃
+            </button>
+          ) : (
+            <button onClick={() => navigate('/auth')}
+              style={{ fontSize: 11, color: '#58a6ff', background: 'rgba(31,111,235,0.1)',
+                border: '1px solid rgba(31,111,235,0.3)', borderRadius: 4,
+                padding: '3px 10px', cursor: 'pointer' }}>
+              로그인
+            </button>
+          )}
         </div>
         {items[0] && (
           <div style={{ display: 'flex', gap: 20 }}>
@@ -656,7 +743,7 @@ export default function ScreenerPage() {
               )}
             </span>
             {hasActiveFilter && (
-              <button onClick={() => { setSector(''); setCapRange('all'); setQuery(''); setMinScore(0); setShowWatchOnly(false); setPage(0) }}
+              <button onClick={() => { setSector(''); setCapRange('all'); setQuery(''); setMinScore(0); setShowWatchOnly(false); setShowBreakoutOnly(false); setPage(0) }}
                 style={{ fontSize: 10, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>
                 초기화
               </button>
@@ -744,10 +831,57 @@ export default function ScreenerPage() {
               }}>
                 {showWatchOnly ? '★ 관심종목만' : '☆ 전체보기'}
               </button>
+              <button onClick={() => { setShowBreakoutOnly(v => !v); setPage(0) }} style={{
+                padding: '3px 12px', fontSize: 10, fontWeight: 600, borderRadius: 3,
+                background: showBreakoutOnly ? '#052e16' : '#161b22',
+                color: showBreakoutOnly ? '#4ade80' : '#4b5563',
+                border: `1px solid ${showBreakoutOnly ? '#16a34a' : '#21262d'}`,
+                cursor: 'pointer',
+              }}>
+                {showBreakoutOnly ? '🚀 돌파 종목만' : '⬆ 오늘 돌파'}
+              </button>
             </FilterCell>
           </div>
         </div>
       </div>
+
+      {/* ══ 이번주 상승 종목 하이라이트 ══════════════════════════ */}
+      {!loading && (() => {
+        const risers = [...items]
+          .filter(i => i.scoreDelta != null && i.scoreDelta > 0)
+          .sort((a, b) => (b.scoreDelta ?? 0) - (a.scoreDelta ?? 0))
+          .slice(0, 5)
+        if (risers.length === 0) return null
+        return (
+          <div style={{ padding: '6px 20px 0' }}>
+            <div style={{
+              background: '#0d1117', border: '1px solid #21262d',
+              borderRadius: 6, padding: '8px 12px',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#4b5563', letterSpacing: '0.06em', flexShrink: 0 }}>
+                이번주 상승
+              </span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {risers.map(item => (
+                  <div key={item.securityId}
+                    onClick={() => navigate(`/stock/${item.securityId}`)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)',
+                      borderRadius: 4, padding: '2px 8px', cursor: 'pointer',
+                    }}>
+                    <span style={{ fontSize: 11, color: '#c9d1d9', fontWeight: 600 }}>{item.name}</span>
+                    <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 700 }}>
+                      +{(item.scoreDelta ?? 0).toFixed(1)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ══ Section 3: 결과바 + 뷰탭 (sticky) ══════════════════ */}
       <div style={{

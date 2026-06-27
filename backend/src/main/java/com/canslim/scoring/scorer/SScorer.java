@@ -6,36 +6,42 @@ import com.canslim.domain.MarketConfig;
 import org.springframework.stereotype.Component;
 
 /**
- * S — Supply and Demand (유동주식 희소성 + 거래량 급증).
+ * S — Supply and Demand (시가총액 희소성 + 거래량 급증).
  *
  * 채점:
- *   floatScore  = max(0, 80 × (1 - floatShares / (sFloatMaxBillions × 10^9)))
- *                 null 유동주식 → 40점(중립)
- *   surgeScore  = volumeRatio20d >= sVolSurgeThreshold 이면
- *                 min(20, (ratio - 1) / (threshold - 1) × 20)
- *   최종 = clamp(floatScore + surgeScore, 0, 100)
+ *   capScore   = max(0, 80 × (1 - marketCapTril / sCapMaxTril))
+ *                null 시가총액 → 0점 (실측 데이터 없으면 점수 없음)
+ *   surgeScore = volumeRatio20d >= sVolSurgeThreshold 이면
+ *                min(20, (ratio - 1) / (threshold - 1) × 20)
+ *   최종 = clamp(capScore + surgeScore, 0, 100)
  *
- * sFloatMaxBillions: 유동주식 상한 (단위: 10억주 또는 사실상 "너무 큰 주식" 기준).
- * KR 컨텍스트: 삼성전자 유동주식 약 60억 주 → threshold 10억으로 설정하면 floatScore = 0.
+ * sCapMaxTril: 시가총액 상한 (단위: 조원, 기본 10조).
+ *   10조 이상 대형주 → capScore = 0
+ *   1조: 80 × (1 - 0.1) = 72점
+ *   소형주(0.1조): 80 × (1 - 0.01) = 79점
+ *
+ * 실측 데이터만 사용: market_cap_tril = close_adj × total_shares / 1e12
+ * float_shares 근사값(= total_shares) 의존 완전 제거.
  */
 @Component
 public class SScorer {
 
     public Double score(Instrument instrument, DerivedMetric dm, MarketConfig cfg) {
-        double maxFloatShares = cfg.getSFloatMaxBillions() != null
-                ? cfg.getSFloatMaxBillions().doubleValue() * 1_000_000_000.0
-                : 1_000_000_000.0;
+        double capMaxTril = cfg.getSCapMaxTril() != null
+                ? cfg.getSCapMaxTril().doubleValue()
+                : 10.0;
         double surgeThreshold = cfg.getSVolSurgeThreshold() != null
                 ? cfg.getSVolSurgeThreshold().doubleValue()
                 : 1.5;
 
-        double floatScore;
-        if (instrument.getFloatShares() == null) {
-            floatScore = 40.0;  // 데이터 없음 → 중립
-        } else {
-            floatScore = Math.max(0.0, 80.0 * (1.0 - instrument.getFloatShares() / maxFloatShares));
+        // 시가총액 희소성 점수 (실측값 없으면 0점)
+        double capScore = 0.0;
+        if (dm != null && dm.getMarketCapTril() != null) {
+            double capTril = dm.getMarketCapTril().doubleValue();
+            capScore = Math.max(0.0, 80.0 * (1.0 - capTril / capMaxTril));
         }
 
+        // 거래량 급증 점수
         double surgeScore = 0.0;
         if (dm != null && dm.getVolumeRatio20d() != null) {
             double ratio = dm.getVolumeRatio20d().doubleValue();
@@ -44,6 +50,6 @@ public class SScorer {
             }
         }
 
-        return Math.min(100.0, Math.max(0.0, floatScore + surgeScore));
+        return Math.min(100.0, Math.max(0.0, capScore + surgeScore));
     }
 }

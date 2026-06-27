@@ -58,6 +58,7 @@ export interface FinancialRecord {
   operatingIncome: number | null
   netIncome: number | null
   eps: number | null
+  roe: number | null
 }
 
 export interface PriceBar {

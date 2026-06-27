@@ -130,7 +130,7 @@ def load(target_date=None, load_types: set = LOAD_TYPES) -> None:
                     "name":          name,
                     "security_type": security_type,
                     "listing_date":  None,
-                    "float_shares":  total_shares,   # 근사값
+                    "float_shares":  None,           # 실측 유동주식수 미확보 → null
                     "total_shares":  total_shares,
                     "sector":        None,
                     "currency":      "KRW",

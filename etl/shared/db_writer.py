@@ -162,6 +162,7 @@ def upsert_financials(rows: list[dict]) -> tuple[int, int]:
             operating_income = EXCLUDED.operating_income,
             net_income       = EXCLUDED.net_income,
             eps              = EXCLUDED.eps,
+            roe              = EXCLUDED.roe,
             period_end_date  = EXCLUDED.period_end_date,
             updated_at       = NOW()
         RETURNING (xmax = 0) AS inserted

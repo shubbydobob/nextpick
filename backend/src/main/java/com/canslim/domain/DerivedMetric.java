@@ -63,6 +63,9 @@ public class DerivedMetric {
     private BigDecimal rsPercentile;
     @Column(name = "industry_rs_rank")
     private Integer industryRsRank;
+    @Column(name = "market_cap_tril")
+    private BigDecimal marketCapTril;
+
     @Column(name = "inst_net_buy_10d")
     private BigDecimal instNetBuy10d;
     @Column(name = "foreign_net_buy_10d")
@@ -86,6 +89,7 @@ public class DerivedMetric {
     public Boolean getBuybackFlag() { return buybackFlag; }
     public BigDecimal getRsPercentile() { return rsPercentile; }
     public Integer getIndustryRsRank() { return industryRsRank; }
+    public BigDecimal getMarketCapTril() { return marketCapTril; }
     public BigDecimal getInstNetBuy10d() { return instNetBuy10d; }
     public BigDecimal getForeignNetBuy10d() { return foreignNetBuy10d; }
     public Short getInstTrendFlag() { return instTrendFlag; }

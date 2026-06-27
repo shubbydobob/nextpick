@@ -66,14 +66,46 @@ export async function fetchStockFinancials(securityId: number): Promise<Financia
   return res.json()
 }
 
+export interface NewsItem { title: string; source: string; date: string; url: string }
+export async function fetchStockNews(ticker: string): Promise<NewsItem[]> {
+  const res = await fetch(`${BASE}/news/${ticker}`)
+  if (!res.ok) return []
+  return res.json()
+}
+
 export async function fetchStockPrices(securityId: number, days = 365): Promise<PriceBar[]> {
   const res = await fetch(`${BASE}/screener/${securityId}/prices?days=${days}`)
   if (!res.ok) return []
   return res.json()
 }
 
+export interface SectorPeer {
+  ticker: string; name: string; compositeScore: number
+  cScore: number | null; aScore: number | null; nScore: number | null
+  sScore: number | null; iScore: number | null; closePrice: number | null
+  isSelf: boolean
+}
+export async function fetchSectorPeers(securityId: number): Promise<SectorPeer[]> {
+  const res = await fetch(`/api/screener/${securityId}/sector-peers`)
+  if (!res.ok) return []
+  return res.json()
+}
+
 export async function fetchMacroQuotes(): Promise<MacroQuote[]> {
   const res = await fetch(`${BASE}/macro/quotes`)
+  if (!res.ok) return []
+  return res.json()
+}
+
+export interface CorrelationStock {
+  ticker: string
+  name: string
+  compositeScore: number
+  sector: string | null
+}
+
+export async function fetchCorrelations(securityId: number): Promise<CorrelationStock[]> {
+  const res = await fetch(`${BASE}/screener/${securityId}/correlations`)
   if (!res.ok) return []
   return res.json()
 }

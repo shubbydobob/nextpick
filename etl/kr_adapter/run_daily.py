@@ -33,6 +33,20 @@ logger = logging.getLogger(__name__)
 SCORING_URL = os.environ.get("SCORING_URL", "http://localhost:8080/api/admin/scoring/run")
 
 
+def _maybe_reset_dart_ingestion(target_date: date) -> None:
+    """매월 첫 거래일(1~7일 중 월~금)에 DART ingestion_meta 리셋 → 전 종목 재수집."""
+    if target_date.day > 7 or target_date.weekday() >= 5:
+        return
+    from ..shared.db_writer import get_session
+    from sqlalchemy import text
+    with get_session() as sess:
+        deleted = sess.execute(
+            text("DELETE FROM ingestion_meta WHERE source_name LIKE 'DART_FIN_KR_%' AND status = 'SUCCESS'")
+        ).rowcount
+    if deleted > 0:
+        logger.info("DART ingestion_meta 월별 리셋: %d건 삭제 (재수집 예약)", deleted)
+
+
 def trigger_scoring() -> bool:
     try:
         r = requests.post(SCORING_URL, timeout=300)
@@ -71,30 +85,76 @@ def main():
     logger.info("[2/5] 가격 수집 완료")
 
     # ── 3. KIS 수급 수집 ───────────────────────────────────────
-    logger.info("[3/5] KIS 수급 수집 시작")
+    logger.info("[3/6] KIS 수급 수집 시작")
     from .investor_flow_loader import load_investor_flow
     load_investor_flow(as_of_date=target_date)
-    logger.info("[3/5] KIS 수급 수집 완료")
+    logger.info("[3/6] KIS 수급 수집 완료")
 
-    # ── 4. financial_normalizer: DART EPS → derived_metrics ───
-    logger.info("[4/6] financial_normalizer 시작")
+    # ── 4. DART 재무 수집 (매월 첫 거래일 리셋 후 재수집, 나머지는 resume) ─
+    logger.info("[4/7] DART 재무 수집 시작")
+    _maybe_reset_dart_ingestion(target_date)
+    from .dart_loader import load as load_dart
+    load_dart(target_date)
+    logger.info("[4/7] DART 재무 수집 완료")
+
+    # ── 5. financial_normalizer: DART EPS/ROE → derived_metrics ──
+    logger.info("[5/7] financial_normalizer 시작")
     from .financial_normalizer import normalize_all
     normalize_all(target_date)
-    logger.info("[4/6] financial_normalizer 완료")
+    logger.info("[5/7] financial_normalizer 완료")
 
-    # ── 5. derived_metrics 가격 컬럼 계산 ─────────────────────
-    logger.info("[5/6] derived_metrics 계산 시작")
+    # ── 6. derived_metrics 가격 컬럼 계산 ─────────────────────
+    logger.info("[6/7] derived_metrics 계산 시작")
     from .derived_metrics_calculator import calculate as calc_derived
     updated = calc_derived(target_date)
-    logger.info("[5/6] derived_metrics 계산 완료: %d 행", updated)
+    logger.info("[6/7] derived_metrics 계산 완료: %d 행", updated)
 
-    # ── 6. 스코어링 트리거 ─────────────────────────────────────
-    logger.info("[6/6] 스코어링 트리거")
+    # ── 7. 스코어링 트리거 ─────────────────────────────────────
+    logger.info("[7/8] 스코어링 트리거")
     ok = trigger_scoring()
     if ok:
-        logger.info("[6/6] 스코어링 완료")
+        logger.info("[7/8] 스코어링 완료")
     else:
-        logger.warning("[6/6] 스코어링 실패 — 수동 트리거 필요")
+        logger.warning("[7/8] 스코어링 실패 — 수동 트리거 필요")
+
+    # ── 8. SNS 카드 생성 + 포스팅 (스코어링 성공 시) ──────────
+    if ok:
+        logger.info("[8/8] SNS 카드 생성 시작")
+        try:
+            from ..sns_publisher.card_generator import run as generate_card
+            result = generate_card(n=5)
+            logger.info("[8/8] 카드 생성 완료: %s", result["image"])
+
+            from pathlib import Path
+            image_path = Path(result["image"])
+            caption = Path(result["caption"]).read_text(encoding="utf-8")
+
+            # Threads 게시 (환경변수 있을 때만)
+            if os.environ.get("THREADS_USER_ID") and os.environ.get("THREADS_TOKEN"):
+                try:
+                    from ..sns_publisher.threads_poster import post_to_threads
+                    post_id = post_to_threads(caption, image_path)
+                    logger.info("[8/8] Threads 게시 완료: %s", post_id)
+                except Exception as e:
+                    logger.warning("[8/8] Threads 게시 실패 (비치명적): %s", e)
+            else:
+                logger.info("[8/8] THREADS 환경변수 미설정 — Threads 게시 생략")
+
+            # Instagram 게시 (환경변수 있을 때만)
+            if os.environ.get("INSTAGRAM_USER_ID") and os.environ.get("INSTAGRAM_TOKEN"):
+                try:
+                    from ..sns_publisher.instagram_poster import post_to_instagram
+                    media_id = post_to_instagram(caption, image_path)
+                    logger.info("[8/8] Instagram 게시 완료: media_id=%s", media_id)
+                except Exception as e:
+                    logger.warning("[8/8] Instagram 게시 실패 (비치명적): %s", e)
+            else:
+                logger.info("[8/8] INSTAGRAM 환경변수 미설정 — Instagram 게시 생략")
+
+        except Exception as e:
+            logger.warning("[8/8] SNS 카드 생성 실패 (비치명적): %s", e)
+    else:
+        logger.info("[8/8] 스코어링 실패로 SNS 카드 생성 생략")
 
     logger.info("=" * 60)
     logger.info("KR 일별 ETL 완료: %s", target_date)
