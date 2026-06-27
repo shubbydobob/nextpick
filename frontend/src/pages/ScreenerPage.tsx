@@ -254,7 +254,33 @@ export default function ScreenerPage() {
     setLoading(true)
     const { minCap, maxCap } = CAP_PARAMS[capRange]
     fetchScreener('KR', page, size, query.trim(), sector, minCap, maxCap, sortKey, sortDir, minScore)
-      .then(d => { setItems(d.items); setTotal(d.total) })
+      .then(d => {
+        setItems(d.items)
+        setTotal(d.total)
+        // 관심종목 스코어 변동 알림
+        if (watchlist.size > 0 && 'Notification' in window && Notification.permission === 'granted') {
+          const prevKey = 'watchlist_prev_scores'
+          let prev: Record<number, number> = {}
+          try { prev = JSON.parse(localStorage.getItem(prevKey) ?? '{}') } catch {}
+          const alerts: string[] = []
+          d.items.forEach(item => {
+            if (!watchlist.has(item.securityId)) return
+            const prevScore = prev[item.securityId]
+            const delta = prevScore != null ? item.compositeScore - prevScore : null
+            if (delta != null && Math.abs(delta) >= 3) {
+              alerts.push(`${item.name} ${delta > 0 ? '▲' : '▼'}${Math.abs(delta).toFixed(1)}pt (${item.compositeScore.toFixed(1)})`)
+            }
+            prev[item.securityId] = item.compositeScore
+          })
+          try { localStorage.setItem(prevKey, JSON.stringify(prev)) } catch {}
+          if (alerts.length > 0) {
+            new Notification('관심종목 스코어 변동', {
+              body: alerts.join('\n'),
+              icon: '/favicon.ico',
+            })
+          }
+        }
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [page, size, query, sector, capRange, sortKey, sortDir, minScore])
@@ -263,9 +289,14 @@ export default function ScreenerPage() {
     e.stopPropagation()
     setWatchlist(prev => {
       const next = new Set(prev)
+      const adding = !next.has(id)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       try { localStorage.setItem('screener_watchlist', JSON.stringify([...next])) } catch {}
+      // 처음 추가 시 알림 권한 요청
+      if (adding && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission()
+      }
       return next
     })
   }
