@@ -162,20 +162,16 @@ def _compute_metrics(
     annual_by_year = {r["year"]: r["eps"] for r in annual}
     cagr  = None
     recent_years = sorted(annual_by_year.keys(), reverse=True)
-    if len(recent_years) >= 2:
+    # O'Neil A 기준: 반드시 3년 전 기준연도 사용. 부족하거나 적자면 null.
+    # 단기(1~2yr) 회복은 C(분기) 지표에서 반영하며, A 지표에서는 인정하지 않음.
+    if len(recent_years) >= 4:
         y_latest = recent_years[0]
+        y_base   = recent_years[3]          # 정확히 3년 전
         eps_l = annual_by_year[y_latest]
-        if eps_l and eps_l > 0:
-            # 기준연도 후보: 3yr, 2yr, 1yr 순으로 시도
-            for base_idx in [3, 2, 1]:
-                if base_idx >= len(recent_years):
-                    continue
-                y_base = recent_years[base_idx]
-                eps_b = annual_by_year[y_base]
-                n_years = y_latest - y_base
-                if eps_b and eps_b > 0 and n_years > 0:
-                    cagr = (eps_l / eps_b) ** (1 / n_years) - 1
-                    break  # 첫 번째 유효한 기준연도 사용
+        eps_b = annual_by_year[y_base]
+        n_years = y_latest - y_base
+        if eps_l and eps_l > 0 and eps_b and eps_b > 0 and n_years > 0:
+            cagr = (eps_l / eps_b) ** (1 / n_years) - 1
 
     # 연간 일관성: 전년 대비 EPS 성장 횟수 / 비교 쌍 수 (최소 2년 데이터 필요)
     consistency = None
