@@ -236,6 +236,10 @@ export default function ScreenerPage() {
     const until = localStorage.getItem(GUIDE_KEY)
     return !until || Date.now() > parseInt(until)
   })
+  const [marketStates, setMarketStates] = useState<Array<{
+    market: string; marketPhase?: string; trendDirection?: string; stateDate?: string
+    indexClose?: number; ma50d?: number; ma200d?: number
+  }>>([])
   const closeGuide = (hide24h: boolean) => {
     if (hide24h) localStorage.setItem(GUIDE_KEY, String(Date.now() + 24 * 60 * 60 * 1000))
     setShowGuide(false)
@@ -252,6 +256,9 @@ export default function ScreenerPage() {
   }
 
   useEffect(() => { fetchSectors().then(setSectors) }, [])
+  useEffect(() => {
+    fetch('/api/admin/market-state').then(r => r.json()).then(setMarketStates).catch(() => {})
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -651,14 +658,42 @@ export default function ScreenerPage() {
             </span>
           </div>
           <nav style={{ display: 'flex', gap: 0 }}>
-            {(['스크리너', '시장', '포지션 플래너'] as const).map((label, i) => (
-              <span key={label} onClick={i === 2 ? () => navigate('/calc') : undefined} style={{
+            {(['스크리너', '포지션 플래너'] as const).map((label, i) => (
+              <span key={label} onClick={i === 1 ? () => navigate('/calc') : undefined} style={{
                 padding: '0 12px', fontSize: 12, color: i === 0 ? '#e6edf3' : '#4b5563',
-                fontWeight: i === 0 ? 600 : 400, cursor: i === 2 ? 'pointer' : 'default', lineHeight: '40px',
+                fontWeight: i === 0 ? 600 : 400, cursor: i === 1 ? 'pointer' : 'default', lineHeight: '40px',
                 borderBottom: i === 0 ? '2px solid #1f6feb' : '2px solid transparent',
               }}>{label}</span>
             ))}
           </nav>
+          {/* 시장 국면 뱃지 */}
+          {marketStates.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+              {marketStates.map(ms => {
+                const phase = ms.marketPhase ?? 'UNKNOWN'
+                const phaseColor = phase === 'BULL' ? { bg: 'rgba(74,222,128,0.12)', border: '#166534', text: '#4ade80' }
+                  : phase === 'BEAR' ? { bg: 'rgba(248,113,113,0.12)', border: '#7f1d1d', text: '#f87171' }
+                  : { bg: 'rgba(250,189,68,0.12)', border: '#78350f', text: '#fabd44' }
+                const aboveMa200 = ms.indexClose && ms.ma200d && ms.indexClose > ms.ma200d
+                const trend = ms.trendDirection === 'UP' ? '↑' : ms.trendDirection === 'DOWN' ? '↓' : '→'
+                return (
+                  <div key={ms.market} title={`${ms.market} | MA50: ${ms.ma50d?.toFixed(0)} | MA200: ${ms.ma200d?.toFixed(0)} | 기준: ${ms.stateDate}`}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      padding: '2px 8px', borderRadius: 4,
+                      background: phaseColor.bg, border: `1px solid ${phaseColor.border}`,
+                      fontSize: 11, cursor: 'pointer', lineHeight: 1,
+                    }}
+                    onClick={() => navigate('/admin')}
+                  >
+                    <span style={{ color: '#6b7280' }}>{ms.market}</span>
+                    <span style={{ color: phaseColor.text, fontWeight: 700 }}>{phase}</span>
+                    <span style={{ color: aboveMa200 ? '#4ade80' : '#f87171' }}>{trend}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isPremium() && (
