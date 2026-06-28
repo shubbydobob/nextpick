@@ -104,26 +104,39 @@ def main():
     logger.info("[5/7] financial_normalizer 완료")
 
     # ── 6. derived_metrics 가격 컬럼 계산 ─────────────────────
-    logger.info("[6/7] derived_metrics 계산 시작")
+    logger.info("[6/8] derived_metrics 계산 시작")
     from .derived_metrics_calculator import calculate as calc_derived
     updated = calc_derived(target_date)
-    logger.info("[6/7] derived_metrics 계산 완료: %d 행", updated)
+    logger.info("[6/8] derived_metrics 계산 완료: %d 행", updated)
 
-    # ── 7. 스코어링 트리거 ─────────────────────────────────────
-    logger.info("[7/8] 스코어링 트리거")
+    # ── 7. market_state 갱신 (KOSPI/KOSDAQ MA50/MA200 기반 국면 판정) ──
+    logger.info("[7/9] market_state 갱신 시작")
+    try:
+        from datetime import timedelta
+        start_str = (target_date - timedelta(days=250)).strftime("%Y%m%d")
+        end_str   = target_date.strftime("%Y%m%d")
+        from .market_state_seeder import seed
+        seed("KOSPI",  start_date=start_str, end_date=end_str)
+        seed("KOSDAQ", start_date=start_str, end_date=end_str)
+        logger.info("[7/9] market_state 갱신 완료")
+    except Exception as e:
+        logger.warning("[7/9] market_state 갱신 실패 (비치명적): %s", e)
+
+    # ── 8. 스코어링 트리거 ─────────────────────────────────────
+    logger.info("[8/9] 스코어링 트리거")
     ok = trigger_scoring()
     if ok:
-        logger.info("[7/8] 스코어링 완료")
+        logger.info("[8/9] 스코어링 완료")
     else:
-        logger.warning("[7/8] 스코어링 실패 — 수동 트리거 필요")
+        logger.warning("[8/9] 스코어링 실패 — 수동 트리거 필요")
 
-    # ── 8. SNS 카드 생성 + 포스팅 (스코어링 성공 시) ──────────
+    # ── 9. SNS 카드 생성 + 포스팅 (스코어링 성공 시) ──────────
     if ok:
-        logger.info("[8/8] SNS 카드 생성 시작")
+        logger.info("[9/9] SNS 카드 생성 시작")
         try:
             from ..sns_publisher.card_generator import run as generate_card
             result = generate_card(n=5)
-            logger.info("[8/8] 카드 생성 완료: %s", result["image"])
+            logger.info("[9/9] 카드 생성 완료: %s", result["image"])
 
             from pathlib import Path
             image_path = Path(result["image"])
@@ -134,27 +147,27 @@ def main():
                 try:
                     from ..sns_publisher.threads_poster import post_to_threads
                     post_id = post_to_threads(caption, image_path)
-                    logger.info("[8/8] Threads 게시 완료: %s", post_id)
+                    logger.info("[9/9] Threads 게시 완료: %s", post_id)
                 except Exception as e:
-                    logger.warning("[8/8] Threads 게시 실패 (비치명적): %s", e)
+                    logger.warning("[9/9] Threads 게시 실패 (비치명적): %s", e)
             else:
-                logger.info("[8/8] THREADS 환경변수 미설정 — Threads 게시 생략")
+                logger.info("[9/9] THREADS 환경변수 미설정 — Threads 게시 생략")
 
             # Instagram 게시 (환경변수 있을 때만)
             if os.environ.get("INSTAGRAM_USER_ID") and os.environ.get("INSTAGRAM_TOKEN"):
                 try:
                     from ..sns_publisher.instagram_poster import post_to_instagram
                     media_id = post_to_instagram(caption, image_path)
-                    logger.info("[8/8] Instagram 게시 완료: media_id=%s", media_id)
+                    logger.info("[9/9] Instagram 게시 완료: media_id=%s", media_id)
                 except Exception as e:
-                    logger.warning("[8/8] Instagram 게시 실패 (비치명적): %s", e)
+                    logger.warning("[9/9] Instagram 게시 실패 (비치명적): %s", e)
             else:
-                logger.info("[8/8] INSTAGRAM 환경변수 미설정 — Instagram 게시 생략")
+                logger.info("[9/9] INSTAGRAM 환경변수 미설정 — Instagram 게시 생략")
 
         except Exception as e:
-            logger.warning("[8/8] SNS 카드 생성 실패 (비치명적): %s", e)
+            logger.warning("[9/9] SNS 카드 생성 실패 (비치명적): %s", e)
     else:
-        logger.info("[8/8] 스코어링 실패로 SNS 카드 생성 생략")
+        logger.info("[9/9] 스코어링 실패로 SNS 카드 생성 생략")
 
     logger.info("=" * 60)
     logger.info("KR 일별 ETL 완료: %s", target_date)
