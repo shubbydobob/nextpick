@@ -726,58 +726,96 @@ export default function ScreenerPage() {
 
       {/* ══ 시장 탭 ══════════════════════════════════════════════ */}
       {mainTab === 'market' && (() => {
-        const phaseStyle = (p?: string) =>
-          p === 'BULL' ? { bg: 'rgba(74,222,128,0.10)', border: '#166534', text: '#4ade80' }
-          : p === 'BEAR' ? { bg: 'rgba(248,113,113,0.10)', border: '#7f1d1d', text: '#f87171' }
-          : { bg: 'rgba(250,189,68,0.10)', border: '#78350f', text: '#fabd44' }
-        const trendIcon = (d?: string) => d === 'UP' ? '↑' : d === 'DOWN' ? '↓' : '→'
-        const phaseLabel = (p?: string) => p === 'BULL' ? '강세장' : p === 'BEAR' ? '약세장' : p === 'CORRECTION' ? '조정' : '불명'
+        // 국면별 스타일 + 메시지
+        const phaseInfo = (p?: string) => p === 'BULL'
+          ? { bg: 'rgba(74,222,128,0.08)', border: '#166534', text: '#4ade80', icon: '🟢', label: '강세장', verdict: '신규 매수 가능', desc: '주가가 장기 상승 추세 위에서 움직이고 있습니다.' }
+          : p === 'BEAR'
+          ? { bg: 'rgba(248,113,113,0.08)', border: '#7f1d1d', text: '#f87171', icon: '🔴', label: '약세장', verdict: '신규 매수 자제', desc: '주가가 장기 하락 추세 아래에 있습니다. 현금 비중을 높이세요.' }
+          : { bg: 'rgba(250,189,68,0.08)', border: '#78350f', text: '#fabd44', icon: '🟡', label: '조정', verdict: '관망 권장', desc: '단기 조정 구간입니다. 추세 확인 후 진입하세요.' }
+
+        // M스코어 = 오늘 items의 mScore (전 종목 동일값)
+        const mScore = items.length > 0 ? (items[0].mScore ?? 0) : 0
+        const mColor = mScore >= 40 ? '#4ade80' : mScore >= 20 ? '#fabd44' : '#f87171'
+        const mVerdict = mScore >= 40 ? '시장 전반이 상승 흐름에 있습니다.'
+          : mScore >= 20 ? '일부 종목만 강세입니다. 종목 선별이 중요합니다.'
+          : '대부분 종목이 고점 대비 크게 하락해 있습니다. 신중한 접근이 필요합니다.'
+
+        // 종합 투자 조언
+        const kospi = marketStates.find(m => m.market === 'KOSPI')
+        const kosdaq = marketStates.find(m => m.market === 'KOSDAQ')
+        const bothBull = kospi?.marketPhase === 'BULL' && kosdaq?.marketPhase === 'BULL'
+        const anyBear  = kospi?.marketPhase === 'BEAR'  || kosdaq?.marketPhase === 'BEAR'
+        const advice = bothBull && mScore >= 30
+          ? { color: '#4ade80', text: '매수 적기 — 스크리너 상위 종목에서 진입 기회를 찾으세요.' }
+          : anyBear && mScore < 20
+          ? { color: '#f87171', text: '매수 금지 — 현금 보유 또는 기존 포지션 손절 기준 점검을 권장합니다.' }
+          : { color: '#fabd44', text: '선별적 접근 — 강한 실적과 수급을 동반한 종목만 소규모 진입하세요.' }
+
         const hist = marketHistory[histTab] ?? []
+
         return (
-          <div style={{ padding: '20px', maxWidth: 960, margin: '0 auto' }}>
-            {/* 요약 카드 2개 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-              {marketStates.map(ms => {
-                const ps = phaseStyle(ms.marketPhase)
-                const aboveMa50  = ms.indexClose && ms.ma50d  && ms.indexClose > ms.ma50d
-                const aboveMa200 = ms.indexClose && ms.ma200d && ms.indexClose > ms.ma200d
+          <div style={{ padding: '20px', maxWidth: 900, margin: '0 auto' }}>
+
+            {/* ① 종합 투자 의견 */}
+            <div style={{
+              background: '#0d1117', border: `1px solid ${advice.color}33`,
+              borderRadius: 10, padding: '16px 20px', marginBottom: 16,
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <div style={{ fontSize: 22 }}>💡</div>
+              <div>
+                <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 4, fontWeight: 600, letterSpacing: '0.05em' }}>오늘의 투자 의견</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: advice.color }}>{advice.text}</div>
+              </div>
+            </div>
+
+            {/* ② KOSPI / KOSDAQ 국면 카드 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              {[kospi, kosdaq].map(ms => {
+                if (!ms) return null
+                const pi = phaseInfo(ms.marketPhase)
                 return (
                   <div key={ms.market} style={{
-                    background: '#0d1117', border: '1px solid #21262d',
+                    background: '#0d1117', border: `1px solid #21262d`,
                     borderRadius: 10, padding: '16px 20px',
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <span style={{ fontSize: 15, fontWeight: 700 }}>{ms.market}</span>
-                      <span style={{
-                        fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 6,
-                        background: ps.bg, border: `1px solid ${ps.border}`, color: ps.text,
-                      }}>{phaseLabel(ms.marketPhase)} {trendIcon(ms.trendDirection)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 18 }}>{pi.icon}</span>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#e6edf3' }}>{ms.market} · {pi.label}</div>
+                        <div style={{ fontSize: 11, color: pi.text, fontWeight: 600 }}>{pi.verdict}</div>
+                      </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
-                      {[
-                        { label: '기준일', val: ms.stateDate ?? '-', c: '#9ca3af' },
-                        { label: '프록시 종가', val: ms.indexClose?.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) ?? '-', c: '#e6edf3' },
-                        { label: 'MA50',  val: ms.ma50d?.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) ?? '-',  c: aboveMa50  ? '#4ade80' : '#f87171' },
-                        { label: 'MA200', val: ms.ma200d?.toLocaleString('ko-KR', { maximumFractionDigits: 0 }) ?? '-', c: aboveMa200 ? '#4ade80' : '#f87171' },
-                        { label: '배분일', val: `${ms.distributionDayCount ?? 0}일`, c: (ms.distributionDayCount ?? 0) >= 4 ? '#f87171' : '#9ca3af' },
-                      ].map(({ label, val, c }) => (
-                        <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '3px 0', borderBottom: '1px solid #161b22' }}>
-                          <span style={{ color: '#4b5563' }}>{label}</span>
-                          <span style={{ color: c, fontWeight: 600 }}>{val}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6 }}>{pi.desc}</div>
+                    <div style={{ fontSize: 10, color: '#374151', marginTop: 8 }}>기준일 {ms.stateDate}</div>
                   </div>
                 )
               })}
             </div>
 
-            {/* 국면 이력 */}
+            {/* ③ 시장 건강도 (M스코어) */}
+            <div style={{
+              background: '#0d1117', border: '1px solid #21262d',
+              borderRadius: 10, padding: '16px 20px', marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#4b5563', letterSpacing: '0.06em', marginBottom: 10 }}>시장 건강도</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ fontSize: 32, fontWeight: 800, color: mColor, minWidth: 70 }}>{mScore.toFixed(1)}<span style={{ fontSize: 14, color: '#4b5563' }}>점</span></div>
+                <div style={{ flex: 1 }}>
+                  {/* 게이지 바 */}
+                  <div style={{ height: 6, background: '#21262d', borderRadius: 3, marginBottom: 8, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${mScore}%`, background: mColor, borderRadius: 3, transition: 'width 0.5s' }} />
+                  </div>
+                  <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.5 }}>{mVerdict}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* ④ 국면 변화 이력 (타임라인) */}
             <div style={{ background: '#0d1117', border: '1px solid #21262d', borderRadius: 10, overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 16px', borderBottom: '1px solid #21262d', background: '#161b22' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#4b5563', letterSpacing: '0.06em' }}>국면 이력 (최근 60일)</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#4b5563', letterSpacing: '0.06em' }}>최근 60일 국면 변화</span>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {(['KOSPI', 'KOSDAQ'] as const).map(m => (
                     <button key={m} onClick={() => setHistTab(m)} style={{
@@ -789,37 +827,26 @@ export default function ScreenerPage() {
                   ))}
                 </div>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #21262d' }}>
-                      {['날짜', '국면', '추세', '종가', 'MA50', 'MA200'].map(h => (
-                        <th key={h} style={{ padding: '6px 12px', textAlign: h === '날짜' || h === '국면' || h === '추세' ? 'left' : 'right',
-                          color: '#374151', fontWeight: 600 }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hist.map(h => {
-                      const ps = phaseStyle(h.marketPhase)
-                      return (
-                        <tr key={h.stateDate} style={{ borderBottom: '1px solid #161b22' }}>
-                          <td style={{ padding: '5px 12px', color: '#6b7280' }}>{h.stateDate}</td>
-                          <td style={{ padding: '5px 12px' }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
-                              background: ps.bg, border: `1px solid ${ps.border}`, color: ps.text }}>
-                              {phaseLabel(h.marketPhase)}
-                            </span>
-                          </td>
-                          <td style={{ padding: '5px 12px', color: '#9ca3af' }}>{trendIcon(h.trendDirection)}</td>
-                          <td style={{ padding: '5px 12px', textAlign: 'right', color: '#e6edf3' }}>{Number(h.indexClose).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}</td>
-                          <td style={{ padding: '5px 12px', textAlign: 'right', color: '#4b5563' }}>{Number(h.ma50d).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}</td>
-                          <td style={{ padding: '5px 12px', textAlign: 'right', color: '#4b5563' }}>{Number(h.ma200d).toLocaleString('ko-KR', { maximumFractionDigits: 0 })}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+              {/* 국면 타임라인 - 연속 블록 시각화 */}
+              <div style={{ padding: '12px 16px' }}>
+                <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                  {hist.map(h => {
+                    const pi = phaseInfo(h.marketPhase)
+                    return (
+                      <div key={h.stateDate} title={`${h.stateDate} · ${pi.label}`}
+                        style={{ width: 10, height: 28, borderRadius: 2, background: pi.text, opacity: 0.7, cursor: 'default' }} />
+                    )
+                  })}
+                </div>
+                {/* 범례 + 최근 변화 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 10 }}>
+                  {[['#4ade80', '강세장'], ['#fabd44', '조정'], ['#f87171', '약세장']].map(([c, l]) => (
+                    <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#4b5563' }}>
+                      <div style={{ width: 10, height: 10, borderRadius: 2, background: c }} />{l}
+                    </div>
+                  ))}
+                  <span style={{ marginLeft: 'auto', fontSize: 10, color: '#374151' }}>← 과거 · 최근 →</span>
+                </div>
               </div>
             </div>
           </div>
