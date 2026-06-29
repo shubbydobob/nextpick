@@ -55,17 +55,17 @@ public class ScreenerController {
 
     @GetMapping
     public ResponseEntity<ScreenerPageResponse> screen(
-            @RequestParam String market,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(required = false) String q,
-            @RequestParam(defaultValue = "0.0") double minScore,
-            @RequestParam(required = false) String sector,
-            @RequestParam(required = false) Long minCap,
-            @RequestParam(required = false) Long maxCap,
-            @RequestParam(defaultValue = "compositeScore") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "30") int size) {
+            @RequestParam("market") String market,
+            @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "minScore", defaultValue = "0.0") double minScore,
+            @RequestParam(name = "sector", required = false) String sector,
+            @RequestParam(name = "minCap", required = false) Long minCap,
+            @RequestParam(name = "maxCap", required = false) Long maxCap,
+            @RequestParam(name = "sortBy", defaultValue = "compositeScore") String sortBy,
+            @RequestParam(name = "sortDir", defaultValue = "desc") String sortDir,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "30") int size) {
 
         LocalDate scoreDate = resolveDate(market, date);
         if (scoreDate == null) return ResponseEntity.ok(new ScreenerPageResponse(List.of(), 0, page, size));
@@ -216,7 +216,7 @@ public class ScreenerController {
     @GetMapping("/{securityId}")
     public ResponseEntity<ScreenerItemResponse> getScore(
             @PathVariable Long securityId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
         Instrument inst = instRepo.findById(securityId).orElse(null);
         if (inst == null) return ResponseEntity.notFound().build();
@@ -258,7 +258,7 @@ public class ScreenerController {
     @GetMapping("/{securityId}/prices")
     public ResponseEntity<List<PriceBar>> getPrices(
             @PathVariable Long securityId,
-            @RequestParam(defaultValue = "365") int days) {
+            @RequestParam(name = "days", defaultValue = "365") int days) {
 
         if (!instRepo.existsById(securityId)) return ResponseEntity.notFound().build();
 
@@ -623,12 +623,12 @@ public class ScreenerController {
                 SELECT security_id, MAX(close_adj) AS high_52w
                 FROM price_daily
                 WHERE security_id = ANY(?)
-                  AND trade_date > ? - INTERVAL '365 days'
+                  AND trade_date > ?
                   AND trade_date <= ?
                 GROUP BY security_id
             ) h ON h.security_id = p.security_id
             WHERE p.security_id = ANY(?)
-              AND p.trade_date > ? - INTERVAL '365 days'
+              AND p.trade_date > ?
               AND p.trade_date <= ?
               AND h.high_52w > 0
               AND p.close_adj >= h.high_52w * 0.85
@@ -636,14 +636,16 @@ public class ScreenerController {
             """;
         try {
             Long[] idArr = ids.toArray(new Long[0]);
+            java.sql.Date from = java.sql.Date.valueOf(scoreDate.minusDays(365));
+            java.sql.Date to   = java.sql.Date.valueOf(scoreDate);
             jdbc.query(con -> {
                 PreparedStatement ps = con.prepareStatement(sql);
                 ps.setArray(1, con.createArrayOf("bigint", idArr));
-                ps.setDate(2, java.sql.Date.valueOf(scoreDate));
-                ps.setDate(3, java.sql.Date.valueOf(scoreDate));
+                ps.setDate(2, from);
+                ps.setDate(3, to);
                 ps.setArray(4, con.createArrayOf("bigint", idArr));
-                ps.setDate(5, java.sql.Date.valueOf(scoreDate));
-                ps.setDate(6, java.sql.Date.valueOf(scoreDate));
+                ps.setDate(5, from);
+                ps.setDate(6, to);
                 return ps;
             }, rs -> { result.put(rs.getLong("security_id"), rs.getInt("base_days")); });
         } catch (Exception e) {

@@ -36,7 +36,7 @@ public class RealtimePriceController {
     private Map<String, Object> kisConfig;
 
     @GetMapping("/price")
-    public ResponseEntity<Map<String, Object>> getPrice(@RequestParam String ticker) {
+    public ResponseEntity<Map<String, Object>> getPrice(@RequestParam("ticker") String ticker) {
         try {
             Map<String, Object> cfg = loadKisConfig();
             String token = getToken(cfg);

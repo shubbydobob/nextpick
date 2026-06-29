@@ -34,7 +34,7 @@ public class AdminController {
 
     @PostMapping("/scoring/run")
     public ResponseEntity<Map<String, Object>> runScoring(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
         LocalDate scoreDate = date != null ? date : LocalDate.now();
         long t0 = System.currentTimeMillis();
@@ -73,8 +73,8 @@ public class AdminController {
     // ── GET /api/admin/market-state/history?market=KOSPI&days=30 ──
     @GetMapping("/market-state/history")
     public ResponseEntity<List<Map<String, Object>>> getMarketStateHistory(
-            @RequestParam(defaultValue = "KOSPI") String market,
-            @RequestParam(defaultValue = "30") int days) {
+            @RequestParam(name = "market", defaultValue = "KOSPI") String market,
+            @RequestParam(name = "days", defaultValue = "30") int days) {
 
         LocalDate from = LocalDate.now().minusDays(days);
         List<MarketState> history = marketStateRepo.findByMarketAndDateRange(market, from, LocalDate.now());

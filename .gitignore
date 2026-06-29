@@ -10,6 +10,8 @@ __pycache__/
 .env
 etl/config/db.yaml
 etl/config/dart.yaml
+etl/config/kis.yaml
+.env
 
 # Java / Gradle
 backend/target/

@@ -1,6 +1,7 @@
 import type { ScreenerItem, ScreenerPage, ScoreHistory, FinancialRecord, PriceBar, MacroQuote } from '../types'
 
-const BASE = '/api'
+const API_ORIGIN = import.meta.env.VITE_API_URL ?? ''
+const BASE = `${API_ORIGIN}/api`
 
 export async function fetchScreener(
   market = 'KR',
@@ -86,7 +87,7 @@ export interface SectorPeer {
   isSelf: boolean
 }
 export async function fetchSectorPeers(securityId: number): Promise<SectorPeer[]> {
-  const res = await fetch(`/api/screener/${securityId}/sector-peers`)
+  const res = await fetch(`${BASE}/screener/${securityId}/sector-peers`)
   if (!res.ok) return []
   return res.json()
 }

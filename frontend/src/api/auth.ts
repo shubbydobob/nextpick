@@ -1,5 +1,6 @@
 const TOKEN_KEY = 'canslim_token'
-const BASE = '/api/auth'
+const API_ORIGIN = import.meta.env.VITE_API_URL ?? ''
+const BASE = `${API_ORIGIN}/api/auth`
 
 export interface UserInfo {
   email: string

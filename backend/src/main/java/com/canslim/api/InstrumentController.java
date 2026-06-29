@@ -38,7 +38,7 @@ public class InstrumentController {
 
     @GetMapping
     public ResponseEntity<List<InstrumentDetailResponse>> list(
-            @RequestParam String market) {
+            @RequestParam("market") String market) {
 
         List<InstrumentDetailResponse> result = instRepo
                 .findByMarketAndActiveTrue(market)
@@ -52,7 +52,7 @@ public class InstrumentController {
     @GetMapping("/{id}")
     public ResponseEntity<InstrumentDetailResponse> get(
             @PathVariable Long id,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
         Instrument inst = instRepo.findById(id).orElse(null);
         if (inst == null) return ResponseEntity.notFound().build();
