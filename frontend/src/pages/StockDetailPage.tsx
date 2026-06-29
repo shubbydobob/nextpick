@@ -8,7 +8,6 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   ComposedChart, Line,
 } from 'recharts'
-import type { TooltipProps } from 'recharts'
 import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations } from '../api/client'
 import type { NewsItem, SectorPeer, CorrelationStock } from '../api/client'
 import PriceChart from '../components/PriceChart'
@@ -80,12 +79,12 @@ function FactorCard({ label, desc, value, color }: {
   )
 }
 
-const ScoreTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+const ScoreTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
     <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
       <div style={{ color: '#8b949e', marginBottom: 6 }}>{label}</div>
-      {payload.map((p) => (
+      {payload.map((p: any) => (
         <div key={String(p.dataKey)} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, color: p.stroke || p.fill }}>
           <span>{p.name}</span>
           <span style={{ fontWeight: 600 }}>{typeof p.value === 'number' ? p.value.toFixed(1) : p.value ?? '—'}</span>
@@ -95,12 +94,12 @@ const ScoreTooltip = ({ active, payload, label }: TooltipProps<number, string>) 
   )
 }
 
-const FinTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+const FinTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
     <div style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
       <div style={{ color: '#8b949e', marginBottom: 6 }}>{label}</div>
-      {payload.map((p) => (
+      {payload.map((p: any) => (
         <div key={String(p.dataKey)} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, color: p.fill }}>
           <span>{p.name}</span>
           <span style={{ fontWeight: 600 }}>{p.value != null ? p.value.toLocaleString() + '억' : '—'}</span>
@@ -549,7 +548,7 @@ export default function StockDetailPage() {
                     tickFormatter={v => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v)} />
                   <YAxis yAxisId="growth" orientation="right" tick={{ fontSize: 10, fill: '#76e4f7' }} tickLine={false} axisLine={false}
                     tickFormatter={v => v + '%'} width={44} />
-                  <Tooltip formatter={(v: number | string, name: string | number) =>
+                  <Tooltip formatter={(v: any, name: any) =>
                     name === '전년동기성장' ? [`${v}%`, name] : [Number(v).toLocaleString('ko-KR') + '원', name]
                   } contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 11 }}
                     labelStyle={{ color: '#8b949e' }} />

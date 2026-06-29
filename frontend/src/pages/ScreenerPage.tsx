@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchScreener, fetchSectors } from '../api/client'
-import { isLoggedIn, isPremium, logout } from '../api/auth'
+import { isPremium } from '../api/auth'
 import MacroTicker from '../components/MacroTicker'
 import type { ScreenerItem } from '../types'
 import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt, fmtVolume, fmtHigh52pct } from '../utils/format'
@@ -210,6 +210,7 @@ export default function ScreenerPage() {
     return !until || Date.now() > parseInt(until)
   })
   const [mainTab, setMainTab] = useState<'screener' | 'market'>('screener')
+  const [visitCount, setVisitCount] = useState<number | null>(null)
   const [histTab, setHistTab] = useState<'KOSPI' | 'KOSDAQ'>('KOSPI')
   const [marketStates, setMarketStates] = useState<Array<{
     market: string; marketPhase?: string; trendDirection?: string; stateDate?: string
@@ -234,6 +235,12 @@ export default function ScreenerPage() {
     small: { maxCap: 200_000_000_000 },
   }
 
+  useEffect(() => {
+    fetch('/api/stats/visit', { method: 'POST' })
+      .then(r => r.json())
+      .then(d => setVisitCount(d.total))
+      .catch(() => {})
+  }, [])
   useEffect(() => { fetchSectors().then(setSectors) }, [])
   useEffect(() => {
     fetch('/api/admin/market-state').then(r => r.json()).then(setMarketStates).catch(() => {})
@@ -661,31 +668,11 @@ export default function ScreenerPage() {
           </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {isPremium() && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#fabd44', padding: '2px 6px',
-              border: '1px solid rgba(250,189,68,0.4)', borderRadius: 4, background: 'rgba(250,189,68,0.08)' }}>
-              ✦ 프리미엄
+          {visitCount !== null && (
+            <span style={{ fontSize: 11, color: '#4b5563', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 10 }}>👥</span>
+              {visitCount.toLocaleString()}
             </span>
-          )}
-          <button onClick={() => navigate('/premium')}
-            style={{ fontSize: 11, color: '#4b5563', background: 'none',
-              border: '1px solid #21262d', borderRadius: 4, padding: '3px 10px',
-              cursor: 'pointer', lineHeight: '20px' }}>
-            구독
-          </button>
-          {isLoggedIn() ? (
-            <button onClick={() => { logout(); window.location.reload() }}
-              style={{ fontSize: 11, color: '#4b5563', background: 'none',
-                border: '1px solid #21262d', borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}>
-              로그아웃
-            </button>
-          ) : (
-            <button onClick={() => navigate('/auth')}
-              style={{ fontSize: 11, color: '#58a6ff', background: 'rgba(31,111,235,0.1)',
-                border: '1px solid rgba(31,111,235,0.3)', borderRadius: 4,
-                padding: '3px 10px', cursor: 'pointer' }}>
-              로그인
-            </button>
           )}
         </div>
         {items[0] && (
