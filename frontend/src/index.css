@@ -159,4 +159,60 @@ button {
     padding-bottom: 6px !important;
     gap: 4px !important;
   }
+
+  /* StockDetail: main content padding */
+  .detail-content {
+    padding: 16px 12px 40px !important;
+  }
+
+  /* StockDetail: Hero section stack vertically */
+  .detail-hero {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .detail-hero > div:last-child {
+    text-align: left !important;
+  }
+  .detail-hero .detail-score {
+    font-size: 36px !important;
+  }
+
+  /* StockDetail: price bar → 3-col grid */
+  .detail-price-bar {
+    flex-wrap: wrap !important;
+  }
+  .detail-price-bar > div {
+    flex: none !important;
+    width: 33.33% !important;
+    border-right: none !important;
+    border-bottom: 1px solid #21262d !important;
+    padding: 10px 12px !important;
+  }
+
+  /* StockDetail: factor cards → horizontal scroll */
+  .detail-factors {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px !important;
+    padding-bottom: 6px !important;
+  }
+  .detail-factors > div {
+    min-width: 120px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* StockDetail: radar + flow → stack */
+  .detail-radar-flow {
+    flex-direction: column !important;
+  }
+  .detail-radar-flow > div {
+    width: 100% !important;
+    flex-shrink: 1 !important;
+  }
+
+  /* StockDetail: signal box */
+  .detail-signal {
+    padding: 12px 14px !important;
+  }
 }

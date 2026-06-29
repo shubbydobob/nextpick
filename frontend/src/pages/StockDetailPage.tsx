@@ -320,10 +320,10 @@ export default function StockDetailPage() {
         )}
       </div>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 28px 60px' }}>
+      <div className="detail-content" style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 28px 60px' }}>
 
         {/* ── Hero ── */}
-        <div style={{
+        <div className="detail-hero" style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
           marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid #21262d',
         }}>
@@ -358,7 +358,7 @@ export default function StockDetailPage() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 10, color: '#8b949e', marginBottom: 2, fontWeight: 600 }}>COMPOSITE SCORE</div>
-            <div style={{ fontSize: 50, fontWeight: 900, color: cColor, lineHeight: 1, letterSpacing: '-2px' }}>
+            <div className="detail-score" style={{ fontSize: 50, fontWeight: 900, color: cColor, lineHeight: 1, letterSpacing: '-2px' }}>
               {composite.toFixed(2)}
             </div>
             <div style={{ fontSize: 12, color: '#8b949e', marginTop: 4 }}>
@@ -369,7 +369,7 @@ export default function StockDetailPage() {
         </div>
 
         {/* ── 가격 정보 바 ── */}
-        <div style={{
+        <div className="detail-price-bar" style={{
           display: 'flex', gap: 0, marginBottom: 20,
           background: '#161b22', borderRadius: 10, border: '1px solid #21262d',
           overflow: 'hidden',
@@ -423,7 +423,7 @@ export default function StockDetailPage() {
           if (stock.cScore === null) signals.push({ text: '분기 실적 데이터 미확보 — C 점수 산출 불가', color: '#484f58' })
           if (stock.aScore === null) signals.push({ text: '연간 성장 데이터 미확보 — A 점수 산출 불가', color: '#484f58' })
           return (
-            <div style={{ marginBottom: 20, background: verdict.bg, border: `1px solid ${verdict.border}`, borderRadius: 10, padding: '16px 20px' }}>
+            <div className="detail-signal" style={{ marginBottom: 20, background: verdict.bg, border: `1px solid ${verdict.border}`, borderRadius: 10, padding: '16px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: signals.length > 0 ? 12 : 0 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#8b949e' }}>매매 시그널</div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: verdict.color }}>{verdict.label}</div>
@@ -444,14 +444,14 @@ export default function StockDetailPage() {
         })()}
 
         {/* ── 팩터 카드 ── */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+        <div className="detail-factors hide-scrollbar" style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
           {FACTORS.map(f => (
             <FactorCard key={f.key} label={f.label} desc={f.desc} value={stock[f.key]} color={f.color} />
           ))}
         </div>
 
         {/* ── 레이더 차트 + 수급 ── */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+        <div className="detail-radar-flow" style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
           {/* 레이더 */}
           <Card style={{ flex: 1 }}>
             <SectionTitle>지표 레이더</SectionTitle>
