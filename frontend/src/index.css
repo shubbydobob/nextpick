@@ -125,9 +125,22 @@ button {
     padding: 0 10px !important;
   }
 
-  /* Table wrapper reduce padding */
+  /* Table wrapper reduce padding + 가로 스크롤 힌트(우측 페이드) */
   .table-wrap {
     padding: 0 6px !important;
+    position: relative;
+  }
+  .table-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 6px; width: 22px; height: 100%;
+    background: linear-gradient(to right, transparent, var(--bg-base));
+    pointer-events: none; z-index: 5;
+  }
+  /* 셀 패딩 축소 → 더 많은 컬럼 노출 */
+  .table-wrap td, .table-wrap th {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
   }
 
   /* Pagination */

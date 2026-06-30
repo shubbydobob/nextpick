@@ -440,10 +440,10 @@ export default function ScreenerPage() {
     return (
       <tr>
         <th style={{ ...S.td, width: 36, textAlign: 'center', color: 'var(--text-3)', fontSize: 11, borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)' }}>#</th>
-        <Th label="티커" align="center" style={{ width: 72 }} />
-        <Th label="종목명" align="left" style={{ width: 140 }} />
-        <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} />
-        <Th label={flowColLabel('외국인')} sortKey="foreignNetBuy10d" style={{ width: 96, color: '#22d3ee' }} />
+        <Th label="티커" align="center" style={{ width: 68 }} />
+        <Th label="종목명" align="left" style={{ width: 110 }} />
+        <Th label="등락률" sortKey="changeRate" style={{ width: 60 }} />
+        <Th label={flowColLabel('외국인')} sortKey="foreignNetBuy10d" style={{ width: 92, color: '#22d3ee' }} />
         <Th label={flowColLabel('기관')} sortKey="instNetBuy10d" style={{ width: 88, color: '#a78bfa' }} />
         <Th label="거래대금" sortKey="turnover" style={{ width: 88 }} />
         <Th label="거래량" sortKey="volume" style={{ width: 80 }} />
