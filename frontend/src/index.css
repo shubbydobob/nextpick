@@ -12,6 +12,13 @@
   --text-3:      #7c8694;
   --text-4:      #5b6573;
   --score-sep:   #262d3a;
+  /* NEXTPICK 시그니처 — 일렉트릭 블루 (다크는 약간 밝게) */
+  --accent:         #3b82f6;
+  --accent-strong:  #2563eb;
+  --accent-soft:    rgba(59,130,246,0.16);
+  --accent-contrast:#ffffff;
+  /* 거래소 터미널 느낌 — 숫자/티커용 모노스페이스 */
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Roboto Mono', 'D2Coding', Menlo, Consolas, monospace;
 }
 
 [data-theme='light'] {
@@ -26,6 +33,11 @@
   --text-3:      #8c959f;
   --text-4:      #bdc4cd;
   --score-sep:   #e0e5eb;
+  /* NEXTPICK 시그니처 — 일렉트릭 블루 */
+  --accent:         #2563eb;
+  --accent-strong:  #1d4ed8;
+  --accent-soft:    rgba(37,99,235,0.10);
+  --accent-contrast:#ffffff;
 }
 
 body {
@@ -35,7 +47,13 @@ body {
   font-size: 15px;
   line-height: 1.55;
   transition: background 0.2s, color 0.2s;
+  /* 거래소 터미널 느낌 — 자릿수 정렬된 숫자 */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
+
+/* 숫자/티커 모노스페이스 유틸 */
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 #root { min-height: 100vh; }
 

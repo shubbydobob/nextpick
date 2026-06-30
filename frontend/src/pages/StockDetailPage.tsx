@@ -131,7 +131,7 @@ export default function StockDetailPage() {
   const id = Number(securityId)
 
   // 차트 그리드선: 라이트/다크에 맞춰 (Recharts stroke 속성은 var() 미지원)
-  const gridStroke = document.documentElement.getAttribute('data-theme') === 'light' ? '#e3e8ee' : 'var(--border)'
+  const gridStroke = document.documentElement.getAttribute('data-theme') === 'light' ? '#e3e8ee' : '#2d3440'
 
   // C-3: NaN guard — invalid securityId는 즉시 홈으로
   if (isNaN(id) || id <= 0) {
@@ -314,7 +314,7 @@ export default function StockDetailPage() {
                 </button>
                 <button onClick={() => { setShowPremiumModal(false); navigate('/premium') }}
                   style={{ flex: 1, padding: '8px 0', fontSize: 13, fontWeight: 700,
-                    background: '#1f6feb', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }}>
+                    background: 'var(--accent)', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }}>
                   프리미엄 알아보기
                 </button>
               </div>
@@ -515,7 +515,7 @@ export default function StockDetailPage() {
             <SectionTitle>주가 차트</SectionTitle>
             <div style={{ display: 'flex', border: '1px solid var(--border-sub)', borderRadius: 6, overflow: 'hidden' }}>
               <span style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600,
-                background: '#1f6feb', color: '#fff' }}>캔들 차트</span>
+                background: 'var(--accent)', color: '#fff' }}>캔들 차트</span>
             </div>
           </div>
           <PriceChart securityId={id} height={480} />
@@ -530,7 +530,7 @@ export default function StockDetailPage() {
                 {([['annual', '연간'] , ['quarter', '분기']] as const).map(([key, label]) => (
                   <button key={key} onClick={() => setFinTab(key)} style={{
                     padding: '3px 12px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
-                    background: finTab === key ? '#1f6feb' : 'var(--bg-surface)',
+                    background: finTab === key ? 'var(--accent)' : 'var(--bg-surface)',
                     color: finTab === key ? '#fff' : 'var(--text-2)',
                   }}>{label}</button>
                 ))}

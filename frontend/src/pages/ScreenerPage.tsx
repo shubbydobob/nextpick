@@ -58,7 +58,7 @@ const fmtFlow = (v: number | null, unit: FlowUnit) => {
 function ScoreCell({ value }: { value: number | null }) {
   return (
     <td style={{
-      padding: '0 5px', textAlign: 'center',
+      padding: '0 5px', textAlign: 'center', fontFamily: 'var(--font-mono)',
       background: scoreColor(value), color: scoreText(value),
       fontWeight: value !== null ? 600 : 400, fontSize: 12,
       borderRight: '1px solid var(--score-sep)',
@@ -122,7 +122,7 @@ function GuidePopup({ onClose }: { onClose: (hide24h: boolean) => void }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}>
-              성장주 7대 핵심지표 안내
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, letterSpacing: '0.5px' }}>NEXT<span style={{ color: 'var(--accent)' }}>PICK</span></span> · 7대 핵심 스코어
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
               각 지표는 0~100점으로 환산되며 가중 합산하여 종합점수를 산출합니다
@@ -144,7 +144,7 @@ function GuidePopup({ onClose }: { onClose: (hide24h: boolean) => void }) {
             }}>
               <div style={{
                 width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-                background: '#1f6feb22', border: '1px solid #1f6feb55',
+                background: 'var(--accent)22', border: '1px solid var(--accent)55',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 14, fontWeight: 800, color: '#58a6ff',
               }}>{f.num}</div>
@@ -164,11 +164,11 @@ function GuidePopup({ onClose }: { onClose: (hide24h: boolean) => void }) {
         <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, color: 'var(--text-3)' }}>
             <input type="checkbox" checked={hide24h} onChange={e => setHide24h(e.target.checked)}
-              style={{ width: 13, height: 13, accentColor: '#1f6feb', cursor: 'pointer' }} />
+              style={{ width: 13, height: 13, accentColor: 'var(--accent)', cursor: 'pointer' }} />
             24시간 보지 않기
           </label>
           <button onClick={() => onClose(hide24h)} style={{
-            background: '#1f6feb', border: 'none', borderRadius: 6,
+            background: 'var(--accent)', border: 'none', borderRadius: 6,
             color: '#fff', fontSize: 13, fontWeight: 600,
             padding: '7px 20px', cursor: 'pointer',
           }}>확인</button>
@@ -370,7 +370,7 @@ export default function ScreenerPage() {
       padding: '8px 16px', fontSize: 13, fontWeight: active ? 600 : 400,
       color: active ? 'var(--text-1)' : 'var(--text-3)',
       background: 'none', border: 'none', cursor: 'pointer',
-      borderBottom: active ? '2px solid #1f6feb' : '2px solid transparent',
+      borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
       marginBottom: -1,
     } as React.CSSProperties),
     td: {
@@ -505,7 +505,7 @@ export default function ScreenerPage() {
       <>
         {watchBtn}
         {base}
-        <td style={{ ...S.td, fontSize: 11, color: '#1d4ed8', opacity: 0.9,
+        <td style={{ ...S.td, fontSize: 11, color: 'var(--accent-strong)', opacity: 0.9,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.sector ?? '·'}
         </td>
@@ -639,7 +639,7 @@ export default function ScreenerPage() {
               </button>
               <button onClick={() => { setShowPremiumModal(null); navigate('/premium') }}
                 style={{ flex: 1, padding: '8px 0', fontSize: 13, fontWeight: 700,
-                  background: '#1f6feb', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }}>
+                  background: 'var(--accent)', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }}>
                 프리미엄 알아보기
               </button>
             </div>
@@ -655,10 +655,12 @@ export default function ScreenerPage() {
         justifyContent: 'space-between', height: 40,
       }}>
         <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-0.5px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 800, letterSpacing: '1px',
+              cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               onClick={() => setShowGuide(true)}>
-              성장주<span style={{ color: '#1f6feb' }}>스크리너</span>
+              <span style={{ width: 7, height: 7, background: 'var(--accent)', borderRadius: 1.5, display: 'inline-block' }} />
+              NEXT<span style={{ color: 'var(--accent)' }}>PICK</span>
             </span>
           </div>
           <nav style={{ display: 'flex', gap: 0 }}>
@@ -672,7 +674,7 @@ export default function ScreenerPage() {
                 color: active ? 'var(--text-1)' : 'var(--text-3)',
                 fontWeight: active ? 600 : 400,
                 cursor: 'pointer', lineHeight: '40px',
-                borderBottom: active ? '2px solid #1f6feb' : '2px solid transparent',
+                borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
                 whiteSpace: 'nowrap',
               }}>{label}</span>
             ))}
@@ -845,7 +847,7 @@ export default function ScreenerPage() {
                     <button key={m} onClick={() => setHistTab(m)} style={{
                       fontSize: 12, padding: '2px 10px', borderRadius: 4, cursor: 'pointer',
                       background: histTab === m ? 'rgba(31,111,235,0.2)' : 'none',
-                      border: histTab === m ? '1px solid #1f6feb' : '1px solid var(--border)',
+                      border: histTab === m ? '1px solid var(--accent)' : '1px solid var(--border)',
                       color: histTab === m ? '#58a6ff' : 'var(--text-3)',
                     }}>{m}</button>
                   ))}
@@ -953,7 +955,7 @@ export default function ScreenerPage() {
                     padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 3,
                     background: capRange === k ? '#1f3a5f' : 'var(--bg-surface)',
                     color: capRange === k ? '#58a6ff' : 'var(--text-3)',
-                    border: `1px solid ${capRange === k ? '#1d4ed8' : 'var(--border)'}`,
+                    border: `1px solid ${capRange === k ? 'var(--accent-strong)' : 'var(--border)'}`,
                     cursor: 'pointer',
                   }}>
                     {k === 'all' ? '전체' : k === 'large' ? '대형(1조↑)' : k === 'mid' ? '중형' : '소형'}
@@ -992,7 +994,7 @@ export default function ScreenerPage() {
                     padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 3,
                     background: minScore === v ? '#1f3a5f' : 'var(--bg-surface)',
                     color: minScore === v ? '#58a6ff' : 'var(--text-3)',
-                    border: `1px solid ${minScore === v ? '#1d4ed8' : 'var(--border)'}`,
+                    border: `1px solid ${minScore === v ? 'var(--accent-strong)' : 'var(--border)'}`,
                     cursor: 'pointer',
                   }}>
                     {v === 0 ? '전체' : String(v)}
@@ -1095,7 +1097,7 @@ export default function ScreenerPage() {
             <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
               <span style={{ color: 'var(--text-3)', fontWeight: 600 }}>{total.toLocaleString()}</span>
               {' '}종목
-              {hasActiveFilter && <span style={{ color: '#1d4ed8' }}> (필터 적용)</span>}
+              {hasActiveFilter && <span style={{ color: 'var(--accent-strong)' }}> (필터 적용)</span>}
             </span>
           )}
           <select value={size} onChange={e => handleSize(Number(e.target.value))}
@@ -1224,7 +1226,7 @@ function PgBtn({ label, onClick, disabled, active }: {
     <button onClick={onClick} disabled={disabled} style={{
       minWidth: 28, height: 26, padding: '0 6px',
       background: active ? '#1f3a5f' : 'transparent',
-      border: `1px solid ${active ? '#1f6feb' : 'var(--border)'}`,
+      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
       borderRadius: 4, color: disabled ? 'var(--border)' : active ? '#58a6ff' : 'var(--text-3)',
       fontSize: 12, cursor: disabled ? 'default' : 'pointer', fontWeight: active ? 700 : 400,
     }}>

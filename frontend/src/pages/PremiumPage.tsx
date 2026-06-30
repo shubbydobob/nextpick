@@ -46,8 +46,8 @@ export default function PremiumPage() {
         background: 'var(--bg-nav)',
       }}>
         <button onClick={() => navigate('/')}
-          style={{ color: 'var(--text-2)', fontSize: 14, cursor: 'pointer', background: 'none', border: 'none' }}>
-          ← 성장주스크리너
+          style={{ color: 'var(--text-2)', fontSize: 14, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'var(--font-mono)', letterSpacing: '0.5px' }}>
+          ← NEXT<span style={{ color: 'var(--accent)' }}>PICK</span>
         </button>
         {user && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -89,7 +89,7 @@ export default function PremiumPage() {
               </div>
               <button onClick={() => navigate('/auth')}
                 style={{
-                  padding: '8px 20px', background: '#1f6feb', border: 'none',
+                  padding: '8px 20px', background: 'var(--accent)', border: 'none',
                   borderRadius: 6, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                 }}>
                 로그인 / 회원가입
@@ -156,7 +156,7 @@ export default function PremiumPage() {
               href="mailto:contact@canslim.kr?subject=프리미엄 구독 문의"
               style={{
                 display: 'inline-block',
-                padding: '12px 32px', background: '#1f6feb', border: 'none',
+                padding: '12px 32px', background: 'var(--accent)', border: 'none',
                 borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 700,
                 textDecoration: 'none', cursor: 'pointer',
               }}>

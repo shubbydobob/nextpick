@@ -47,10 +47,12 @@ export default function AuthPage() {
       }}>
         {/* 로고 */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px' }}>
-            성장주<span style={{ color: '#1f6feb' }}>스크리너</span>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 800, letterSpacing: '1.5px',
+            display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 10, height: 10, background: 'var(--accent)', borderRadius: 2, display: 'inline-block' }} />
+            NEXT<span style={{ color: 'var(--accent)' }}>PICK</span>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>CAN SLIM 기반 종목 분석</div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6, letterSpacing: '0.04em' }}>CAN SLIM 기반 주도주 스코어</div>
         </div>
 
         {/* 탭 */}
@@ -63,7 +65,7 @@ export default function AuthPage() {
               style={{
                 flex: 1, padding: '8px 0', fontSize: 14, fontWeight: 600, border: 'none',
                 cursor: 'pointer', transition: 'all 0.15s',
-                background: tab === t ? '#1f6feb' : 'transparent',
+                background: tab === t ? 'var(--accent)' : 'transparent',
                 color: tab === t ? '#fff' : '#6b7280',
               }}>
               {t === 'login' ? '로그인' : '회원가입'}
@@ -85,7 +87,7 @@ export default function AuthPage() {
                 background: 'var(--bg-nav)', border: '1px solid var(--border-sub)', borderRadius: 6,
                 color: 'var(--text-1)', outline: 'none', boxSizing: 'border-box',
               }}
-              onFocus={e => (e.target.style.borderColor = '#1f6feb')}
+              onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
               onBlur={e => (e.target.style.borderColor = 'var(--border-sub)')}
             />
           </div>
@@ -103,7 +105,7 @@ export default function AuthPage() {
                 background: 'var(--bg-nav)', border: '1px solid var(--border-sub)', borderRadius: 6,
                 color: 'var(--text-1)', outline: 'none', boxSizing: 'border-box',
               }}
-              onFocus={e => (e.target.style.borderColor = '#1f6feb')}
+              onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
               onBlur={e => (e.target.style.borderColor = 'var(--border-sub)')}
             />
           </div>
@@ -126,7 +128,7 @@ export default function AuthPage() {
             style={{
               padding: '10px 0', fontSize: 14, fontWeight: 700, border: 'none',
               borderRadius: 6, cursor: loading ? 'not-allowed' : 'pointer',
-              background: loading ? 'var(--border-sub)' : '#1f6feb', color: '#fff',
+              background: loading ? 'var(--border-sub)' : 'var(--accent)', color: '#fff',
               marginTop: 4, transition: 'background 0.15s',
             }}>
             {loading ? '처리 중...' : tab === 'login' ? '로그인' : '회원가입'}

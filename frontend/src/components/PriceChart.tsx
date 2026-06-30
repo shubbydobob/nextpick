@@ -51,6 +51,7 @@ export default function PriceChart({ securityId, height = 480 }: Props) {
     const bgColor = cssVar('--bg-surface', '#1b212c')
     const textColor = cssVar('--text-2', '#adb6c2')
     const borderColor = cssVar('--border', '#2d3440')
+    const accentColor = cssVar('--accent', '#2563eb')
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -70,8 +71,8 @@ export default function PriceChart({ securityId, height = 480 }: Props) {
         timeVisible: false,
       },
       crosshair: {
-        vertLine: { color: crosshairColor, labelBackgroundColor: '#1f6feb' },
-        horzLine: { color: crosshairColor, labelBackgroundColor: '#1f6feb' },
+        vertLine: { color: crosshairColor, labelBackgroundColor: accentColor },
+        horzLine: { color: crosshairColor, labelBackgroundColor: accentColor },
       },
       width: chartContainerRef.current.clientWidth,
       height,
@@ -154,9 +155,9 @@ export default function PriceChart({ securityId, height = 480 }: Props) {
         {RANGES.map(([key, label]) => (
           <button key={key} onClick={() => setRange(key)} style={{
             padding: '2px 10px', fontSize: 12, fontWeight: 600, borderRadius: 4,
-            background: range === key ? '#1f6feb' : 'transparent',
-            color: range === key ? '#fff' : 'var(--text-2)',
-            border: `1px solid ${range === key ? '#1f6feb' : 'var(--border-sub)'}`,
+            background: range === key ? 'var(--accent)' : 'transparent',
+            color: range === key ? 'var(--accent-contrast)' : 'var(--text-2)',
+            border: `1px solid ${range === key ? 'var(--accent)' : 'var(--border-sub)'}`,
             cursor: 'pointer',
           }}>{label}</button>
         ))}

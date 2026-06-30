@@ -25,9 +25,14 @@ const S = {
     gap: 24,
   } as React.CSSProperties,
   brand: {
-    fontSize: 14,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 16,
     fontWeight: 800,
-    letterSpacing: '-0.5px',
+    letterSpacing: '1px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    cursor: 'pointer',
   } as React.CSSProperties,
   navLink: (active: boolean): React.CSSProperties => ({
     padding: '0 12px',
@@ -36,7 +41,7 @@ const S = {
     fontWeight: active ? 600 : 400,
     cursor: 'pointer',
     lineHeight: '40px',
-    borderBottom: active ? '2px solid #1f6feb' : '2px solid transparent',
+    borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
   }),
   body: {
     padding: '24px 20px',
@@ -190,8 +195,9 @@ export default function TradingCalcPage() {
       {/* nav */}
       <div className="calc-nav nav-bar" style={S.nav}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={S.brand}>
-            성장주<span style={{ color: '#1f6feb' }}>스크리너</span>
+          <span style={S.brand} onClick={() => navigate('/')}>
+            <span style={{ width: 7, height: 7, background: 'var(--accent)', borderRadius: 1.5, display: 'inline-block' }} />
+            NEXT<span style={{ color: 'var(--accent)' }}>PICK</span>
           </span>
         </div>
         <nav style={{ display: 'flex', gap: 0 }}>
