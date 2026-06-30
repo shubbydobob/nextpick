@@ -1121,6 +1121,47 @@ export default function ScreenerPage() {
         </div>
       </div>
 
+      {/* ── 활성 필터 칩 ─────────────────────────────────────── */}
+      {hasActiveFilter && (() => {
+        const capLabel: Record<string, string> = { large: '대형(1조↑)', mid: '중형', small: '소형' }
+        const chips: { label: string; clear: () => void }[] = []
+        if (query) chips.push({ label: `검색 "${query}"`, clear: () => handleQuery('') })
+        if (sector) chips.push({ label: `섹터 · ${sector}`, clear: () => { setSector(''); setPage(0) } })
+        if (capRange !== 'all') chips.push({ label: `시총 · ${capLabel[capRange]}`, clear: () => { setCapRange('all'); setPage(0) } })
+        if (minScore > 0) chips.push({ label: `SCORE ≥ ${minScore}`, clear: () => { setMinScore(0); setPage(0) } })
+        if (showWatchOnly) chips.push({ label: '★ 관심종목', clear: () => setShowWatchOnly(false) })
+        if (showBreakoutOnly) chips.push({ label: '⤊ 오늘 돌파', clear: () => setShowBreakoutOnly(false) })
+        const clearAll = () => { setSector(''); setCapRange('all'); setQuery(''); setMinScore(0); setShowWatchOnly(false); setShowBreakoutOnly(false); setPage(0) }
+        return (
+          <div className="filter-chips" style={{
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6,
+            padding: '8px 20px', background: 'var(--bg-base)', borderBottom: '1px solid var(--border)',
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.04em', marginRight: 2 }}>필터</span>
+            {chips.map((c, i) => (
+              <button key={i} onClick={c.clear} title="제거" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                fontSize: 11, fontWeight: 600, padding: '3px 6px 3px 10px', borderRadius: 999,
+                background: 'var(--accent-soft)', color: 'var(--accent-strong)',
+                border: '1px solid var(--accent)', cursor: 'pointer',
+              }}>
+                {c.label}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 14, height: 14, borderRadius: '50%', fontSize: 11, lineHeight: 1,
+                  background: 'var(--accent)', color: 'var(--accent-contrast)',
+                }}>×</span>
+              </button>
+            ))}
+            <button onClick={clearAll} style={{
+              fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999,
+              background: 'transparent', color: 'var(--text-3)',
+              border: '1px solid var(--border-sub)', cursor: 'pointer', marginLeft: 2,
+            }}>전체 해제</button>
+          </div>
+        )
+      })()}
+
       {/* ── Table area ───────────────────────────────────────── */}
       <div className="table-wrap" style={{ padding: '0 20px' }}>
         <div ref={scrollRef} onScroll={onTableScroll} className="hide-scrollbar"
