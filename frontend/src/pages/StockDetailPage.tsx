@@ -66,7 +66,7 @@ function FactorCard({ label, desc, value, color }: {
           <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 4 }}>{desc}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: value !== null ? color : 'var(--text-3)', lineHeight: 1 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 800, color: value !== null ? color : 'var(--text-3)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
             {value !== null ? Math.round(value) : '—'}
           </div>
           <div style={{ fontSize: 12, color: gc, fontWeight: 600, marginTop: 2 }}>{grade}</div>
@@ -337,7 +337,7 @@ export default function StockDetailPage() {
             </div>
             <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: 'var(--text-1)' }}>{stock.name}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-              <span style={{ fontSize: 14, fontFamily: 'monospace', color: '#58a6ff' }}>{stock.ticker}</span>
+              <span style={{ fontSize: 14, fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.5px', color: 'var(--accent)' }}>{stock.ticker}</span>
               {stock.breakoutToday && (
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>
                   N 돌파
@@ -361,7 +361,7 @@ export default function StockDetailPage() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 2, fontWeight: 600 }}>COMPOSITE SCORE</div>
-            <div className="detail-score" style={{ fontSize: 50, fontWeight: 900, color: cColor, lineHeight: 1, letterSpacing: '-2px' }}>
+            <div className="detail-score" style={{ fontFamily: 'var(--font-mono)', fontSize: 54, fontWeight: 800, color: cColor, lineHeight: 1, letterSpacing: '-1px', fontVariantNumeric: 'tabular-nums' }}>
               {Math.round(composite)}
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>
@@ -378,22 +378,22 @@ export default function StockDetailPage() {
           overflow: 'hidden',
         }}>
           {[
-            { label: '현재가', value: fmtPrice(stock.closePrice), mono: true },
+            { label: '현재가', value: fmtPrice(stock.closePrice) },
             { label: '등락률', value: fmtRate(stock.changeRate), color: stock.changeRate !== null ? (stock.changeRate > 0 ? 'var(--up)' : stock.changeRate < 0 ? 'var(--down)' : 'var(--text-2)') : 'var(--text-2)' },
             { label: '52주 신고가', value: fmtPrice(stock.weekHigh52) },
             { label: '시가총액', value: fmtMarketCap(stock.marketCap) },
             { label: '거래대금', value: fmtAmt(stock.turnover) },
             { label: '거래량', value: fmtVol(stock.volume) },
-          ].map(({ label, value, color, mono }, i) => (
+          ].map(({ label, value, color }, i) => (
             <div key={label} style={{
               flex: 1, padding: '14px 18px',
               borderRight: i < 4 ? '1px solid var(--border)' : 'none',
             }}>
               <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginBottom: 4 }}>{label}</div>
               <div style={{
-                fontSize: 15, fontWeight: 700,
-                color: color ?? '#c9d1d9',
-                fontFamily: mono ? 'monospace' : 'inherit',
+                fontSize: 16, fontWeight: 700,
+                color: color ?? 'var(--text-1)',
+                fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
               }}>{value}</div>
             </div>
           ))}
@@ -481,7 +481,7 @@ export default function StockDetailPage() {
                 return (
                   <div key={label}>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>{label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: isPos ? '#4ade80' : isNeg ? '#f87171' : color }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: isPos ? 'var(--up)' : isNeg ? 'var(--down)' : color }}>
                       {amt}
                     </div>
                     <div style={{ marginTop: 6, height: 3, background: 'var(--border)', borderRadius: 2 }}>
@@ -489,7 +489,7 @@ export default function StockDetailPage() {
                         <div style={{
                           height: 3, borderRadius: 2,
                           width: `${Math.min(100, Math.abs(value) / 5e9 * 100)}%`,
-                          background: isPos ? '#4ade80' : '#f87171',
+                          background: isPos ? 'var(--up)' : 'var(--down)',
                         }} />
                       )}
                     </div>
@@ -498,7 +498,7 @@ export default function StockDetailPage() {
               })}
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 4 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginBottom: 4 }}>RS 백분위</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: '#c9d1d9' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>
                   {Math.round(stock.marketPercentile * 100)}%
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
