@@ -10,8 +10,7 @@ import type { ScreenerItem } from '../types'
 import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt, fmtVolume, fmtHigh52pct } from '../utils/format'
 
 // ── types ──────────────────────────────────────────────────────
-type ViewTab = 'overview' | 'technical' | 'flow' | 'detail'
-type FlowUnit = '가격' | '수량'
+type ViewTab = 'table' | 'detail'
 type SortDir = 'desc' | 'asc'
 type SortKey = keyof Pick<ScreenerItem,
   'compositeScore' | 'cScore' | 'aScore' | 'nScore' | 'sScore' | 'lScore' | 'iScore' | 'mScore' |
@@ -51,14 +50,6 @@ const changeColor = (v: number | null) => {
 }
 
 // ── format helpers ─────────────────────────────────────────────
-const fmtFlow = (v: number | null, unit: FlowUnit, close?: number | null) => {
-  if (v === null) return '—'
-  if (unit === '가격') return (v > 0 ? '+' : '') + Math.round(v / 1e8)   // 억원 고정
-  // 수량: 순매수 금액 ÷ 종가 ≈ 순매수 주식수(만주). 종가 없으면 표시 불가
-  if (!close || close <= 0) return '—'
-  return (v > 0 ? '+' : '') + Math.round(v / close / 1e4)
-}
-
 // ── sub-components ─────────────────────────────────────────────
 function ScoreCell({ value }: { value: number | null }) {
   return (
@@ -192,16 +183,14 @@ export default function ScreenerPage() {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(30)
-  const [flowUnit, setFlowUnit] = useState<FlowUnit>('가격')
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('compositeScore')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [sector, setSector] = useState('')
   const [capRange, setCapRange] = useState<'all' | 'large' | 'mid' | 'small'>('all')
   const [sectors, setSectors] = useState<string[]>([])
-  // 뒤로가기 시 이전 탭 복원 — sessionStorage 유지
   const [viewTab, setViewTab] = useState<ViewTab>(
-    () => (sessionStorage.getItem('screener_viewTab') as ViewTab) || 'overview'
+    () => (sessionStorage.getItem('screener_viewTab') as ViewTab) || 'table'
   )
   const [minScore, setMinScore] = useState(0)
   const [watchlist, setWatchlist] = useState<Set<number>>(() => {
@@ -393,15 +382,12 @@ export default function ScreenerPage() {
     } as React.CSSProperties,
   }
 
-  const flowColLabel = (label: string) =>
-    `${label}(${flowUnit === '가격' ? '억' : '만주'})`
-
-  // ── table header & row per tab ──────────────────────────────
+  // ── table header & row ──────────────────────────────────────
   const renderHead = () => {
     const Th = (props: Omit<React.ComponentProps<typeof SortTh>, 'current' | 'dir' | 'onSort'>) =>
       <SortTh {...props} current={sortKey} dir={sortDir} onSort={handleSort} />
 
-    if (viewTab === 'overview') return (
+    return (
       <tr>
         <th style={{ ...S.td, width: 28, textAlign: 'center', color: 'var(--text-3)', fontSize: 11, borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)' }}>★</th>
         <th style={{ ...S.td, width: 36, textAlign: 'center', color: 'var(--text-3)', fontSize: 11, borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)' }}>#</th>
@@ -421,40 +407,6 @@ export default function ScreenerPage() {
         <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} />
         <Th label="시가총액" sortKey="marketCap" style={{ width: 78 }} />
         <Th label="베이스" align="center" style={{ width: 52 }} />
-      </tr>
-    )
-
-    if (viewTab === 'technical') return (
-      <tr>
-        <th style={{ ...S.td, width: 36, textAlign: 'center', color: 'var(--text-3)', fontSize: 11, borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)' }}>#</th>
-        <Th label="티커" align="center" style={{ width: 72 }} />
-        <Th label="종목명" align="left" style={{ width: 160 }} />
-        <Th label="종가" sortKey="closePrice" style={{ width: 88 }} />
-        <Th label="등락률" sortKey="changeRate" style={{ width: 70 }} />
-        <Th label="52주고점비" sortKey="weekHigh52" style={{ width: 80 }} />
-        <Th label="거래량" sortKey="volume" style={{ width: 80 }} />
-        <Th label="거래대금" sortKey="turnover" style={{ width: 88 }} />
-        <Th label="RS%" sortKey="marketPercentile" style={{ width: 60 }} />
-        <Th label="시가총액" sortKey="marketCap" style={{ width: 88 }} />
-        <Th label="SCORE" sortKey="compositeScore" style={{ width: 68 }} />
-      </tr>
-    )
-
-    // flow
-    return (
-      <tr>
-        <th style={{ ...S.td, width: 36, textAlign: 'center', color: 'var(--text-3)', fontSize: 11, borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)' }}>#</th>
-        <Th label="티커" align="center" style={{ width: 68 }} />
-        <Th label="종목명" align="left" style={{ width: 110 }} />
-        <Th label="등락률" sortKey="changeRate" style={{ width: 60 }} />
-        <Th label={flowColLabel('외국인')} sortKey="foreignNetBuy10d" style={{ width: 92, color: '#22d3ee' }} />
-        <Th label={flowColLabel('기관')} sortKey="instNetBuy10d" style={{ width: 88, color: '#a78bfa' }} />
-        <Th label="거래대금" sortKey="turnover" style={{ width: 88 }} />
-        <Th label="거래량" sortKey="volume" style={{ width: 80 }} />
-        <Th label="수급" sortKey="sScore" align="center" style={{ width: 56 }} />
-        <Th label="기관" sortKey="iScore" align="center" style={{ width: 56 }} />
-        <Th label="RS%" sortKey="marketPercentile" style={{ width: 60 }} />
-        <Th label="SCORE" sortKey="compositeScore" style={{ width: 68 }} />
       </tr>
     )
   }
@@ -516,7 +468,7 @@ export default function ScreenerPage() {
       )
     })()
 
-    if (viewTab === 'overview') return (
+    return (
       <>
         {watchBtn}
         {base}
@@ -545,61 +497,6 @@ export default function ScreenerPage() {
         <td style={{ ...S.td, textAlign: 'center', fontSize: 11, color: 'var(--text-3)' }}>
           {item.baseDays ? `${item.baseDays}일` : '-'}
         </td>
-      </>
-    )
-
-    if (viewTab === 'technical') {
-      const high52pct = fmtHigh52pct(item.closePrice, item.weekHigh52)
-      const isNearHigh = item.weekHigh52 !== null && item.closePrice !== null &&
-        item.weekHigh52 > 0 && (item.closePrice / item.weekHigh52) >= 0.97
-      return (
-        <>
-          {base}
-          <td style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-1)', fontSize: 13, fontWeight: 600 }}>
-            {fmtPrice(item.closePrice)}
-          </td>
-          <td style={{ ...S.td, textAlign: 'right', fontWeight: 600, color: changeColor(item.changeRate) }}>
-            {fmtRate(item.changeRate)}
-          </td>
-          <td style={{ ...S.td, textAlign: 'right', color: isNearHigh ? '#4ade80' : 'var(--text-3)' }}>
-            {high52pct}
-          </td>
-          <td style={{ ...S.td, textAlign: 'right' }}>{fmtVolume(item.volume)}</td>
-          <td style={{ ...S.td, textAlign: 'right' }}>{fmtAmt(item.turnover)}</td>
-          <td style={{ ...S.td, textAlign: 'right', color: '#9ca3af' }}>
-            {(item.marketPercentile * 100).toFixed(0)}
-          </td>
-          <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
-            {fmtMarketCap(item.marketCap)}
-          </td>
-          {scoreChip}
-        </>
-      )
-    }
-
-    // flow tab
-    return (
-      <>
-        {base}
-        <td style={{ ...S.td, textAlign: 'right', fontWeight: 600, color: changeColor(item.changeRate) }}>
-          {fmtRate(item.changeRate)}
-        </td>
-        <td style={{ ...S.td, textAlign: 'right', fontWeight: 600, fontFamily: 'monospace',
-          color: item.foreignNetBuy10d === null ? '#374151' : item.foreignNetBuy10d > 0 ? '#22d3ee' : '#f87171' }}>
-          {fmtFlow(item.foreignNetBuy10d, flowUnit, item.closePrice)}
-        </td>
-        <td style={{ ...S.td, textAlign: 'right', fontWeight: 600, fontFamily: 'monospace',
-          color: item.instNetBuy10d === null ? '#374151' : item.instNetBuy10d > 0 ? '#a78bfa' : '#f87171' }}>
-          {fmtFlow(item.instNetBuy10d, flowUnit, item.closePrice)}
-        </td>
-        <td style={{ ...S.td, textAlign: 'right' }}>{fmtAmt(item.turnover)}</td>
-        <td style={{ ...S.td, textAlign: 'right' }}>{fmtVolume(item.volume)}</td>
-        <ScoreCell value={item.sScore} />
-        <ScoreCell value={item.iScore} />
-        <td style={{ ...S.td, textAlign: 'right', color: '#9ca3af' }}>
-          {(item.marketPercentile * 100).toFixed(0)}
-        </td>
-        {scoreChip}
       </>
     )
   }
@@ -683,7 +580,7 @@ export default function ScreenerPage() {
           </div>
           <nav style={{ display: 'flex', gap: 0 }}>
             {([
-              { label: '스크리너', action: () => { setMainTab('screener'); if (viewTab === 'detail') setViewTab('overview') }, active: mainTab === 'screener' },
+              { label: '스크리너', action: () => { setMainTab('screener'); if (viewTab === 'detail') setViewTab('table') }, active: mainTab === 'screener' },
               { label: '섹터맵',   action: () => setMainTab('sector'),   active: mainTab === 'sector' },
               { label: '시장',     action: () => setMainTab('market'),   active: mainTab === 'market' },
               { label: '플래너',   action: () => navigate('/calc'),      active: false },
@@ -1004,21 +901,6 @@ export default function ScreenerPage() {
                 style={{ ...S.filterInput, width: 180 }} />
             </FilterCell>
 
-            {/* 수급단위 */}
-            <FilterCell label="수급단위">
-              <div style={{ display: 'flex', gap: 3 }}>
-                {(['가격', '수량'] as FlowUnit[]).map(u => (
-                  <button key={u} onClick={() => setFlowUnit(u)} style={{
-                    padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 3,
-                    background: flowUnit === u ? '#1a2a40' : 'var(--bg-surface)',
-                    color: flowUnit === u ? '#38bdf8' : 'var(--text-3)',
-                    border: `1px solid ${flowUnit === u ? '#0e7490' : 'var(--border)'}`,
-                    cursor: 'pointer',
-                  }}>{u}</button>
-                ))}
-              </div>
-            </FilterCell>
-
             {/* SCORE 최소 */}
             <FilterCell label="SCORE 최소">
               <div style={{ display: 'flex', gap: 3 }}>
@@ -1113,19 +995,38 @@ export default function ScreenerPage() {
       }}>
         {/* 뷰 탭 */}
         <div style={{ display: 'flex' }}>
-          {([
-            ['overview', '개요'],
-            ['technical', '기술적'],
-            ['flow', '수급'],
-            ...(selectedStockId ? [['detail', '종목 상세'] as [ViewTab, string]] : []),
-          ] as [ViewTab, string][]).map(([key, label]) => (
-            <button key={key} onClick={() => setViewTab(key)} style={{
-              ...S.tab(viewTab === key),
-              ...(key === 'detail' ? { color: viewTab === 'detail' ? '#58a6ff' : '#58a6ff88', borderBottomColor: viewTab === 'detail' ? '#58a6ff' : 'transparent' } : {}),
+          <button onClick={() => setViewTab('table')} style={S.tab(viewTab === 'table')}>
+            스크리너
+          </button>
+          <div style={{ position: 'relative' }}
+            onMouseEnter={e => {
+              if (!selectedStockId) {
+                const tip = e.currentTarget.querySelector('[data-tip]') as HTMLElement
+                if (tip) tip.style.display = 'block'
+              }
+            }}
+            onMouseLeave={e => {
+              const tip = e.currentTarget.querySelector('[data-tip]') as HTMLElement
+              if (tip) tip.style.display = 'none'
             }}>
-              {label}
+            <button
+              onClick={() => { if (selectedStockId) setViewTab('detail') }}
+              style={{
+                ...S.tab(viewTab === 'detail'),
+                color: viewTab === 'detail' ? '#58a6ff' : selectedStockId ? 'var(--text-3)' : 'var(--text-4)',
+                cursor: selectedStockId ? 'pointer' : 'default',
+              }}>
+              종목 상세
             </button>
-          ))}
+            <div data-tip style={{
+              display: 'none', position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+              background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6,
+              padding: '6px 12px', fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap',
+              zIndex: 30, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', marginTop: 4,
+            }}>
+              종목을 선택해주세요
+            </div>
+          </div>
         </div>
 
         {/* 결과 카운트 + 행수 */}
@@ -1190,7 +1091,7 @@ export default function ScreenerPage() {
         <StockDetailPanel
           securityId={selectedStockId}
           onSelectStock={(id) => setSelectedStockId(id)}
-          onBack={() => setViewTab('overview')}
+          onBack={() => setViewTab('table')}
         />
       )}
 
@@ -1206,7 +1107,7 @@ export default function ScreenerPage() {
           ) : (
             <table style={{
               width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed',
-              minWidth: viewTab === 'overview' ? 900 : 700,
+              minWidth: 900,
             }}>
               <thead>{renderHead()}</thead>
               <tbody>
@@ -1241,7 +1142,7 @@ export default function ScreenerPage() {
           zIndex: 5, background: 'var(--bg-base)', borderTop: '1px solid var(--bg-surface)',
         }}>
           <div style={{
-            minWidth: viewTab === 'overview' ? 900 : 700, height: 1,
+            minWidth: 900, height: 1,
           }} />
         </div>
       </div>
@@ -1272,7 +1173,7 @@ export default function ScreenerPage() {
 
       {/* ══ 섹터맵 탭 ══════════════════════════════════════════════ */}
       {mainTab === 'sector' && (
-        <SectorMap onSectorClick={(s) => { setSector(s); setMainTab('screener'); setViewTab('overview'); setPage(0) }} />
+        <SectorMap onSectorClick={(s) => { setSector(s); setMainTab('screener'); setViewTab('table'); setPage(0) }} />
       )}
 
       {/* ══ 가챠 모달 ══════════════════════════════════════════════ */}

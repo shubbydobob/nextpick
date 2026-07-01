@@ -34,3 +34,7 @@ output/
 # OS
 .DS_Store
 Thumbs.db
+
+# Dump files & diagrams
+*.dump
+diagrams/
