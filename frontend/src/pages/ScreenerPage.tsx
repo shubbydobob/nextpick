@@ -64,14 +64,16 @@ function ScoreCell({ value }: { value: number | null }) {
   )
 }
 
-function SortTh({ label, sortKey: sk, current, dir, onSort, align = 'right', style = {} }: {
+function SortTh({ label, sortKey: sk, current, dir, onSort, align = 'right', style = {}, tip }: {
   label: string; sortKey?: SortKey; current: SortKey; dir: SortDir
   onSort: (k: SortKey) => void; align?: React.CSSProperties['textAlign']; style?: React.CSSProperties
+  tip?: string
 }) {
   const active = sk && current === sk
   return (
     <th
       onClick={sk ? () => onSort(sk) : undefined}
+      title={tip}
       style={{
         padding: '7px 6px', textAlign: align, fontSize: 11, fontWeight: 600,
         color: active ? 'var(--text-1)' : 'var(--text-3)', letterSpacing: '0.05em',
@@ -394,23 +396,23 @@ export default function ScreenerPage() {
         <Th label="티커" align="center" style={{ width: 72 }} />
         <Th label="종목명" align="left" style={{ width: 140 }} />
         <Th label="섹터" align="left" style={{ width: 80 }} />
-        <Th label="SCORE" sortKey="compositeScore" style={{ width: 70 }} />
-        <Th label="Δ" style={{ width: 48, textAlign: 'center' }} />
-        <Th label="분기실적" sortKey="cScore" align="center" style={{ width: 52 }} />
-        <Th label="연간성장" sortKey="aScore" align="center" style={{ width: 52 }} />
-        <Th label="신고가" sortKey="nScore" align="center" style={{ width: 52 }} />
-        <Th label="수급" sortKey="sScore" align="center" style={{ width: 52 }} />
-        <Th label="선도성" sortKey="lScore" align="center" style={{ width: 52 }} />
-        <Th label="기관" sortKey="iScore" align="center" style={{ width: 52 }} />
-        <Th label="시장" sortKey="mScore" align="center" style={{ width: 48 }} />
+        <Th label="SCORE" sortKey="compositeScore" style={{ width: 70 }} tip="C·A·N·S·L·I 가중합산 종합점수 (0~100)" />
+        <Th label="Δ" style={{ width: 48, textAlign: 'center' }} tip="전일 대비 종합점수 변동" />
+        <Th label="C" sortKey="cScore" align="center" style={{ width: 42 }} tip="분기실적: 당분기 EPS 전년대비 성장률" />
+        <Th label="A" sortKey="aScore" align="center" style={{ width: 42 }} tip="연간성장: 3년 EPS 연평균 성장률 + ROE" />
+        <Th label="N" sortKey="nScore" align="center" style={{ width: 42 }} tip="신고가: 52주 고점 근접도 + 돌파 여부" />
+        <Th label="S" sortKey="sScore" align="center" style={{ width: 42 }} tip="수급: 시총 희소성 + 거래량 급증도" />
+        <Th label="L" sortKey="lScore" align="center" style={{ width: 42 }} tip="선도성: 시장 내 상대강도 순위 (상위일수록 높음)" />
+        <Th label="I" sortKey="iScore" align="center" style={{ width: 42 }} tip="기관: 외인+기관 10일 순매수 강도" />
+        <Th label="M" sortKey="mScore" align="center" style={{ width: 42 }} tip="시장: 시장 전반 건전도 (전 종목 동일)" />
         <Th label="종가" sortKey="closePrice" style={{ width: 78 }} />
-        <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} />
-        <Th label="52주고점비" sortKey="weekHigh52" style={{ width: 72 }} />
+        <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} tip="전일 종가 대비 당일 등락률" />
+        <Th label="고점비" sortKey="weekHigh52" style={{ width: 62 }} tip="52주 최고가 대비 현재가 괴리율" />
         <Th label="거래량" sortKey="volume" style={{ width: 68 }} />
-        <Th label="외인10일" sortKey="foreignNetBuy10d" style={{ width: 76 }} />
-        <Th label="기관10일" sortKey="instNetBuy10d" style={{ width: 76 }} />
-        <Th label="시가총액" sortKey="marketCap" style={{ width: 78 }} />
-        <Th label="베이스" align="center" style={{ width: 52 }} />
+        <Th label="외인" sortKey="foreignNetBuy10d" style={{ width: 62 }} tip="외국인 최근 10거래일 순매수 (억원)" />
+        <Th label="기관" sortKey="instNetBuy10d" style={{ width: 62 }} tip="기관 최근 10거래일 순매수 (억원)" />
+        <Th label="시총" sortKey="marketCap" style={{ width: 68 }} />
+        <Th label="베이스" align="center" style={{ width: 56 }} tip="최근 1년간 52주 고점 근처(-15% 이내)에 머문 거래일 수. 길수록 가격 기반이 탄탄" />
       </tr>
     )
   }
@@ -512,8 +514,21 @@ export default function ScreenerPage() {
         <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
           {fmtMarketCap(item.marketCap)}
         </td>
-        <td style={{ ...S.td, textAlign: 'center', fontSize: 11, color: 'var(--text-3)' }}>
-          {item.baseDays ? `${item.baseDays}일` : '-'}
+        <td style={{ ...S.td, textAlign: 'center', fontSize: 11, padding: '3px 4px' }}>
+          {item.baseDays ? (() => {
+            const d = item.baseDays!
+            const pct = Math.min(100, d / 120 * 100)
+            const color = d >= 60 ? '#4ade80' : d >= 30 ? '#fabd44' : 'var(--text-4)'
+            const label = d >= 60 ? '탄탄' : d >= 30 ? '형성중' : '짧음'
+            return (
+              <div title={`${d}거래일 (52주 고점 -15% 이내 체류)`}>
+                <div style={{ fontSize: 11, fontWeight: 600, color }}>{d}<span style={{ fontSize: 9, color: 'var(--text-4)', marginLeft: 2 }}>{label}</span></div>
+                <div style={{ height: 2, background: 'var(--border)', borderRadius: 1, marginTop: 2 }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 1 }} />
+                </div>
+              </div>
+            )
+          })() : <span style={{ color: 'var(--text-4)' }}>-</span>}
         </td>
       </>
     )

@@ -56,6 +56,10 @@ public class DerivedMetricsTxHelper {
                     AND i.market IN (%s) AND i.is_active = TRUE
                 WHERE p.trade_date <= :scoreDate
             ),
+            latest_trade AS (
+                SELECT MAX(trade_date) AS td
+                FROM price_window
+            ),
             today AS (
                 SELECT
                     security_id,
@@ -80,7 +84,7 @@ public class DerivedMetricsTxHelper {
                         ELSE NULL
                     END AS vol_ratio_20d
                 FROM price_window
-                WHERE trade_date = :scoreDate
+                WHERE trade_date = (SELECT td FROM latest_trade)
             )
             INSERT INTO derived_metrics (
                 security_id, as_of_date,
