@@ -398,13 +398,13 @@ export default function ScreenerPage() {
         <Th label="섹터" align="left" style={{ width: 80 }} />
         <Th label="SCORE" sortKey="compositeScore" style={{ width: 70 }} tip="C·A·N·S·L·I 가중합산 종합점수 (0~100)" />
         <Th label="Δ" style={{ width: 48, textAlign: 'center' }} tip="전일 대비 종합점수 변동" />
-        <Th label="C" sortKey="cScore" align="center" style={{ width: 42 }} tip="분기실적: 당분기 EPS 전년대비 성장률" />
-        <Th label="A" sortKey="aScore" align="center" style={{ width: 42 }} tip="연간성장: 3년 EPS 연평균 성장률 + ROE" />
-        <Th label="N" sortKey="nScore" align="center" style={{ width: 42 }} tip="신고가: 52주 고점 근접도 + 돌파 여부" />
-        <Th label="S" sortKey="sScore" align="center" style={{ width: 42 }} tip="수급: 시총 희소성 + 거래량 급증도" />
-        <Th label="L" sortKey="lScore" align="center" style={{ width: 42 }} tip="선도성: 시장 내 상대강도 순위 (상위일수록 높음)" />
-        <Th label="I" sortKey="iScore" align="center" style={{ width: 42 }} tip="기관: 외인+기관 10일 순매수 강도" />
-        <Th label="M" sortKey="mScore" align="center" style={{ width: 42 }} tip="시장: 시장 전반 건전도 (전 종목 동일)" />
+        <Th label="실적" sortKey="cScore" align="center" style={{ width: 46 }} tip="분기실적: 당분기 EPS 전년대비 성장률" />
+        <Th label="성장" sortKey="aScore" align="center" style={{ width: 46 }} tip="연간성장: 3년 EPS 연평균 성장률 + ROE" />
+        <Th label="고가" sortKey="nScore" align="center" style={{ width: 46 }} tip="신고가: 52주 고점 근접도 + 돌파 여부" />
+        <Th label="수급" sortKey="sScore" align="center" style={{ width: 46 }} tip="수급: 시총 희소성 + 거래량 급증도" />
+        <Th label="선도" sortKey="lScore" align="center" style={{ width: 46 }} tip="선도성: 시장 내 상대강도 순위 (상위일수록 높음)" />
+        <Th label="기관" sortKey="iScore" align="center" style={{ width: 46 }} tip="기관투자: 외인+기관 10일 순매수 강도" />
+        <Th label="시장" sortKey="mScore" align="center" style={{ width: 46 }} tip="시장: 시장 전반 건전도 (전 종목 동일)" />
         <Th label="종가" sortKey="closePrice" style={{ width: 78 }} />
         <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} tip="전일 종가 대비 당일 등락률" />
         <Th label="고점비" sortKey="weekHigh52" style={{ width: 62 }} tip="52주 최고가 대비 현재가 괴리율" />
