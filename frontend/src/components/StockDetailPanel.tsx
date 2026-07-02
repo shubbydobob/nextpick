@@ -7,8 +7,8 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   ComposedChart, Line,
 } from 'recharts'
-import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations } from '../api/client'
-import type { NewsItem, SectorPeer, CorrelationStock } from '../api/client'
+import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations, fetchLiveQuotes } from '../api/client'
+import type { NewsItem, SectorPeer, CorrelationStock, LiveQuote } from '../api/client'
 import PriceChart from './PriceChart'
 import type { ScreenerItem, ScoreHistory, FinancialRecord } from '../types'
 
@@ -144,6 +144,7 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
   const [correlations, setCorrelations] = useState<CorrelationStock[]>([])
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [watched, setWatched] = useState(false)
+  const [live, setLive] = useState<LiveQuote | null>(null)
   const userIsPremium = isPremium()
   const userIsLoggedIn = isLoggedIn()
 
@@ -173,6 +174,17 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [id])
+
+  // 장중 실시간 시세 오버레이 (해당 종목 1건, 1분 폴링). 장외엔 백엔드가 빈 결과.
+  useEffect(() => {
+    const ticker = stock?.ticker
+    if (!ticker) return
+    let cancelled = false
+    const load = () => fetchLiveQuotes([ticker]).then(m => { if (!cancelled) setLive(m[ticker] ?? null) })
+    load()
+    const pid = setInterval(load, 60_000)
+    return () => { cancelled = true; clearInterval(pid) }
+  }, [stock?.ticker])
 
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, color: 'var(--text-4)' }}>
@@ -347,14 +359,21 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
         display: 'flex', gap: 0, marginBottom: 16,
         background: 'var(--bg-nav)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden',
       }}>
-        {[
-          { label: '현재가', value: fmtPrice(stock.closePrice), mono: true },
-          { label: '등락률', value: fmtRate(stock.changeRate), color: stock.changeRate !== null ? (stock.changeRate > 0 ? '#68d391' : stock.changeRate < 0 ? '#fc8181' : 'var(--text-3)') : 'var(--text-3)' },
+        {(() => {
+          // 장중 라이브 시세 오버레이 (배치값 위에 머지)
+          const liveClose = live?.price ?? stock.closePrice
+          const liveRate  = live?.changeRate ?? stock.changeRate
+          const liveVol   = live?.volume ?? stock.volume
+          const liveTurn  = live?.turnover ?? stock.turnover
+          return [
+          { label: '현재가', value: fmtPrice(liveClose), mono: true },
+          { label: '등락률', value: fmtRate(liveRate), color: liveRate !== null ? (liveRate > 0 ? 'var(--up)' : liveRate < 0 ? 'var(--down)' : 'var(--text-3)') : 'var(--text-3)' },
           { label: '52주 신고가', value: fmtPrice(stock.weekHigh52) },
           { label: '시가총액', value: fmtMarketCap(stock.marketCap) },
-          { label: '거래대금', value: fmtAmt(stock.turnover) },
-          { label: '거래량', value: fmtVol(stock.volume) },
-        ].map(({ label, value, color, mono }, i) => (
+          { label: '거래대금', value: fmtAmt(liveTurn) },
+          { label: '거래량', value: fmtVol(liveVol) },
+          ]
+        })().map(({ label, value, color, mono }, i) => (
           <div key={label} style={{
             flex: 1, padding: '12px 14px',
             borderRight: i < 5 ? '1px solid var(--border)' : 'none',

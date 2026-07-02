@@ -10,13 +10,30 @@ import org.yaml.snakeyaml.Yaml;
 import java.io.FileInputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * GET /api/realtime/price?ticker=005930
- * KIS 주식현재가시세 (FHKST01010400) 호출 → { ticker, price, change, changeRate }
+ * 장중 실시간 시세 (KIS 주식현재가시세 FHKST01010400).
+ *
+ *   GET /api/realtime/price?ticker=005930
+ *       → 단일 종목 { ticker, name, price, change, changeRate, volume, turnover }
+ *   GET /api/realtime/quotes?tickers=005930,000660,...
+ *       → 여러 종목 배치 조회 (화면에 보이는 30행 등). 장외 시간엔 빈 배열 반환.
+ *
+ * 설계:
+ *   - CANSLIM 점수는 일 1회 배치(EOD). 이 컨트롤러는 시세성 필드(현재가·등락률·
+ *     거래량·거래대금)만 장중 실시간으로 덮어쓰기용으로 제공.
+ *   - 종목당 1콜(KIS 제약) → 화면에 보이는 종목만 호출하는 전제.
+ *   - 15초 인메모리 캐시로 페이지 재진입 시 중복 호출 절감.
+ *   - 장중(평일 09:00~15:30 KST)에만 KIS 호출, 그 외엔 빈 결과(프론트는 배치값 유지).
  */
 @RestController
 @RequestMapping("/api/realtime")
@@ -25,6 +42,9 @@ public class RealtimePriceController {
     private static final Logger log = LoggerFactory.getLogger(RealtimePriceController.class);
     private static final String KIS_BASE = "https://openapi.koreainvestment.com:9443";
     private static final String PRICE_PATH = "/uapi/domestic-stock/v1/quotations/inquire-price";
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final int MAX_BATCH = 60;         // 배치 상한 (쿼터 보호)
+    private static final long CACHE_TTL_MS = 15_000; // 15초 캐시
 
     private final RestTemplate rest = new RestTemplate();
 
@@ -35,50 +55,98 @@ public class RealtimePriceController {
     // KIS config (lazy-loaded)
     private Map<String, Object> kisConfig;
 
+    // 시세 캐시 (ticker → {data, ts})
+    private final Map<String, CachedQuote> quoteCache = new ConcurrentHashMap<>();
+
+    private record CachedQuote(Map<String, Object> data, long ts) {}
+
     @GetMapping("/price")
     public ResponseEntity<Map<String, Object>> getPrice(@RequestParam("ticker") String ticker) {
         try {
-            Map<String, Object> cfg = loadKisConfig();
-            String token = getToken(cfg);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("authorization", "Bearer " + token);
-            headers.set("appkey",   (String) cfg.get("app_key"));
-            headers.set("appsecret", (String) cfg.get("app_secret"));
-            headers.set("tr_id",    "FHKST01010400");
-            headers.set("custtype", "P");
-
-            String url = KIS_BASE + PRICE_PATH
-                    + "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + ticker;
-
-            ResponseEntity<Map> resp = rest.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-
-            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null)
-                return ResponseEntity.status(502).build();
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> output = (Map<String, Object>) resp.getBody().get("output");
-            if (output == null)
-                return ResponseEntity.status(502).body(Map.of("error", "output null"));
-
-            String priceStr      = (String) output.getOrDefault("stck_prpr", "0");
-            String changeStr     = (String) output.getOrDefault("prdy_vrss", "0");
-            String changeRateStr = (String) output.getOrDefault("prdy_ctrt", "0");
-            String stockName     = (String) output.getOrDefault("hts_kor_isnm", "");
-
-            return ResponseEntity.ok(Map.of(
-                    "ticker",     ticker,
-                    "name",       stockName,
-                    "price",      parseLong(priceStr),
-                    "change",     parseLong(changeStr),
-                    "changeRate", parseDouble(changeRateStr)
-            ));
-
+            Map<String, Object> q = quoteFor(ticker);
+            if (q == null) return ResponseEntity.status(502).body(Map.of("error", "quote null"));
+            return ResponseEntity.ok(q);
         } catch (Exception e) {
             log.warn("KIS 현재가 조회 실패 ({}): {}", ticker, e.getMessage());
             return ResponseEntity.status(502).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @GetMapping("/quotes")
+    public ResponseEntity<List<Map<String, Object>>> getQuotes(@RequestParam("tickers") String tickersCsv) {
+        // 장외 시간엔 실시간 의미 없음 → 빈 배열 (프론트는 배치 EOD값 유지)
+        if (!isKrMarketOpen()) return ResponseEntity.ok(List.of());
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        String[] tickers = tickersCsv.split(",");
+        int count = 0;
+        for (String raw : tickers) {
+            String ticker = raw.trim();
+            if (ticker.isEmpty()) continue;
+            if (++count > MAX_BATCH) break;
+            try {
+                Map<String, Object> q = quoteFor(ticker);
+                if (q != null) result.add(q);
+            } catch (Exception e) {
+                log.debug("KIS 배치 시세 실패 ({}): {}", ticker, e.getMessage());
+                // 개별 실패는 무시하고 나머지 진행
+            }
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    /** 캐시 우선 조회 → 미스 시 KIS 호출. */
+    private Map<String, Object> quoteFor(String ticker) throws Exception {
+        CachedQuote cached = quoteCache.get(ticker);
+        long now = System.currentTimeMillis();
+        if (cached != null && now - cached.ts() < CACHE_TTL_MS) return cached.data();
+
+        Map<String, Object> cfg = loadKisConfig();
+        String token = getToken(cfg);
+        Map<String, Object> q = fetchQuote(ticker, cfg, token);
+        if (q != null) quoteCache.put(ticker, new CachedQuote(q, now));
+        return q;
+    }
+
+    /** KIS 주식현재가시세 1콜 → 시세 맵. */
+    private Map<String, Object> fetchQuote(String ticker, Map<String, Object> cfg, String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("authorization", "Bearer " + token);
+        headers.set("appkey",   (String) cfg.get("app_key"));
+        headers.set("appsecret", (String) cfg.get("app_secret"));
+        headers.set("tr_id",    "FHKST01010400");
+        headers.set("custtype", "P");
+
+        String url = KIS_BASE + PRICE_PATH
+                + "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + ticker;
+
+        ResponseEntity<Map> resp = rest.exchange(
+                url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+
+        if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) return null;
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> output = (Map<String, Object>) resp.getBody().get("output");
+        if (output == null) return null;
+
+        return Map.of(
+                "ticker",     ticker,
+                "name",       output.getOrDefault("hts_kor_isnm", ""),
+                "price",      parseLong((String) output.getOrDefault("stck_prpr", "0")),
+                "change",     parseLong((String) output.getOrDefault("prdy_vrss", "0")),
+                "changeRate", parseDouble((String) output.getOrDefault("prdy_ctrt", "0")),
+                "volume",     parseLong((String) output.getOrDefault("acml_vol", "0")),      // 누적 거래량(주)
+                "turnover",   parseLong((String) output.getOrDefault("acml_tr_pbmn", "0"))   // 누적 거래대금(원)
+        );
+    }
+
+    /** 평일 09:00~15:30 KST 여부 (공휴일은 미고려 — 공휴일엔 KIS가 전일값 반환). */
+    private boolean isKrMarketOpen() {
+        ZonedDateTime now = ZonedDateTime.now(KST);
+        DayOfWeek d = now.getDayOfWeek();
+        if (d == DayOfWeek.SATURDAY || d == DayOfWeek.SUNDAY) return false;
+        LocalTime t = now.toLocalTime();
+        return !t.isBefore(LocalTime.of(9, 0)) && !t.isAfter(LocalTime.of(15, 30));
     }
 
     private synchronized String getToken(Map<String, Object> cfg) throws Exception {

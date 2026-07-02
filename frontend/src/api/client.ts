@@ -32,12 +32,34 @@ export async function fetchSectors(): Promise<string[]> {
   return res.json()
 }
 
-export async function fetchRealtimePrice(ticker: string): Promise<{ price: number; change: number; changeRate: number } | null> {
+export async function fetchRealtimePrice(ticker: string): Promise<{ price: number; change: number; changeRate: number; volume?: number; turnover?: number } | null> {
   try {
     const res = await fetch(`${BASE}/realtime/price?ticker=${encodeURIComponent(ticker)}`)
     if (!res.ok) return null
     return res.json()
   } catch { return null }
+}
+
+export interface LiveQuote {
+  ticker: string
+  price: number | null
+  change: number | null
+  changeRate: number | null
+  volume: number | null
+  turnover: number | null
+}
+
+/** 장중 실시간 시세 배치 조회 (화면에 보이는 종목만). 장외 시간엔 빈 객체 반환. */
+export async function fetchLiveQuotes(tickers: string[]): Promise<Record<string, LiveQuote>> {
+  if (!tickers.length) return {}
+  try {
+    const res = await fetch(`${BASE}/realtime/quotes?tickers=${encodeURIComponent(tickers.join(','))}`)
+    if (!res.ok) return {}
+    const list: LiveQuote[] = await res.json()
+    const map: Record<string, LiveQuote> = {}
+    for (const q of list) map[q.ticker] = q
+    return map
+  } catch { return {} }
 }
 
 export async function searchStocks(query: string): Promise<ScreenerItem[]> {

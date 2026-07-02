@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchScreener, fetchSectors } from '../api/client'
+import { fetchScreener, fetchSectors, fetchLiveQuotes } from '../api/client'
+import type { LiveQuote } from '../api/client'
 import { isPremium } from '../api/auth'
 import MacroTicker from '../components/MacroTicker'
 import StockDetailPanel from '../components/StockDetailPanel'
@@ -179,6 +180,7 @@ function GuidePopup({ onClose }: { onClose: (hide24h: boolean) => void }) {
 // ── main component ─────────────────────────────────────────────
 export default function ScreenerPage() {
   const [items, setItems] = useState<ScreenerItem[]>([])
+  const [liveMap, setLiveMap] = useState<Record<string, LiveQuote>>({})
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -317,6 +319,18 @@ export default function ScreenerPage() {
       .finally(() => setLoading(false))
   }, [page, size, query, sector, capRange, sortKey, sortDir, minScore])
 
+  // 장중 실시간 시세 오버레이 — 화면에 보이는 종목만, 1분 폴링.
+  // 장외 시간엔 백엔드가 빈 결과 → 배치(EOD)값 유지.
+  useEffect(() => {
+    if (!items.length) { setLiveMap({}); return }
+    const tickers = items.map(i => i.ticker)
+    let cancelled = false
+    const load = () => fetchLiveQuotes(tickers).then(m => { if (!cancelled) setLiveMap(m) })
+    load()
+    const id = setInterval(load, 60_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [items])
+
   const FREE_WATCHLIST_LIMIT = 5
 
   const toggleWatch = (id: number, e: React.MouseEvent) => {
@@ -420,6 +434,19 @@ export default function ScreenerPage() {
         <Th label="베이스" align="center" style={{ width: 56 }} tip="최근 1년간 52주 고점 근처(-15% 이내)에 머문 거래일 수. 길수록 가격 기반이 탄탄" />
       </tr>
     )
+  }
+
+  // 장중 라이브 시세를 배치 아이템 위에 머지 (시세성 필드만)
+  const mergeLive = (item: ScreenerItem): ScreenerItem => {
+    const q = liveMap[item.ticker]
+    if (!q) return item
+    return {
+      ...item,
+      closePrice: q.price ?? item.closePrice,
+      changeRate: q.changeRate ?? item.changeRate,
+      volume: q.volume ?? item.volume,
+      turnover: q.turnover ?? item.turnover,
+    }
   }
 
   const renderRow = (item: ScreenerItem, _idx: number) => {
@@ -1160,7 +1187,7 @@ export default function ScreenerPage() {
                         : idx % 2 === 0 ? 'var(--bg-base)' : 'var(--bg-nav)',
                       transition: 'background 0.08s',
                     }}>
-                    {renderRow(item, idx)}
+                    {renderRow(mergeLive(item), idx)}
                   </tr>
                 ))}
               </tbody>
