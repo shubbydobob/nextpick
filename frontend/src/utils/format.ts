@@ -3,7 +3,7 @@ export function fmtPrice(v: number | null): string {
 }
 
 export function fmtRate(v: number | null): string {
-  return v === null ? '—' : (v > 0 ? '+' : '') + Math.round(v) + '%'
+  return v === null ? '—' : (v > 0 ? '+' : '') + v.toFixed(2) + '%'
 }
 
 /** 시가총액: 조 / 천억 / 억 단위 (정수 반올림) */
