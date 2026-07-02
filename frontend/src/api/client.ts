@@ -47,6 +47,26 @@ export interface LiveQuote {
   changeRate: number | null
   volume: number | null
   turnover: number | null
+  programNetVol?: number | null   // 프로그램 순매수(주) — 3단계
+}
+
+export interface InvestorFlow {
+  ticker: string
+  date: string
+  foreignNetBuy: number | null   // 외국인 순매수 거래대금(원)
+  instNetBuy: number | null      // 기관 순매수 거래대금(원)
+  individualNetBuy: number | null
+  foreignNetVol: number | null   // 외국인 순매수(주)
+  instNetVol: number | null
+}
+
+/** 종목 상세 전용 — 당일 기관/외국인 순매수 (KIS FHKST01010900). 장중 잠정치. */
+export async function fetchInvestorFlow(ticker: string): Promise<InvestorFlow | null> {
+  try {
+    const res = await fetch(`${BASE}/realtime/investor?ticker=${encodeURIComponent(ticker)}`)
+    if (!res.ok) return null
+    return res.json()
+  } catch { return null }
 }
 
 /** 장중 실시간 시세 배치 조회 (화면에 보이는 종목만). 장외 시간엔 빈 객체 반환. */

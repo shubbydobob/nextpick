@@ -1096,6 +1096,13 @@ export default function ScreenerPage() {
 
         {/* 결과 카운트 + 행수 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* 라이브 상태 배지 — 시세가 실시간으로 갱신 중인지 표시 */}
+          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+            background: Object.keys(liveMap).length > 0 ? 'rgba(34,197,94,0.15)' : 'var(--bg-elevated)',
+            color: Object.keys(liveMap).length > 0 ? '#22c55e' : 'var(--text-4)', whiteSpace: 'nowrap' }}
+            title={Object.keys(liveMap).length > 0 ? '장중 실시간 시세 반영 중' : '장 마감/장외 — 종가(EOD) 기준'}>
+            {Object.keys(liveMap).length > 0 ? '● 실시간' : '종가'}
+          </span>
           {!loading && (
             <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
               <span style={{ color: 'var(--text-3)', fontWeight: 600 }}>{total.toLocaleString()}</span>

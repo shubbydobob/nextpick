@@ -7,8 +7,8 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   ComposedChart, Line,
 } from 'recharts'
-import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations, fetchLiveQuotes } from '../api/client'
-import type { NewsItem, SectorPeer, CorrelationStock, LiveQuote } from '../api/client'
+import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations, fetchLiveQuotes, fetchInvestorFlow } from '../api/client'
+import type { NewsItem, SectorPeer, CorrelationStock, LiveQuote, InvestorFlow } from '../api/client'
 import PriceChart from './PriceChart'
 import type { ScreenerItem, ScoreHistory, FinancialRecord } from '../types'
 
@@ -145,6 +145,7 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const [watched, setWatched] = useState(false)
   const [live, setLive] = useState<LiveQuote | null>(null)
+  const [investor, setInvestor] = useState<InvestorFlow | null>(null)
   const userIsPremium = isPremium()
   const userIsLoggedIn = isLoggedIn()
 
@@ -180,7 +181,10 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
     const ticker = stock?.ticker
     if (!ticker) return
     let cancelled = false
-    const load = () => fetchLiveQuotes([ticker]).then(m => { if (!cancelled) setLive(m[ticker] ?? null) })
+    const load = () => {
+      fetchLiveQuotes([ticker]).then(m => { if (!cancelled) setLive(m[ticker] ?? null) })
+      fetchInvestorFlow(ticker).then(inv => { if (!cancelled) setInvestor(inv) })
+    }
     load()
     const pid = setInterval(load, 60_000)
     return () => { cancelled = true; clearInterval(pid) }
@@ -387,6 +391,43 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
           </div>
         ))}
       </div>
+
+      {/* ── 당일 수급 (실시간, KIS) ── */}
+      {(() => {
+        const px = live?.price ?? stock.closePrice ?? 0
+        const progWon = (live?.programNetVol != null && px) ? live.programNetVol * px : null
+        const isLive = live != null || investor != null
+        const eok = (won: number | null) => won == null ? null : Math.round(won / 1e8)
+        const flowColor = (v: number | null) => v == null ? 'var(--text-3)' : v > 0 ? 'var(--up)' : v < 0 ? 'var(--down)' : 'var(--text-3)'
+        const cell = (label: string, won: number | null, last = false) => {
+          const e = eok(won)
+          return (
+            <div style={{ flex: 1, padding: '10px 14px', borderRight: last ? 'none' : '1px solid var(--border)' }}>
+              <div style={{ fontSize: 9, color: 'var(--text-4)', fontWeight: 600, marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: flowColor(e) }}>
+                {e == null ? '—' : (e > 0 ? '+' : '') + e + '억'}
+              </div>
+            </div>
+          )
+        }
+        return (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.04em' }}>당일 수급</span>
+              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
+                background: isLive ? 'rgba(34,197,94,0.15)' : 'var(--bg-elevated)',
+                color: isLive ? '#22c55e' : 'var(--text-4)' }}>
+                {isLive ? '● 실시간 (장중 잠정)' : '장마감 · 종가 기준'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', background: 'var(--bg-nav)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+              {cell('외국인', investor?.foreignNetBuy ?? null)}
+              {cell('기관', investor?.instNetBuy ?? null)}
+              {cell('프로그램', progWon, true)}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── 매매 시그널 ── */}
       {(() => {

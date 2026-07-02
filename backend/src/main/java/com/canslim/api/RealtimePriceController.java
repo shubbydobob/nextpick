@@ -42,6 +42,7 @@ public class RealtimePriceController {
     private static final Logger log = LoggerFactory.getLogger(RealtimePriceController.class);
     private static final String KIS_BASE = "https://openapi.koreainvestment.com:9443";
     private static final String PRICE_PATH = "/uapi/domestic-stock/v1/quotations/inquire-price";
+    private static final String INVESTOR_PATH = "/uapi/domestic-stock/v1/quotations/inquire-investor";
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final int MAX_BATCH = 60;         // 배치 상한 (쿼터 보호)
     private static final long CACHE_TTL_MS = 15_000; // 15초 캐시
@@ -57,6 +58,7 @@ public class RealtimePriceController {
 
     // 시세 캐시 (ticker → {data, ts})
     private final Map<String, CachedQuote> quoteCache = new ConcurrentHashMap<>();
+    private final Map<String, CachedQuote> investorCache = new ConcurrentHashMap<>();
 
     private record CachedQuote(Map<String, Object> data, long ts) {}
 
@@ -135,9 +137,67 @@ public class RealtimePriceController {
                 "price",      parseLong((String) output.getOrDefault("stck_prpr", "0")),
                 "change",     parseLong((String) output.getOrDefault("prdy_vrss", "0")),
                 "changeRate", parseDouble((String) output.getOrDefault("prdy_ctrt", "0")),
-                "volume",     parseLong((String) output.getOrDefault("acml_vol", "0")),      // 누적 거래량(주)
-                "turnover",   parseLong((String) output.getOrDefault("acml_tr_pbmn", "0"))   // 누적 거래대금(원)
+                "volume",     parseLong((String) output.getOrDefault("acml_vol", "0")),        // 누적 거래량(주)
+                "turnover",   parseLong((String) output.getOrDefault("acml_tr_pbmn", "0")),    // 누적 거래대금(원)
+                "programNetVol", parseLong((String) output.getOrDefault("pgtr_ntby_qty", "0")) // 프로그램 순매수(주) — 3단계
         );
+    }
+
+    /**
+     * GET /api/realtime/investor?ticker=005930
+     * KIS 주식현재가 투자자 (FHKST01010900) → 당일 기관/외국인/개인 순매수.
+     * 종목 상세 전용. 장중엔 잠정치(가집계).
+     */
+    @GetMapping("/investor")
+    public ResponseEntity<Map<String, Object>> getInvestor(@RequestParam("ticker") String ticker) {
+        try {
+            CachedQuote cached = investorCache.get(ticker);
+            long now = System.currentTimeMillis();
+            if (cached != null && now - cached.ts() < CACHE_TTL_MS)
+                return ResponseEntity.ok(cached.data());
+
+            Map<String, Object> cfg = loadKisConfig();
+            String token = getToken(cfg);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("authorization", "Bearer " + token);
+            headers.set("appkey",   (String) cfg.get("app_key"));
+            headers.set("appsecret", (String) cfg.get("app_secret"));
+            headers.set("tr_id",    "FHKST01010900");
+            headers.set("custtype", "P");
+
+            String url = KIS_BASE + INVESTOR_PATH
+                    + "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + ticker;
+
+            ResponseEntity<Map> resp = rest.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null)
+                return ResponseEntity.status(502).body(Map.of("error", "investor http"));
+
+            // output = 최근 일자별 배열, [0] = 당일(가장 최근)
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> out = (List<Map<String, Object>>) resp.getBody().get("output");
+            if (out == null || out.isEmpty())
+                return ResponseEntity.status(502).body(Map.of("error", "investor empty"));
+            Map<String, Object> row = out.get(0);
+
+            // 순매수 거래대금(원) 기준. 필드/단위는 서버에서 KIS 응답으로 검증 필요.
+            Map<String, Object> data = Map.of(
+                    "ticker",            ticker,
+                    "date",              row.getOrDefault("stck_bsop_date", ""),
+                    "foreignNetBuy",     parseLong((String) row.getOrDefault("frgn_ntby_tr_pbmn", "0")),
+                    "instNetBuy",        parseLong((String) row.getOrDefault("orgn_ntby_tr_pbmn", "0")),
+                    "individualNetBuy",  parseLong((String) row.getOrDefault("prsn_ntby_tr_pbmn", "0")),
+                    "foreignNetVol",     parseLong((String) row.getOrDefault("frgn_ntby_qty", "0")),
+                    "instNetVol",        parseLong((String) row.getOrDefault("orgn_ntby_qty", "0"))
+            );
+            investorCache.put(ticker, new CachedQuote(data, now));
+            return ResponseEntity.ok(data);
+
+        } catch (Exception e) {
+            log.warn("KIS 투자자 조회 실패 ({}): {}", ticker, e.getMessage());
+            return ResponseEntity.status(502).body(Map.of("error", e.getMessage()));
+        }
     }
 
     /** 평일 09:00~15:30 KST 여부 (공휴일은 미고려 — 공휴일엔 KIS가 전일값 반환). */
