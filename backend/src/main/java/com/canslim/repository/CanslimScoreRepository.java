@@ -63,24 +63,21 @@ public interface CanslimScoreRepository extends JpaRepository<CanslimScore, Long
                 @Param("compositeScore") double compositeScore,
                 @Param("configVersion") Integer configVersion);
 
-    /** 시장 내 종목들의 52주 고점 대비 -15% 이내 비율 → M 점수 (0~100)
-     *  scoreDate에 derived_metrics 데이터가 없으면 가장 최근 영업일 데이터로 폴백 */
+    /** 오닐 방식 M 점수: market_state의 notes 컬럼에서 "M=XX" 값 추출.
+     *  KOSPI/KOSDAQ 각각의 M 점수를 시가총액 비중으로 가중 평균하는 대신
+     *  해당 markets 중 가장 최근 데이터의 평균을 사용한다. */
     @Query(value = """
-        SELECT COALESCE(
-            LEAST(100, GREATEST(0,
-                ROUND((
-                    COUNT(*) FILTER (WHERE dm.pct_from_52w_high > -15) * 100.0
-                    / NULLIF(COUNT(*), 0) - 5
-                ) * 100.0 / 45, 2)
-            )),
-            50.0)
-        FROM derived_metrics dm
-        JOIN instruments i ON dm.security_id = i.id
-        WHERE dm.as_of_date = (
-            SELECT MAX(as_of_date) FROM derived_metrics
-            WHERE as_of_date <= :scoreDate
+        SELECT COALESCE(AVG(
+            CASE WHEN notes LIKE 'M=%' THEN
+                CAST(SUBSTRING(notes FROM 'M=([0-9]+)') AS DOUBLE PRECISION)
+            END
+        ), 50.0)
+        FROM market_state
+        WHERE state_date = (
+            SELECT MAX(state_date) FROM market_state
+            WHERE state_date <= :scoreDate AND market IN (:markets)
         )
-        AND i.market IN (:markets)
+        AND market IN (:markets)
         """, nativeQuery = true)
     Double computeMarketBreadth(@Param("scoreDate") LocalDate scoreDate,
                                 @Param("markets") List<String> markets);
