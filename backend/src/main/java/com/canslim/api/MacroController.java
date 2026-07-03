@@ -4,8 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -32,6 +33,13 @@ public class MacroController {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final ExecutorService POOL  = Executors.newFixedThreadPool(4);
+
+    private final KisClient kis;
+    private final RestTemplate rest = new RestTemplate();
+    public MacroController(KisClient kis) { this.kis = kis; }
+
+    /** 국내 지수는 KIS 실시간으로 (symbol → KIS 업종코드). 나머지는 Yahoo. */
+    private static final Map<String, String> KIS_INDEX = Map.of("^KS11", "0001", "^KQ11", "1001");
 
     /** symbol → 한국어 표시명 (순서 유지) */
     private static final LinkedHashMap<String, String> SYMBOLS = new LinkedHashMap<>();
@@ -73,7 +81,75 @@ public class MacroController {
         return ResponseEntity.ok(result);
     }
 
+    /** GET /api/macro/debug?iscd=0001 — KIS 지수 원본 응답 확인용(필드/tr_id 검증). */
+    @GetMapping("/debug")
+    public ResponseEntity<Map<String, Object>> debug(
+            @RequestParam(value = "iscd", defaultValue = "0001") String iscd) {
+        Map<String, Object> r = new LinkedHashMap<>();
+        try {
+            HttpHeaders h = kis.authHeaders("FHPUP02100000");
+            String url = KisClient.BASE + "/uapi/domestic-stock/v1/quotations/inquire-index-price"
+                    + "?FID_COND_MRKT_DIV_CODE=U&FID_INPUT_ISCD=" + iscd;
+            ResponseEntity<Map> resp = rest.exchange(url, HttpMethod.GET, new HttpEntity<>(h), Map.class);
+            r.put("httpStatus", resp.getStatusCode().value());
+            Map<?, ?> body = resp.getBody();
+            if (body != null) {
+                r.put("rt_cd", body.get("rt_cd"));
+                r.put("msg1", body.get("msg1"));
+                r.put("output", body.get("output"));   // 전체 output — 필드명 확인용
+            }
+        } catch (org.springframework.web.client.HttpStatusCodeException he) {
+            r.put("httpStatus", he.getStatusCode().value());
+            r.put("body", he.getResponseBodyAsString());
+        } catch (Exception e) {
+            r.put("error", String.valueOf(e));
+        }
+        return ResponseEntity.ok(r);
+    }
+
     private QuoteDto fetchOne(String symbol, String name) {
+        // 국내 지수는 KIS 실시간 우선, 실패 시 Yahoo 폴백
+        String iscd = KIS_INDEX.get(symbol);
+        if (iscd != null) {
+            QuoteDto kisQ = fetchKisIndex(iscd, symbol, name);
+            if (kisQ != null) return kisQ;
+        }
+        return fetchYahoo(symbol, name);
+    }
+
+    /** KIS 국내업종 현재지수 (FHPUP02100000). 코스피=0001, 코스닥=1001. */
+    private QuoteDto fetchKisIndex(String iscd, String symbol, String name) {
+        try {
+            HttpHeaders h = kis.authHeaders("FHPUP02100000");
+            String url = KisClient.BASE + "/uapi/domestic-stock/v1/quotations/inquire-index-price"
+                    + "?FID_COND_MRKT_DIV_CODE=U&FID_INPUT_ISCD=" + iscd;
+            ResponseEntity<Map> resp = rest.exchange(url, HttpMethod.GET, new HttpEntity<>(h), Map.class);
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) return null;
+            Object o = resp.getBody().get("output");
+            if (!(o instanceof Map<?, ?> out)) return null;
+
+            double price  = parseD(out.get("bstp_nmix_prpr"));       // 현재 지수
+            if (price == 0) return null;
+            double change = parseD(out.get("bstp_nmix_prdy_vrss"));  // 전일 대비
+            double pct    = parseD(out.get("bstp_nmix_prdy_ctrt"));  // 전일 대비율
+            // 부호 보정 (prdy_vrss_sign: 1/2 상승, 4/5 하락, 3 보합)
+            String sign = String.valueOf(out.get("prdy_vrss_sign"));
+            if ("4".equals(sign) || "5".equals(sign)) { pct = -Math.abs(pct); change = -Math.abs(change); }
+            else if ("1".equals(sign) || "2".equals(sign)) { pct = Math.abs(pct); change = Math.abs(change); }
+
+            return new QuoteDto(symbol, name, price, change, pct, "KRW", "REGULAR");
+        } catch (Exception e) {
+            log.debug("KIS 지수 {} 조회 실패: {}", iscd, e.getMessage());
+            return null;
+        }
+    }
+
+    private static double parseD(Object o) {
+        try { return Double.parseDouble(String.valueOf(o).replace(",", "").trim()); }
+        catch (Exception e) { return 0; }
+    }
+
+    private QuoteDto fetchYahoo(String symbol, String name) {
         // Yahoo Finance v8 chart API — 단일 심볼
         String url = "https://query1.finance.yahoo.com/v8/finance/chart/"
                 + symbol.replace("^", "%5E")

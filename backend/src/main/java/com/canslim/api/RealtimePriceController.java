@@ -49,13 +49,9 @@ public class RealtimePriceController {
     private static final long CACHE_TTL_MS = 10_000; // 10초 캐시 (15초 폴링이 항상 fresh 받도록)
 
     private final RestTemplate rest = new RestTemplate();
+    private final KisClient kis;
 
-    // 토큰 인메모리 캐시
-    private String cachedToken;
-    private Instant tokenExpiry = Instant.EPOCH;
-
-    // KIS config (lazy-loaded)
-    private Map<String, Object> kisConfig;
+    public RealtimePriceController(KisClient kis) { this.kis = kis; }
 
     // 시세 캐시 (ticker → {data, ts})
     private final Map<String, CachedQuote> quoteCache = new ConcurrentHashMap<>();
@@ -112,7 +108,7 @@ public class RealtimePriceController {
 
         Map<String, Object> cfg;
         try {
-            cfg = loadKisConfig();
+            cfg = kis.getConfig();
             r.put("configLoaded", true);
             r.put("hasAppKey", cfg.get("app_key") != null && !String.valueOf(cfg.get("app_key")).isBlank());
             r.put("hasAppSecret", cfg.get("app_secret") != null && !String.valueOf(cfg.get("app_secret")).isBlank());
@@ -124,7 +120,7 @@ public class RealtimePriceController {
 
         String token;
         try {
-            token = getToken(cfg);
+            token = kis.getToken();
             r.put("tokenOk", token != null && !token.isBlank());
         } catch (Exception e) {
             r.put("tokenOk", false);
@@ -168,8 +164,8 @@ public class RealtimePriceController {
         long now = System.currentTimeMillis();
         if (cached != null && now - cached.ts() < CACHE_TTL_MS) return cached.data();
 
-        Map<String, Object> cfg = loadKisConfig();
-        String token = getToken(cfg);
+        Map<String, Object> cfg = kis.getConfig();
+        String token = kis.getToken();
         Map<String, Object> q = fetchQuote(ticker, cfg, token);
         if (q != null) quoteCache.put(ticker, new CachedQuote(q, now));
         return q;
@@ -221,8 +217,8 @@ public class RealtimePriceController {
             if (cached != null && now - cached.ts() < CACHE_TTL_MS)
                 return ResponseEntity.ok(cached.data());
 
-            Map<String, Object> cfg = loadKisConfig();
-            String token = getToken(cfg);
+            Map<String, Object> cfg = kis.getConfig();
+            String token = kis.getToken();
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("authorization", "Bearer " + token);
@@ -272,56 +268,6 @@ public class RealtimePriceController {
         if (d == DayOfWeek.SATURDAY || d == DayOfWeek.SUNDAY) return false;
         LocalTime t = now.toLocalTime();
         return !t.isBefore(LocalTime.of(9, 0)) && !t.isAfter(LocalTime.of(15, 30));
-    }
-
-    private synchronized String getToken(Map<String, Object> cfg) throws Exception {
-        if (cachedToken != null && Instant.now().isBefore(tokenExpiry)) return cachedToken;
-
-        log.info("KIS 토큰 발급 요청...");
-        HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_JSON);
-        Map<String, String> body = Map.of(
-                "grant_type", "client_credentials",
-                "appkey",     (String) cfg.get("app_key"),
-                "appsecret",  (String) cfg.get("app_secret")
-        );
-        ResponseEntity<Map> resp = rest.postForEntity(
-                KIS_BASE + "/oauth2/tokenP", new HttpEntity<>(body, h), Map.class);
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> data = resp.getBody();
-        if (data == null) throw new RuntimeException("토큰 발급 응답 없음");
-
-        cachedToken = (String) data.get("access_token");
-        long expiresIn = Long.parseLong(String.valueOf(data.getOrDefault("expires_in", "86400")));
-        tokenExpiry = Instant.now().plusSeconds(expiresIn - 600);
-        log.info("KIS 토큰 발급 완료 ({}s)", expiresIn);
-        return cachedToken;
-    }
-
-    @SuppressWarnings("unchecked")
-    private synchronized Map<String, Object> loadKisConfig() throws Exception {
-        if (kisConfig != null) return kisConfig;
-
-        // 1순위: 환경변수 직접 주입 (KIS_APP_KEY / KIS_APP_SECRET) — 컨테이너에 파일 불필요
-        String envKey = System.getenv("KIS_APP_KEY");
-        String envSecret = System.getenv("KIS_APP_SECRET");
-        if (envKey != null && !envKey.isBlank() && envSecret != null && !envSecret.isBlank()) {
-            kisConfig = Map.of("app_key", envKey, "app_secret", envSecret);
-            log.info("KIS config: 환경변수에서 로드");
-            return kisConfig;
-        }
-
-        // 2순위: KIS_CONFIG_PATH 파일 (Docker 볼륨 마운트) → 3순위: 로컬 개발 상대경로
-        String envPath = System.getenv("KIS_CONFIG_PATH");
-        Path yamlPath = (envPath != null && !envPath.isBlank())
-                ? Paths.get(envPath)
-                : Paths.get("").toAbsolutePath().getParent().resolve("etl/config/kis.yaml");
-        try (FileInputStream fis = new FileInputStream(yamlPath.toFile())) {
-            kisConfig = new Yaml().load(fis);
-        }
-        log.info("KIS config: 파일에서 로드 ({})", yamlPath);
-        return kisConfig;
     }
 
     private long parseLong(String s) {
