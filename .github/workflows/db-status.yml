@@ -31,5 +31,11 @@ jobs:
             echo "===== canslim_scores 최신 채점일 + 건수 ====="
             $PSQL -c "SELECT score_date, count(*) FROM canslim_scores GROUP BY score_date ORDER BY score_date DESC LIMIT 3;" 2>&1 || echo "(조회 실패)"
 
+            echo "===== 최신 채점일 점수 건강도 (값이 진짜인지) ====="
+            $PSQL -c "SELECT count(*) total, round(avg(composite_score)::numeric,1) avg_comp, min(composite_score) mn, max(composite_score) mx, count(DISTINCT composite_score) distinct_comp, count(*) FILTER (WHERE c_score IS NULL) c_null, count(*) FILTER (WHERE a_score IS NULL) a_null, count(*) FILTER (WHERE l_score IS NULL) l_null, count(*) FILTER (WHERE i_score IS NULL) i_null FROM canslim_scores WHERE score_date=(SELECT max(score_date) FROM canslim_scores);" 2>&1 || echo "(조회 실패)"
+
+            echo "===== 상위 5 종목 샘플 (ticker/comp/C/A/N/S/L/I) ====="
+            $PSQL -c "SELECT ticker, composite_score, c_score, a_score, n_score, s_score, l_score, i_score FROM canslim_scores WHERE score_date=(SELECT max(score_date) FROM canslim_scores) ORDER BY composite_score DESC NULLS LAST LIMIT 5;" 2>&1 || echo "(조회 실패)"
+
             echo "===== 백필 로그 마지막 15줄 ====="
             tail -n 15 /home/ubuntu/canslim/backfill_10yr.log 2>&1 || echo "(로그 없음)"
