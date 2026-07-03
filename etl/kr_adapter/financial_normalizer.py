@@ -208,6 +208,16 @@ def _compute_metrics(
         None,
     )
 
+    # NUMERIC(10,4) 오버플로우 방지 — 전분기 EPS가 0 근처면 YoY%가 146만% 등으로 폭발함.
+    # 극단값은 C 스코어링상 이미 최상단 버킷이라 ±9999%로 상한만 씌워도 무손실.
+    # (이 클램프 누락 시 한 종목이라도 오버플로우 나면 normalize_all 전체가 롤백 → C/A 전부 null)
+    def _clamp_pct(x: Optional[float]) -> Optional[float]:
+        if x is None:
+            return None
+        return max(-9999.0, min(9999.0, x))
+    yoy   = _clamp_pct(yoy)
+    accel = _clamp_pct(accel)
+
     return {
         "eps_standalone_latest":  latest_eps,
         "eps_standalone_prev_yq": prev_yq_eps,
