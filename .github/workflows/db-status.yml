@@ -1,0 +1,35 @@
+name: DB status (manual)
+
+# 운영 DB 상태 진단 — 읽기 전용. 테이블별 row 수 + 가격 이력 충분 종목 수 + 최신 거래일.
+on:
+  workflow_dispatch:
+
+jobs:
+  status:
+    name: Inspect production DB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query DB via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            PSQL="docker exec canslim-postgres psql -U canslim_user -d canslim -A -t"
+
+            echo "===== 테이블별 row 수 ====="
+            $PSQL -c "SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY n_live_tup DESC;"
+
+            echo "===== price_daily: 종목당 이력 분포 ====="
+            $PSQL -c "SELECT count(*) AS tickers_total, count(*) FILTER (WHERE d > 200) AS ge_200d, count(*) FILTER (WHERE d > 20) AS ge_20d FROM (SELECT security_id, count(*) d FROM price_daily GROUP BY security_id) s;" 2>&1 || echo "(price_daily 조회 실패)"
+
+            echo "===== price_daily 최신 거래일 ====="
+            $PSQL -c "SELECT max(trade_date) FROM price_daily;" 2>&1 || echo "(조회 실패)"
+
+            echo "===== canslim_scores 최신 채점일 + 건수 ====="
+            $PSQL -c "SELECT score_date, count(*) FROM canslim_scores GROUP BY score_date ORDER BY score_date DESC LIMIT 3;" 2>&1 || echo "(조회 실패)"
+
+            echo "===== 백필 로그 마지막 15줄 ====="
+            tail -n 15 /home/ubuntu/canslim/backfill_10yr.log 2>&1 || echo "(로그 없음)"
