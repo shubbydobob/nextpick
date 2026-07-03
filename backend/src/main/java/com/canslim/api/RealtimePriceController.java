@@ -132,10 +132,32 @@ public class RealtimePriceController {
             return ResponseEntity.ok(r);
         }
 
+        // KIS 시세 원본 응답을 그대로 노출 (rt_cd/msg1 = 실패 사유)
         try {
-            r.put("quote", fetchQuote(ticker, cfg, token));
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("authorization", "Bearer " + token);
+            headers.set("appkey",   (String) cfg.get("app_key"));
+            headers.set("appsecret", (String) cfg.get("app_secret"));
+            headers.set("tr_id",    "FHKST01010400");
+            headers.set("custtype", "P");
+            String url = KIS_BASE + PRICE_PATH + "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + ticker;
+
+            ResponseEntity<Map> resp = rest.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            r.put("priceHttpStatus", resp.getStatusCode().value());
+            Map<?, ?> body = resp.getBody();
+            if (body != null) {
+                r.put("rt_cd", body.get("rt_cd"));   // "0" = 성공
+                r.put("msg_cd", body.get("msg_cd"));
+                r.put("msg1", body.get("msg1"));     // 실패 사유 메시지
+                Object out = body.get("output");
+                r.put("hasOutput", out != null);
+                if (out instanceof Map<?, ?> m) r.put("stck_prpr", m.get("stck_prpr"));
+            }
+        } catch (org.springframework.web.client.HttpStatusCodeException he) {
+            r.put("priceHttpStatus", he.getStatusCode().value());
+            r.put("priceBody", he.getResponseBodyAsString());
         } catch (Exception e) {
-            r.put("quoteError", String.valueOf(e));
+            r.put("priceCallError", String.valueOf(e));
         }
         return ResponseEntity.ok(r);
     }
