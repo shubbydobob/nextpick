@@ -417,11 +417,13 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
         const isLive = live != null || investor != null
         const eok = (won: number | null) => won == null ? null : Math.round(won / 1e8)
         const flowColor = (v: number | null) => v == null ? 'var(--text-3)' : v > 0 ? 'var(--up)' : v < 0 ? 'var(--down)' : 'var(--text-3)'
-        const cell = (label: string, won: number | null, last = false) => {
+        const cell = (label: string, won: number | null, tag: string, last = false) => {
           const e = eok(won)
           return (
             <div style={{ flex: 1, padding: '10px 14px', borderRight: last ? 'none' : '1px solid var(--border)' }}>
-              <div style={{ fontSize: 9, color: 'var(--text-4)', fontWeight: 600, marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: 9, color: 'var(--text-4)', fontWeight: 600, marginBottom: 3 }}>
+                {label} <span style={{ fontSize: 8, fontWeight: 500, color: tag === '실시간' ? '#22c55e' : 'var(--text-4)' }}>{tag}</span>
+              </div>
               <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: flowColor(e) }}>
                 {e == null ? '—' : (e > 0 ? '+' : '') + e + '억'}
               </div>
@@ -435,13 +437,13 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
               <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
                 background: isLive ? 'rgba(34,197,94,0.15)' : 'var(--bg-elevated)',
                 color: isLive ? '#22c55e' : 'var(--text-4)' }}>
-                {isLive ? '● 실시간 (장중 잠정)' : '장마감 · 종가 기준'}
+                {isLive ? '● 장중 (외인·기관 잠정 / 프로그램 실시간)' : '장마감 · 종가 기준'}
               </span>
             </div>
             <div style={{ display: 'flex', background: 'var(--bg-nav)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
-              {cell('외국인', investor?.foreignNetBuy ?? null)}
-              {cell('기관', investor?.instNetBuy ?? null)}
-              {cell('프로그램', progWon, true)}
+              {cell('외국인', investor?.foreignNetBuy ?? null, '잠정')}
+              {cell('기관', investor?.instNetBuy ?? null, '잠정')}
+              {cell('프로그램', progWon, '실시간', true)}
             </div>
           </div>
         )

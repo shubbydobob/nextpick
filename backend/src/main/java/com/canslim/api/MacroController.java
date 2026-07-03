@@ -102,7 +102,10 @@ public class MacroController {
             if (meta.isMissingNode()) return null;
 
             double price    = meta.path("regularMarketPrice").asDouble(0);
-            double prevClose = meta.path("chartPreviousClose").asDouble(0);
+            // 전 거래일 종가 기준(오늘 등락률). previousClose 우선, 없으면 chartPreviousClose.
+            // chartPreviousClose는 range(2d) 시작 '이전' 종가라 2일치 등락이 계산돼 부호가 뒤집혔음.
+            double prevClose = meta.path("previousClose").asDouble(0);
+            if (prevClose == 0) prevClose = meta.path("chartPreviousClose").asDouble(0);
             double change   = prevClose != 0 ? price - prevClose : 0;
             double changePct = prevClose != 0 ? change / prevClose * 100 : 0;
             String currency = meta.path("currency").asText(null);
