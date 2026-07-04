@@ -30,11 +30,7 @@ public class Instrument {
     @Column(name = "total_shares")
     private Long totalShares;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "industry_group_id")
-    private IndustryGroup industryGroup;
-
-    /** COMMON / PREFERRED / REIT / SPAC / ETF / ETN / OTHER */
+/** COMMON / PREFERRED / REIT / SPAC / ETF / ETN / OTHER */
     @Column(name = "security_type", nullable = false, length = 20)
     private String securityType;
 
@@ -60,8 +56,7 @@ public class Instrument {
     public LocalDate getListingDate() { return listingDate; }
     public Long getFloatShares() { return floatShares; }
     public Long getTotalShares() { return totalShares; }
-    public IndustryGroup getIndustryGroup() { return industryGroup; }
-    public String getSecurityType() { return securityType; }
+public String getSecurityType() { return securityType; }
     public String getSector() { return sector; }
     public String getCurrency() { return currency; }
     public boolean isActive() { return active; }

@@ -3,15 +3,20 @@ KR 일별 ETL 진입점 — OS 스케줄러에서 호출
 실행: python -m etl.kr_adapter.run_daily [YYYYMMDD]
 
 파이프라인 순서:
-  1. 종목 목록 갱신 (월요일만)
-  2. 당일 가격 수집 (price_daily)
-  3. KIS 수급 수집 (derived_metrics: inst/foreign_net_buy_10d)
-  4. derived_metrics 가격 컬럼 계산 (pct_from_52w_high, rs_percentile, volume_ratio_20d)
-  5. 스코어링 트리거 (Spring Boot REST API)
+  1.  종목 목록 갱신 (월요일만)
+  2.  당일 가격 수집 (price_daily)
+  3.  KIS 수급 수집 (investor_flow → derived_metrics)
+  4.  DART 재무 수집 (financials, 분기 정확도 우선)
+  5.  KIS 재무 수집 (financials, 전종목 커버리지)
+  6.  financial_normalizer (EPS/ROE → derived_metrics)
+  7.  derived_metrics 가격 컬럼 계산 (rs_percentile, 52w_high 등)
+  8.  market_state 갱신 (KOSPI/KOSDAQ 국면 판정)
+  9.  스코어링 트리거 (Spring Boot REST API)
+  10. SNS 카드 생성 + 게시
 
-Windows 작업 스케줄러 설정:
-  트리거: 매일 오후 4:10 (장 마감 3:30 + 여유)
-  작업:   pythonw -m etl.kr_adapter.run_daily  (C:\\Projects\\canslim 디렉터리)
+EC2 cron (KST):
+  10 16 * * 1-5  run_daily    (장 마감 15:30 + 여유)
+  10 18 * * 1-5  after_hours_loader (시간외 단일가)
 """
 import os
 import sys
@@ -33,18 +38,23 @@ logger = logging.getLogger(__name__)
 SCORING_URL = os.environ.get("SCORING_URL", "http://localhost:8080/api/admin/scoring/run")
 
 
-def _maybe_reset_dart_ingestion(target_date: date) -> None:
-    """매월 첫 거래일(1~7일 중 월~금)에 DART ingestion_meta 리셋 → 전 종목 재수집."""
+def _maybe_reset_financial_ingestion(target_date: date) -> None:
+    """매월 첫 거래일(1~7일 중 월~금)에 DART·KIS 재무 ingestion_meta 리셋 → 전 종목 재수집.
+    새 분기 보고서(1·4·7·10월 공시)를 누락 없이 반영하기 위해 필요."""
     if target_date.day > 7 or target_date.weekday() >= 5:
         return
     from ..shared.db_writer import get_session
     from sqlalchemy import text
     with get_session() as sess:
         deleted = sess.execute(
-            text("DELETE FROM ingestion_meta WHERE source_name LIKE 'DART_FIN_KR_%' AND status = 'SUCCESS'")
+            text("""
+                DELETE FROM ingestion_meta
+                WHERE (source_name LIKE 'DART_FIN_KR_%' OR source_name LIKE 'KIS_FIN_KR_%')
+                  AND status = 'SUCCESS'
+            """)
         ).rowcount
     if deleted > 0:
-        logger.info("DART ingestion_meta 월별 리셋: %d건 삭제 (재수집 예약)", deleted)
+        logger.info("재무 ingestion_meta 월별 리셋: %d건 삭제 (DART+KIS 재수집 예약)", deleted)
 
 
 def trigger_scoring() -> bool:
@@ -99,7 +109,7 @@ def main():
     # ── 4. DART 재무 수집 (매월 첫 거래일 리셋 후 재수집, 나머지는 resume) ─
     logger.info("[4/10] DART 재무 수집 시작")
     try:
-        _maybe_reset_dart_ingestion(target_date)
+        _maybe_reset_financial_ingestion(target_date)
         from .dart_loader import load as load_dart
         load_dart(target_date)
         logger.info("[4/10] DART 재무 수집 완료")
