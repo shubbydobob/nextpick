@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { fetchSectorSummary } from '../api/client'
+import { fetchScreener } from '../api/client'
+import type { ScreenerItem } from '../types'
 
 interface SectorStat {
   sector: string
@@ -15,6 +16,32 @@ interface Props {
   onSectorClick?: (sector: string) => void
 }
 
+function aggregateBySector(items: ScreenerItem[]): SectorStat[] {
+  const map = new Map<string, { scores: number[]; changes: number[]; cap: number; top: ScreenerItem | null }>()
+
+  for (const item of items) {
+    const sector = item.sector ?? '기타'
+    if (!map.has(sector)) map.set(sector, { scores: [], changes: [], cap: 0, top: null })
+    const g = map.get(sector)!
+    g.scores.push(item.compositeScore)
+    if (item.changeRate != null) g.changes.push(item.changeRate)
+    if (item.marketCap != null) g.cap += item.marketCap
+    if (!g.top || item.compositeScore > g.top.compositeScore) g.top = item
+  }
+
+  return Array.from(map.entries())
+    .map(([sector, g]) => ({
+      sector,
+      count: g.scores.length,
+      avgScore: g.scores.reduce((a, b) => a + b, 0) / g.scores.length,
+      avgChange: g.changes.length ? g.changes.reduce((a, b) => a + b, 0) / g.changes.length : 0,
+      totalCap: g.cap,
+      topStock: g.top?.name ?? '',
+      topScore: g.top?.compositeScore ?? 0,
+    }))
+    .sort((a, b) => b.totalCap - a.totalCap)
+}
+
 export default function SectorMap({ onSectorClick }: Props) {
   const [sectors, setSectors] = useState<SectorStat[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,20 +49,8 @@ export default function SectorMap({ onSectorClick }: Props) {
 
   useEffect(() => {
     setLoading(true)
-    // 백엔드 집계 엔드포인트(GROUP BY + 캐시) — 2600종목 전송 없이 섹터 요약만
-    fetchSectorSummary('KR')
-      .then(rows => {
-        const stats: SectorStat[] = rows.map(r => ({
-          sector: r.sector ?? '기타',
-          count: r.count ?? 0,
-          avgScore: Number(r.avgScore ?? 0),
-          avgChange: Number(r.avgChange ?? 0),
-          totalCap: Number(r.totalCap ?? 0),
-          topStock: r.topName ?? '',
-          topScore: Number(r.topScore ?? 0),
-        }))
-        setSectors(stats)   // 백엔드가 이미 시총 desc 정렬
-      })
+    fetchScreener('KR', 0, 3000)
+      .then(page => setSectors(aggregateBySector(page.items)))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -46,10 +61,8 @@ export default function SectorMap({ onSectorClick }: Props) {
     </div>
   )
 
-  // Calculate total market cap for sizing
   const totalAllCap = sectors.reduce((s, sec) => s + sec.totalCap, 0)
 
-  // Color function based on avgChange
   const cellColor = (change: number) => {
     if (change >= 3) return '#166534'
     if (change >= 1.5) return '#15803d'
@@ -68,12 +81,10 @@ export default function SectorMap({ onSectorClick }: Props) {
     return '#f87171'
   }
 
-  // Layout: simple treemap-like grid
-  // Split into rows based on cumulative area
   const rows: SectorStat[][] = []
   let currentRow: SectorStat[] = []
   let currentRowCap = 0
-  const rowTargetCap = totalAllCap / 4 // ~4 rows
+  const rowTargetCap = totalAllCap / 4
 
   sectors.forEach(sec => {
     currentRow.push(sec)
@@ -95,7 +106,6 @@ export default function SectorMap({ onSectorClick }: Props) {
         </div>
       </div>
 
-      {/* Treemap */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, borderRadius: 10, overflow: 'hidden' }}>
         {rows.map((row, ri) => {
           const rowTotal = row.reduce((s, sec) => s + sec.totalCap, 0)
@@ -145,7 +155,6 @@ export default function SectorMap({ onSectorClick }: Props) {
         })}
       </div>
 
-      {/* Hovered sector detail */}
       {hoveredSector && (() => {
         const sec = sectors.find(s => s.sector === hoveredSector)
         if (!sec) return null
@@ -187,7 +196,6 @@ export default function SectorMap({ onSectorClick }: Props) {
         )
       })()}
 
-      {/* Legend */}
       <div style={{
         marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
       }}>
