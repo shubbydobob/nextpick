@@ -139,7 +139,7 @@ if __name__ == "__main__":
     print("카드 생성 중...")
     result = generate()
     caption = Path(result["caption"]).read_text(encoding="utf-8")
-    image_path = Path(result["image"])
+    image_path = Path(result["cover"])
 
     print(f"이미지: {image_path}")
     print(f"캡션 길이: {len(caption)}자")

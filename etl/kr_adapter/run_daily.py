@@ -106,8 +106,17 @@ def main():
     except Exception as e:
         logger.warning("[4/7] DART 재무 수집 실패 (비치명적): %s", e)
 
-    # ── 5. financial_normalizer: DART EPS/ROE → derived_metrics ──
-    logger.info("[5/7] financial_normalizer 시작")
+    # ── 5. KIS 재무 수집 (전종목 커버리지 — DART 미등록 소형주 포함) ──
+    logger.info("[5/10] KIS 재무 수집 시작")
+    try:
+        from .kis_financial_loader import load as load_kis_financial
+        load_kis_financial(target_date)
+        logger.info("[5/10] KIS 재무 수집 완료")
+    except Exception as e:
+        logger.warning("[5/10] KIS 재무 수집 실패 (비치명적): %s", e)
+
+    # ── 6. financial_normalizer: DART/KIS EPS/ROE → derived_metrics ──
+    logger.info("[6/10] financial_normalizer 시작")
     try:
         from .financial_normalizer import normalize_all
         normalize_all(target_date)
@@ -151,10 +160,10 @@ def main():
         try:
             from ..sns_publisher.card_generator import run as generate_card
             result = generate_card(n=5)
-            logger.info("[9/9] 카드 생성 완료: %s", result["image"])
+            logger.info("[9/9] 카드 생성 완료: %s", result["cover"])
 
             from pathlib import Path
-            image_path = Path(result["image"])
+            image_path = Path(result["cover"])
             caption = Path(result["caption"]).read_text(encoding="utf-8")
 
             # Threads 게시 (환경변수 있을 때만)
@@ -178,6 +187,14 @@ def main():
                     logger.warning("[9/9] Instagram 게시 실패 (비치명적): %s", e)
             else:
                 logger.info("[9/9] INSTAGRAM 환경변수 미설정 — Instagram 게시 생략")
+
+            # 블로그 포스트 생성
+            try:
+                from ..sns_publisher.blog_generator import run as generate_blog
+                blog = generate_blog(n=5)
+                logger.info("[9/9] 블로그 생성 완료: %s", blog["markdown"])
+            except Exception as e:
+                logger.warning("[9/9] 블로그 생성 실패 (비치명적): %s", e)
 
         except Exception as e:
             logger.warning("[9/9] SNS 카드 생성 실패 (비치명적): %s", e)
