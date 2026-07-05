@@ -216,36 +216,48 @@ public class ScreenerController {
         LocalDate scoreDate = resolveDate(market, null);
         if (scoreDate == null) return ResponseEntity.ok(new ScreenerStats(0, 0, 0, 0, List.of()));
 
-        // 전체 집계: total, bullCount, avgScore, upCount
+        // 전체 집계: total, bullCount, avgScore, upCount (전일 대비 등락 계산)
         Map<String, Object> agg = jdbc.queryForMap("""
+            WITH prev AS (
+              SELECT DISTINCT ON (security_id) security_id, close
+              FROM price_daily
+              WHERE trade_date < ?
+              ORDER BY security_id, trade_date DESC
+            )
             SELECT
               COUNT(*) AS total,
               SUM(CASE WHEN cs.composite_score >= 70 THEN 1 ELSE 0 END) AS bull_count,
               AVG(cs.composite_score) AS avg_score,
-              SUM(CASE WHEN dm.change_rate > 0 THEN 1 ELSE 0 END) AS up_count
+              SUM(CASE WHEN p.close > prev.close THEN 1 ELSE 0 END) AS up_count
             FROM canslim_scores cs
-            LEFT JOIN price_daily dm
-              ON dm.security_id = cs.security_id
-             AND dm.trade_date = cs.score_date
+            LEFT JOIN price_daily p ON p.security_id = cs.security_id AND p.trade_date = cs.score_date
+            LEFT JOIN prev ON prev.security_id = cs.security_id
             WHERE cs.score_date = ? AND cs.market = ?
-            """, scoreDate, market);
+            """, scoreDate, scoreDate, market);
 
         // 섹터별 집계
         List<Map<String, Object>> sectorRows = jdbc.queryForList("""
+            WITH prev AS (
+              SELECT DISTINCT ON (security_id) security_id, close
+              FROM price_daily
+              WHERE trade_date < ?
+              ORDER BY security_id, trade_date DESC
+            )
             SELECT i.sector,
                    COUNT(*) AS cnt,
-                   AVG(dm.change_rate) AS avg_change,
+                   AVG(CASE WHEN prev.close > 0
+                       THEN (p.close - prev.close) / prev.close * 100
+                       ELSE NULL END) AS avg_change,
                    AVG(cs.composite_score) AS avg_score
             FROM canslim_scores cs
             JOIN instruments i ON i.id = cs.security_id
-            LEFT JOIN price_daily dm
-              ON dm.security_id = cs.security_id
-             AND dm.trade_date = cs.score_date
+            LEFT JOIN price_daily p ON p.security_id = cs.security_id AND p.trade_date = cs.score_date
+            LEFT JOIN prev ON prev.security_id = cs.security_id
             WHERE cs.score_date = ? AND cs.market = ?
               AND i.sector IS NOT NULL
             GROUP BY i.sector
-            ORDER BY AVG(dm.change_rate) DESC NULLS LAST
-            """, scoreDate, market);
+            ORDER BY AVG(CASE WHEN prev.close > 0 THEN (p.close - prev.close) / prev.close * 100 ELSE NULL END) DESC NULLS LAST
+            """, scoreDate, scoreDate, market);
 
         long total    = ((Number) agg.get("total")).longValue();
         long bull     = ((Number) agg.get("bull_count")).longValue();
