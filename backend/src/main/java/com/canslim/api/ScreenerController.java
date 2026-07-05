@@ -23,6 +23,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 record ScreenerPageResponse(List<ScreenerItemResponse> items, long total, int page, int size) {}
+record ScreenerStats(long total, long bullCount, double avgScore, long upCount,
+                     List<Map<String, Object>> sectorStats) {}
 record FinancialRecord(int fiscalYear, int fiscalQuarter, String periodType,
                        String periodEndDate, BigDecimal revenue,
                        BigDecimal operatingIncome, BigDecimal netIncome, BigDecimal eps,
@@ -205,6 +207,52 @@ public class ScreenerController {
         Comparator<ScreenerItemResponse> cmp = Comparator.comparing(extractor,
                 Comparator.nullsLast(Comparator.naturalOrder()));
         return desc ? cmp.reversed() : cmp;
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<ScreenerStats> getStats(
+            @RequestParam(name = "market", defaultValue = "KR") String market) {
+
+        LocalDate scoreDate = resolveDate(market, null);
+        if (scoreDate == null) return ResponseEntity.ok(new ScreenerStats(0, 0, 0, 0, List.of()));
+
+        // 전체 집계: total, bullCount, avgScore, upCount
+        Map<String, Object> agg = jdbc.queryForMap("""
+            SELECT
+              COUNT(*) AS total,
+              SUM(CASE WHEN cs.composite_score >= 70 THEN 1 ELSE 0 END) AS bull_count,
+              AVG(cs.composite_score) AS avg_score,
+              SUM(CASE WHEN dm.change_rate > 0 THEN 1 ELSE 0 END) AS up_count
+            FROM canslim_scores cs
+            LEFT JOIN price_daily dm
+              ON dm.security_id = cs.security_id
+             AND dm.trade_date = cs.score_date
+            WHERE cs.score_date = ? AND cs.market = ?
+            """, scoreDate, market);
+
+        // 섹터별 집계
+        List<Map<String, Object>> sectorRows = jdbc.queryForList("""
+            SELECT i.sector,
+                   COUNT(*) AS cnt,
+                   AVG(dm.change_rate) AS avg_change,
+                   AVG(cs.composite_score) AS avg_score
+            FROM canslim_scores cs
+            JOIN instruments i ON i.id = cs.security_id
+            LEFT JOIN price_daily dm
+              ON dm.security_id = cs.security_id
+             AND dm.trade_date = cs.score_date
+            WHERE cs.score_date = ? AND cs.market = ?
+              AND i.sector IS NOT NULL
+            GROUP BY i.sector
+            ORDER BY AVG(dm.change_rate) DESC NULLS LAST
+            """, scoreDate, market);
+
+        long total    = ((Number) agg.get("total")).longValue();
+        long bull     = ((Number) agg.get("bull_count")).longValue();
+        double avg    = agg.get("avg_score") != null ? ((Number) agg.get("avg_score")).doubleValue() : 0;
+        long up       = agg.get("up_count") != null ? ((Number) agg.get("up_count")).longValue() : 0;
+
+        return ResponseEntity.ok(new ScreenerStats(total, bull, avg, up, sectorRows));
     }
 
     @GetMapping("/sectors")

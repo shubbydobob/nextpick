@@ -26,6 +26,20 @@ export async function fetchScreener(
   return res.json()
 }
 
+export interface ScreenerStats {
+  total: number
+  bullCount: number
+  avgScore: number
+  upCount: number
+  sectorStats: Array<{ sector: string; cnt: number; avg_change: number; avg_score: number }>
+}
+
+export async function fetchScreenerStats(market = 'KR'): Promise<ScreenerStats> {
+  const res = await fetch(`${BASE}/screener/stats?market=${market}`)
+  if (!res.ok) throw new Error('stats fetch failed')
+  return res.json()
+}
+
 export async function fetchSectors(): Promise<string[]> {
   const res = await fetch(`${BASE}/screener/sectors`)
   if (!res.ok) return []

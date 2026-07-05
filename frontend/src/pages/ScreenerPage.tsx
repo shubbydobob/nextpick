@@ -883,7 +883,6 @@ export default function ScreenerPage() {
       {mainTab === 'dashboard' && (
         <DashboardView
           items={items}
-          sectors={sectorStats}
           loading={loading}
           marketStates={marketStates}
           onViewRanking={() => setMainTab('ranking')}

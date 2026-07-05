@@ -1,16 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { ScreenerItem } from '../types'
-
-interface SectorStat {
-  sector: string
-  avgChange: number
-  count: number
-  avgScore: number
-}
+import { fetchScreenerStats } from '../api/client'
+import type { ScreenerStats } from '../api/client'
 
 interface Props {
   items: ScreenerItem[]
-  sectors: SectorStat[]
   loading: boolean
   marketStates: Array<{
     market: string
@@ -61,7 +55,6 @@ function HorizontalBar({ value, max, color }: { value: number; max: number; colo
 
 export default function DashboardView({
   items,
-  sectors,
   loading,
   marketStates,
   onViewRanking,
@@ -69,13 +62,23 @@ export default function DashboardView({
   onStockClick,
 }: Props) {
   const [hoveredRankId, setHoveredRankId] = useState<number | null>(null)
+  const [stats, setStats] = useState<ScreenerStats | null>(null)
 
-  // ── Stats computation ──────────────────────────────────────────
-  const bullCount = items.filter(i => i.compositeScore >= 70).length
-  const avgScore = items.length > 0
-    ? Math.round(items.reduce((s, i) => s + i.compositeScore, 0) / items.length)
-    : 0
-  const upCount = items.filter(i => (i.changeRate ?? 0) > 0).length
+  useEffect(() => {
+    fetchScreenerStats('KR').then(setStats).catch(() => {})
+  }, [])
+
+  // ── Stats (전체 2558종목 기준) ──────────────────────────────────
+  const bullCount = stats?.bullCount ?? 0
+  const avgScore  = stats ? Math.round(stats.avgScore) : 0
+  const upCount   = stats?.upCount ?? 0
+  const total     = stats?.total ?? 0
+  const sectorStats = (stats?.sectorStats ?? []).map(r => ({
+    sector:    r.sector,
+    count:     Number(r.cnt),
+    avgChange: r.avg_change != null ? Number(r.avg_change) : 0,
+    avgScore:  r.avg_score  != null ? Number(r.avg_score)  : 0,
+  }))
   const marketLabel = computeMarketLabel(marketStates, items)
 
   // TOP 15 for ranking panel
@@ -141,7 +144,7 @@ export default function DashboardView({
           label="강세 종목 (70점+)"
           value={bullCount.toLocaleString()}
           unit="종목"
-          subtext={items.length > 0 ? `전체 ${items.length.toLocaleString()}종목 중` : ''}
+          subtext={total > 0 ? `전체 ${total.toLocaleString()}종목 중` : ''}
           accent="var(--accent)"
         />
 
@@ -159,8 +162,8 @@ export default function DashboardView({
         <StatCard
           label="상승 종목"
           value={upCount.toLocaleString()}
-          unit={`/ ${items.length.toLocaleString()}`}
-          subtext={items.length > 0 ? `${Math.round((upCount / items.length) * 100)}% 상승` : ''}
+          unit={`/ ${total.toLocaleString()}`}
+          subtext={total > 0 ? `${Math.round((upCount / total) * 100)}% 상승` : ''}
           accent="var(--up)"
           valueColor="var(--up)"
         />
@@ -348,12 +351,12 @@ export default function DashboardView({
             gridTemplateColumns: 'repeat(3, 1fr)',
             gap: 6,
           }}>
-            {sectors.length === 0 ? (
+            {sectorStats.length === 0 ? (
               <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px 0', color: 'var(--text-4)', fontSize: 12 }}>
                 섹터 데이터 없음
               </div>
             ) : (
-              sectors
+              sectorStats
                 .sort((a, b) => Math.abs(b.avgChange) - Math.abs(a.avgChange))
                 .slice(0, 15)
                 .map(sec => {
