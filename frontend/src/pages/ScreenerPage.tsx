@@ -12,8 +12,7 @@ import DashboardView from './DashboardView'
 import RankingView from './RankingView'
 import type { ScreenerItem } from '../types'
 import { fmtPrice, fmtRate, fmtMarketCap, fmtVolume, fmtHigh52pct, fmtAmt } from '../utils/format'
-import FactorBars from '../components/FactorBars'
-import { canslimValues } from '../utils/canslim'
+
 
 // ── types ──────────────────────────────────────────────────────
 type ViewTab = 'table' | 'detail'
@@ -27,6 +26,21 @@ type SortKey = keyof Pick<ScreenerItem,
 
 // ── color helpers ──────────────────────────────────────────────
 
+const scoreColor = (v: number | null) => {
+  if (v === null) return 'transparent'
+  if (v >= 85) return 'rgba(74,222,128,0.18)'
+  if (v >= 70) return 'rgba(74,222,128,0.09)'
+  if (v >= 55) return 'rgba(250,189,68,0.15)'
+  if (v >= 40) return 'rgba(249,115,22,0.18)'
+  return 'rgba(248,113,113,0.15)'
+}
+const scoreText = (v: number | null) => {
+  if (v === null) return 'var(--text-4)'
+  if (v >= 70) return '#4ade80'
+  if (v >= 55) return '#fabd44'
+  if (v >= 40) return '#f97316'
+  return '#f87171'
+}
 const compositeGrade = (v: number) => {
   if (v >= 85) return { color: '#4ade80', label: 'A+' }
   if (v >= 75) return { color: '#86efac', label: 'A' }
@@ -44,6 +58,19 @@ const changeColor = (v: number | null) => {
 
 // ── format helpers ─────────────────────────────────────────────
 // ── sub-components ─────────────────────────────────────────────
+
+function ScoreCell({ value }: { value: number | null }) {
+  return (
+    <td style={{
+      padding: '0 5px', textAlign: 'center', fontFamily: 'var(--font-mono)',
+      background: scoreColor(value), color: scoreText(value),
+      fontWeight: value !== null ? 600 : 400, fontSize: 12,
+      borderRight: '1px solid var(--score-sep)',
+    }}>
+      {value !== null ? Math.round(value) : <span style={{ color: 'var(--text-4)' }}>·</span>}
+    </td>
+  )
+}
 
 function SortTh({ label, sortKey: sk, current, dir, onSort, align = 'right', style = {}, tip }: {
   label: string; sortKey?: SortKey; current: SortKey; dir: SortDir
@@ -427,8 +454,13 @@ export default function ScreenerPage() {
         <Th label="섹터" align="left" style={{ width: 80 }} />
         <Th label="SCORE" sortKey="compositeScore" style={{ width: 70 }} tip="C·A·N·S·L·I 가중합산 종합점수 (0~100)" />
         <Th label="Δ" style={{ width: 48, textAlign: 'center' }} tip="전일 대비 종합점수 변동" />
-        <th style={{ padding: '7px 8px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.05em', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)', width: 90 }}
-          title="C·A·N·S·L·I·M 7팩터 프로파일">C A N S L I M</th>
+        <Th label="실적" sortKey="cScore" align="center" style={{ width: 46 }} tip="분기실적: 당분기 EPS 전년대비 성장률" />
+        <Th label="성장" sortKey="aScore" align="center" style={{ width: 46 }} tip="연간성장: 3년 EPS 연평균 성장률 + ROE" />
+        <Th label="고가" sortKey="nScore" align="center" style={{ width: 46 }} tip="신고가: 52주 고점 근접도 + 돌파 여부" />
+        <Th label="수급" sortKey="sScore" align="center" style={{ width: 46 }} tip="수급: 시총 희소성 + 거래량 급증도" />
+        <Th label="선도" sortKey="lScore" align="center" style={{ width: 46 }} tip="선도성: 시장 내 상대강도 순위 (상위일수록 높음)" />
+        <Th label="기관" sortKey="iScore" align="center" style={{ width: 46 }} tip="기관투자: 외인+기관 10일 순매수 강도" />
+        <Th label="시장" sortKey="mScore" align="center" style={{ width: 46 }} tip="시장: 시장 전반 건전도 (전 종목 동일)" />
         <Th label="종가" sortKey="closePrice" style={{ width: 78 }} />
         <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} tip="전일 종가 대비 당일 등락률" />
         <Th label="시간외" align="center" style={{ width: 80 }} tip="시간외 단일가 체결가 / 종가 대비 등락률" />
@@ -524,9 +556,13 @@ export default function ScreenerPage() {
         </td>
         {scoreChip}
         {deltaCell}
-        <td style={{ ...S.td, padding: '0 8px' }}>
-          <FactorBars values={canslimValues(item)} />
-        </td>
+        <ScoreCell value={item.cScore} />
+        <ScoreCell value={item.aScore} />
+        <ScoreCell value={item.nScore} />
+        <ScoreCell value={item.sScore} />
+        <ScoreCell value={item.lScore} />
+        <ScoreCell value={item.iScore} />
+        <ScoreCell value={item.mScore} />
         <td className={flashMap[item.ticker] ? `flash-${flashMap[item.ticker]}` : undefined}
           style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-1)' }}>
           {fmtPrice(item.closePrice)}
