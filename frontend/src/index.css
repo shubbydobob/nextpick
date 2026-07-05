@@ -7,6 +7,9 @@
   --bg-elevated: #2a313d;
   --border:      #2d3440;
   --border-sub:  #3a414e;
+  --surface:     var(--bg-surface);
+  --track:       var(--bg-elevated);
+  --radar-grid:  #2d3440;
   --text-1:      #f0f4f9;
   --text-2:      #adb6c2;
   --text-3:      #7c8694;
@@ -31,6 +34,9 @@
   --bg-elevated: #eaeef2;
   --border:      #d0d7de;
   --border-sub:  #d0d7de;
+  --surface:     var(--bg-surface);
+  --track:       var(--bg-elevated);
+  --radar-grid:  #e8ecf1;
   --text-1:      #1c2128;
   --text-2:      #57606a;
   --text-3:      #8c959f;

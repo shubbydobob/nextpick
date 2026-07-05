@@ -11,6 +11,9 @@ import {
 import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations } from '../api/client'
 import type { NewsItem, SectorPeer, CorrelationStock } from '../api/client'
 import PriceChart from '../components/PriceChart'
+import ScoreGauge from '../components/ScoreGauge'
+import CanslimRadar from '../components/CanslimRadar'
+import { canslimValues } from '../utils/canslim'
 import type { ScreenerItem, ScoreHistory, FinancialRecord } from '../types'
 
 type ScoreKey = 'cScore' | 'aScore' | 'nScore' | 'sScore' | 'lScore' | 'iScore' | 'mScore'
@@ -195,7 +198,6 @@ export default function StockDetailPage() {
   )
 
   const composite = stock.compositeScore
-  const cColor = composite >= 85 ? '#68d391' : composite >= 70 ? '#9ae6b4' : composite >= 55 ? '#f6ad55' : '#fc8181'
 
   // 연간 재무 데이터
   const annualFin = financials
@@ -360,14 +362,14 @@ export default function StockDetailPage() {
               )}
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 2, fontWeight: 600 }}>COMPOSITE SCORE</div>
-            <div className="detail-score" style={{ fontFamily: 'var(--font-mono)', fontSize: 54, fontWeight: 800, color: cColor, lineHeight: 1, letterSpacing: '-1px', fontVariantNumeric: 'tabular-nums' }}>
-              {Math.round(composite)}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>
-              Rank <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{stock.marketRank}</span>
-              {' · '}Top <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{Math.round(100 - stock.marketPercentile * 100)}%</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CanslimRadar values={canslimValues(stock)} size={180} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <ScoreGauge score={composite} size={140} />
+              <div style={{ fontSize: 12, color: 'var(--text-2)', textAlign: 'center' }}>
+                Rank <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{stock.marketRank}</span>
+                {' · '}Top <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{Math.round(100 - stock.marketPercentile * 100)}%</span>
+              </div>
             </div>
           </div>
         </div>
