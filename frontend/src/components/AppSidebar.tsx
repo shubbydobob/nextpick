@@ -260,7 +260,7 @@ export default function AppSidebar({ activeTab, onTabChange, watchlistCount, top
             background: 'var(--accent)',
             flexShrink: 0,
           }} />
-          {totalStocks.toLocaleString()}개 종목 · CAN SLIM 종합
+          {totalStocks.toLocaleString()}개 종목 · 종합 스코어
         </div>
       </div>
     </aside>

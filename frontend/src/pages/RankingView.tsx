@@ -51,7 +51,7 @@ export default function RankingView({ items, loading, onStockClick }: Props) {
           스코어 랭킹
         </h1>
         <p style={{ fontSize: 13, color: 'var(--text-3)' }}>
-          CAN SLIM 종합점수 기준 상위 50개 종목
+          종합점수 기준 상위 50개 종목
         </p>
       </div>
 

@@ -132,7 +132,7 @@ export default function DashboardView({
           label="평균 종합 스코어"
           value={String(avgScore)}
           unit="점"
-          subtext="CAN SLIM 가중 합산"
+          subtext="7팩터 가중 합산"
           accent="var(--accent)"
           valueColor="var(--accent)"
         />
