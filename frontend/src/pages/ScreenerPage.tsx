@@ -11,7 +11,7 @@ import AppSidebar from '../components/AppSidebar'
 import DashboardView from './DashboardView'
 import RankingView from './RankingView'
 import type { ScreenerItem } from '../types'
-import { fmtPrice, fmtRate, fmtMarketCap, fmtVolume, fmtHigh52pct, fmtAmt } from '../utils/format'
+import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt } from '../utils/format'
 
 
 // ── types ──────────────────────────────────────────────────────
@@ -462,15 +462,10 @@ export default function ScreenerPage() {
         <Th label="기관" sortKey="iScore" align="center" style={{ width: 46 }} tip="기관투자: 외인+기관 10일 순매수 강도" />
         <Th label="종가" sortKey="closePrice" style={{ width: 78 }} />
         <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} tip="전일 종가 대비 당일 등락률" />
-        <Th label="시간외" align="center" style={{ width: 80 }} tip="시간외 단일가 체결가 / 종가 대비 등락률" />
-        <Th label="고점비" sortKey="weekHigh52" style={{ width: 62 }} tip="52주 최고가 대비 현재가 괴리율" />
-        <Th label="거래량" sortKey="volume" style={{ width: 68 }} />
         <Th label="거래대금" sortKey="turnover" style={{ width: 72 }} tip="당일 누적 거래대금" />
         <Th label="외인" sortKey="foreignNetBuy10d" style={{ width: 62 }} tip="외국인 최근 10거래일 순매수 (억원)" />
         <Th label="기관" sortKey="instNetBuy10d" style={{ width: 62 }} tip="기관 최근 10거래일 순매수 (억원)" />
-        <Th label="프로그램" sortKey="programNetBuy10d" style={{ width: 68 }} tip="프로그램 최근 10거래일 순매수 (억원)" />
         <Th label="시총" sortKey="marketCap" style={{ width: 68 }} />
-        <Th label="베이스" align="center" style={{ width: 56 }} tip="최근 1년간 52주 고점 근처(-15% 이내)에 머문 거래일 수. 길수록 가격 기반이 탄탄" />
       </tr>
     )
   }
@@ -569,22 +564,6 @@ export default function ScreenerPage() {
           style={{ ...S.td, textAlign: 'right', fontWeight: 600, color: changeColor(item.changeRate) }}>
           {fmtRate(item.changeRate)}
         </td>
-        <td style={{ ...S.td, textAlign: 'center', fontSize: 11 }}>
-          {item.afterHoursPrice ? (
-            <span>
-              <span style={{ color: 'var(--text-2)' }}>{fmtPrice(item.afterHoursPrice)}</span>
-              <span style={{ marginLeft: 3, fontWeight: 600, color: changeColor(item.afterHoursChangeRate) }}>
-                {fmtRate(item.afterHoursChangeRate)}
-              </span>
-            </span>
-          ) : <span style={{ color: 'var(--text-4)' }}>—</span>}
-        </td>
-        <td style={{ ...S.td, textAlign: 'right', color: item.weekHigh52 !== null && item.closePrice !== null && item.weekHigh52 > 0 && (item.closePrice / item.weekHigh52) >= 0.97 ? '#4ade80' : 'var(--text-3)' }}>
-          {fmtHigh52pct(item.closePrice, item.weekHigh52)}
-        </td>
-        <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
-          {fmtVolume(item.volume)}
-        </td>
         <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
           {fmtAmt(item.turnover)}
         </td>
@@ -596,28 +575,8 @@ export default function ScreenerPage() {
           color: item.instNetBuy10d === null ? 'var(--text-4)' : item.instNetBuy10d > 0 ? '#a78bfa' : '#f87171' }}>
           {item.instNetBuy10d === null ? '—' : (item.instNetBuy10d > 0 ? '+' : '') + Math.round(item.instNetBuy10d / 1e8)}
         </td>
-        <td style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
-          color: item.programNetBuy10d === null ? 'var(--text-4)' : item.programNetBuy10d > 0 ? '#34d399' : '#f87171' }}>
-          {item.programNetBuy10d === null ? '—' : (item.programNetBuy10d > 0 ? '+' : '') + Math.round(item.programNetBuy10d / 1e8)}
-        </td>
         <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
           {fmtMarketCap(item.marketCap)}
-        </td>
-        <td style={{ ...S.td, textAlign: 'center', fontSize: 11, padding: '3px 4px' }}>
-          {item.baseDays ? (() => {
-            const d = item.baseDays!
-            const pct = Math.min(100, d / 120 * 100)
-            const color = d >= 60 ? '#4ade80' : d >= 30 ? '#fabd44' : 'var(--text-4)'
-            const label = d >= 60 ? '탄탄' : d >= 30 ? '형성중' : '짧음'
-            return (
-              <div title={`${d}거래일 (52주 고점 -15% 이내 체류)`}>
-                <div style={{ fontSize: 11, fontWeight: 600, color }}>{d}<span style={{ fontSize: 9, color: 'var(--text-4)', marginLeft: 2 }}>{label}</span></div>
-                <div style={{ height: 2, background: 'var(--border)', borderRadius: 1, marginTop: 2 }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 1 }} />
-                </div>
-              </div>
-            )
-          })() : <span style={{ color: 'var(--text-4)' }}>-</span>}
         </td>
       </>
     )

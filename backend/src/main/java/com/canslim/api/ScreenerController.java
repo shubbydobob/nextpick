@@ -216,73 +216,50 @@ public class ScreenerController {
         LocalDate scoreDate = resolveDate(market, null);
         if (scoreDate == null) return ResponseEntity.ok(new ScreenerStats(0, 0, 0, 0, List.of()));
 
-        // 단일 CTE로 전체/섹터 집계 (prev 범위를 7일로 제한해 풀스캔 방지)
-        String statsSql = """
-            WITH today_p AS (
-                SELECT DISTINCT ON (security_id) security_id, close_adj AS c
-                FROM price_daily
-                WHERE trade_date = ?
-                ORDER BY security_id, trade_date DESC
-            ),
-            prev_p AS (
-                SELECT DISTINCT ON (security_id) security_id, close_adj AS c
-                FROM price_daily
-                WHERE trade_date >= ? - INTERVAL '7 days' AND trade_date < ?
-                ORDER BY security_id, trade_date DESC
-            ),
-            base AS (
-                SELECT cs.security_id, cs.composite_score, i.sector,
-                       tp.c AS today_c, pp.c AS prev_c
-                FROM canslim_scores cs
-                JOIN instruments i ON i.id = cs.security_id
-                LEFT JOIN today_p tp ON tp.security_id = cs.security_id
-                LEFT JOIN prev_p pp ON pp.security_id = cs.security_id
-                WHERE cs.score_date = ? AND cs.market = ?
+        // prev CTE 범위를 7일로 제한 → price_daily 풀스캔 방지
+        String aggSql = """
+            WITH prev AS (
+              SELECT DISTINCT ON (security_id) security_id, close_adj AS close
+              FROM price_daily
+              WHERE trade_date >= ? - INTERVAL '7 days' AND trade_date < ?
+              ORDER BY security_id, trade_date DESC
             )
             SELECT
-                COUNT(*)                                                            AS total,
-                SUM(CASE WHEN composite_score >= 70 THEN 1 ELSE 0 END)             AS bull_count,
-                AVG(composite_score)                                                AS avg_score,
-                SUM(CASE WHEN today_c > prev_c THEN 1 ELSE 0 END)                  AS up_count,
-                -- 섹터별 JSON 집계
-                JSON_AGG(JSON_BUILD_OBJECT(
-                    'sector',     sector,
-                    'cnt',        sector_cnt,
-                    'avg_change', sector_avg_change,
-                    'avg_score',  sector_avg_score
-                ) ORDER BY sector_avg_change DESC NULLS LAST) FILTER (WHERE sector IS NOT NULL) AS sector_stats
-            FROM (
-                SELECT composite_score, today_c, prev_c, NULL::text AS sector,
-                       NULL::bigint AS sector_cnt, NULL::numeric AS sector_avg_change, NULL::numeric AS sector_avg_score
-                FROM base
-                UNION ALL
-                SELECT NULL, NULL, NULL, sector,
-                       COUNT(*),
-                       AVG(CASE WHEN prev_c > 0 THEN (today_c - prev_c) / prev_c * 100 ELSE NULL END),
-                       AVG(composite_score)
-                FROM base WHERE sector IS NOT NULL
-                GROUP BY sector
-            ) t
+              COUNT(*) AS total,
+              SUM(CASE WHEN cs.composite_score >= 70 THEN 1 ELSE 0 END) AS bull_count,
+              AVG(cs.composite_score) AS avg_score,
+              SUM(CASE WHEN p.close_adj > prev.close THEN 1 ELSE 0 END) AS up_count
+            FROM canslim_scores cs
+            LEFT JOIN price_daily p ON p.security_id = cs.security_id AND p.trade_date = cs.score_date
+            LEFT JOIN prev ON prev.security_id = cs.security_id
+            WHERE cs.score_date = ? AND cs.market = ?
             """;
 
-        Map<String, Object> agg = jdbc.queryForMap(statsSql,
-                scoreDate, scoreDate, scoreDate, scoreDate, market);
+        Map<String, Object> agg = jdbc.queryForMap(aggSql, scoreDate, scoreDate, scoreDate, market);
 
-        // sector_stats JSON 파싱
-        List<Map<String, Object>> sectorRows;
-        Object sectorJson = agg.get("sector_stats");
-        if (sectorJson == null) {
-            sectorRows = List.of();
-        } else {
-            try {
-                com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
-                sectorRows = om.readValue(sectorJson.toString(),
-                        new com.fasterxml.jackson.core.type.TypeReference<>() {});
-            } catch (Exception e) {
-                log.warn("sector_stats JSON 파싱 실패: {}", e.getMessage());
-                sectorRows = List.of();
-            }
-        }
+        // 섹터별 집계
+        List<Map<String, Object>> sectorRows = jdbc.queryForList("""
+            WITH prev AS (
+              SELECT DISTINCT ON (security_id) security_id, close_adj AS close
+              FROM price_daily
+              WHERE trade_date >= ? - INTERVAL '7 days' AND trade_date < ?
+              ORDER BY security_id, trade_date DESC
+            )
+            SELECT i.sector,
+                   COUNT(*) AS cnt,
+                   AVG(CASE WHEN prev.close > 0
+                       THEN (p.close_adj - prev.close) / prev.close * 100
+                       ELSE NULL END) AS avg_change,
+                   AVG(cs.composite_score) AS avg_score
+            FROM canslim_scores cs
+            JOIN instruments i ON i.id = cs.security_id
+            LEFT JOIN price_daily p ON p.security_id = cs.security_id AND p.trade_date = cs.score_date
+            LEFT JOIN prev ON prev.security_id = cs.security_id
+            WHERE cs.score_date = ? AND cs.market = ?
+              AND i.sector IS NOT NULL
+            GROUP BY i.sector
+            ORDER BY AVG(CASE WHEN prev.close > 0 THEN (p.close_adj - prev.close) / prev.close * 100 ELSE NULL END) DESC NULLS LAST
+            """, scoreDate, scoreDate, scoreDate, market);
 
         long total    = ((Number) agg.get("total")).longValue();
         long bull     = ((Number) agg.get("bull_count")).longValue();
