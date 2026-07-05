@@ -114,23 +114,6 @@ export default function DashboardView({
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1200 }}>
 
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{
-          fontSize: 22,
-          fontWeight: 800,
-          color: 'var(--text-1)',
-          letterSpacing: '-0.02em',
-          marginBottom: 4,
-          lineHeight: 1.2,
-        }}>
-          오늘의 주도주 스코어
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5 }}>
-          CAN SLIM 7팩터를 종합해 시장을 이끄는 종목을 한눈에.
-        </p>
-      </div>
-
       {/* ── Stat cards ──────────────────────────────────────────── */}
       <div style={{
         display: 'grid',
