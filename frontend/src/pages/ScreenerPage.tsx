@@ -299,7 +299,8 @@ export default function ScreenerPage() {
     setError(null)
     const { minCap, maxCap } = CAP_PARAMS[capRange]
     const seq = ++reqSeqRef.current   // 최신 요청만 반영 (응답 레이스 방지)
-    fetchScreener('KR', page, size, debouncedQuery.trim(), sector, minCap, maxCap, sortKey, sortDir, minScore)
+    const fetchSize = mainTab === 'ranking' ? Math.max(size, 50) : size
+    fetchScreener('KR', page, fetchSize, debouncedQuery.trim(), sector, minCap, maxCap, sortKey, sortDir, minScore)
       .then(d => {
         if (seq !== reqSeqRef.current) return   // 늦게 도착한 옛 응답 무시
         setItems(d.items)
@@ -339,7 +340,7 @@ export default function ScreenerPage() {
       })
       .catch(e => { if (seq === reqSeqRef.current) setError(e.message) })
       .finally(() => { if (seq === reqSeqRef.current) setLoading(false) })
-  }, [page, size, debouncedQuery, sector, capRange, sortKey, sortDir, minScore])
+  }, [page, size, mainTab, debouncedQuery, sector, capRange, sortKey, sortDir, minScore])
 
   // 장중 실시간 시세 오버레이 — 화면에 보이는 종목만, 1분 폴링.
   // 장외 시간엔 백엔드가 빈 결과 → 배치(EOD)값 유지.
