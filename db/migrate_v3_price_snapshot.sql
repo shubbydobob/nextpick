@@ -1,9 +1,25 @@
 -- ============================================================
--- V3 가격 스냅샷 백필 (Flyway V17이 컬럼+인덱스 생성 후 실행)
--- 실행: psql -U canslim_user -d canslim -f migrate_v3_price_snapshot.sql
+-- V3 가격 스냅샷: 컬럼 추가 + 인덱스 + 백필 (올인원)
+-- Flyway V17 미실행 상태에서도 안전하게 동작
 -- ============================================================
 
--- 기존 최신 score_date 데이터에 가격 백필
+-- 1. 컬럼 추가 (IF NOT EXISTS로 멱등)
+ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS close_price NUMERIC(18,4);
+ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS prev_close  NUMERIC(18,4);
+ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS change_rate NUMERIC(8,4);
+ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS volume      BIGINT;
+ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS turnover    NUMERIC(22,4);
+ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS market_cap  NUMERIC(22,4);
+
+-- 2. 인덱스 (IF NOT EXISTS로 멱등)
+CREATE INDEX IF NOT EXISTS idx_canslim_scores_turnover
+    ON canslim_scores (score_date DESC, market, turnover DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_canslim_scores_chg_rate
+    ON canslim_scores (score_date DESC, market, change_rate DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_canslim_scores_mkt_cap
+    ON canslim_scores (score_date DESC, market, market_cap DESC NULLS LAST);
+
+-- 3. 백필: 최신 score_date에 가격 채우기
 WITH ranked AS (
     SELECT security_id, close_adj, volume, turnover,
            ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn,
