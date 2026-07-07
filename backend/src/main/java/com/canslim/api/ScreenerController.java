@@ -213,8 +213,16 @@ public class ScreenerController {
         LocalDate scoreDate = resolveDate(market, null);
         if (scoreDate == null) return ResponseEntity.ok(new ScreenerStats(0, 0, 0, 0, List.of()));
 
+        // 가격 윈도우 앵커: 채점(score_date)이 밀려도 상승종목수·섹터 등락은 '최신 가격일' 기준.
+        LocalDate priceDate = scoreDate;
+        try {
+            LocalDate maxPrice = jdbc.queryForObject(
+                    "SELECT max(trade_date) FROM price_daily", LocalDate.class);
+            if (maxPrice != null && maxPrice.isAfter(priceDate)) priceDate = maxPrice;
+        } catch (Exception ignore) { }
+
         // score_date에 정확히 일치하는 가격이 없어도(가격 적재가 채점일보다 뒤처진 경우)
-        // score_date 이하 '최신 2개' 거래일을 cur/prev로 잡아 등락 계산 (풀스캔 방지 14일 윈도우).
+        // 최신 가격일 이하 '최신 2개' 거래일을 cur/prev로 잡아 등락 계산 (풀스캔 방지 14일 윈도우).
         String aggSql = """
             WITH ranked AS (
               SELECT security_id, close_adj, trade_date,
@@ -235,7 +243,7 @@ public class ScreenerController {
             WHERE cs.score_date = ? AND cs.market = ?
             """;
 
-        Map<String, Object> agg = jdbc.queryForMap(aggSql, scoreDate, scoreDate, scoreDate, market);
+        Map<String, Object> agg = jdbc.queryForMap(aggSql, priceDate, priceDate, scoreDate, market);
 
         // 섹터별 집계 (동일하게 score_date 이하 최신 2개 거래일 기준)
         List<Map<String, Object>> sectorRows = jdbc.queryForList("""
@@ -261,7 +269,7 @@ public class ScreenerController {
               AND i.sector IS NOT NULL
             GROUP BY i.sector
             ORDER BY AVG(CASE WHEN prev.close > 0 THEN (cur.close_adj - prev.close) / prev.close * 100 ELSE NULL END) DESC NULLS LAST
-            """, scoreDate, scoreDate, scoreDate, market);
+            """, priceDate, priceDate, scoreDate, market);
 
         long total    = ((Number) agg.get("total")).longValue();
         long bull     = ((Number) agg.get("bull_count")).longValue();
@@ -594,6 +602,19 @@ public class ScreenerController {
 
         Long[] idArr = ids.toArray(new Long[0]);
 
+        // 가격은 '최신 거래일' 기준으로 뽑는다. 채점(score_date)이 DART 재수집 등으로
+        // 가격 적재보다 뒤처지면 score_date로 자르던 기존 로직이 하루 전 종가를 보여줬다.
+        // → price_daily의 max(trade_date)를 앵커로 사용해 항상 최신 종가/등락을 노출.
+        LocalDate anchor = scoreDate;
+        try {
+            LocalDate maxPrice = jdbc.queryForObject(
+                    "SELECT max(trade_date) FROM price_daily", LocalDate.class);
+            if (maxPrice != null && maxPrice.isAfter(anchor)) anchor = maxPrice;
+        } catch (Exception e) {
+            log.warn("price_daily max(trade_date) 조회 실패, score_date로 폴백: {}", e.getMessage());
+        }
+        final LocalDate priceDate = anchor;
+
         // 종가·등락률·거래량·거래대금·시가총액 (high_52w 제거 — UI 컬럼 삭제됨)
         String priceSql = """
             SELECT p.security_id, p.close_adj, p.volume, p.turnover,
@@ -619,8 +640,8 @@ public class ScreenerController {
             jdbc.query(con -> {
                 PreparedStatement ps = con.prepareStatement(priceSql);
                 ps.setArray(1, con.createArrayOf("bigint", idArr));
-                ps.setDate(2, java.sql.Date.valueOf(scoreDate.minusDays(14)));
-                ps.setDate(3, java.sql.Date.valueOf(scoreDate));
+                ps.setDate(2, java.sql.Date.valueOf(priceDate.minusDays(14)));
+                ps.setDate(3, java.sql.Date.valueOf(priceDate));
                 return ps;
             }, rs -> {
                 long sid = rs.getLong("security_id");

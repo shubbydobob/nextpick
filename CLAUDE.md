@@ -37,6 +37,8 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 - `run_backfill_10yr`: TRUNCATE-먼저-후-실패로 운영 비우던 것 → 기본 안전(upsert), `--rebuild` opt-in.
 - `finance-datareader` requirements 누락 추가.
 - `/stats`·`/limit-up`: 가격을 score_date 정확일치→**최신 2거래일(cur/prev)** & limit-up은 **최신 가격일 앵커**(채점 지연 시 stale 상한가 방지).
+- **가격 지연 근본 픽스**: `loadPriceAndFlow`(스크리너 리스트·상세 공용)와 `/stats`가 score_date로 가격 윈도우를 자르던 것 → **price_daily의 max(trade_date) 앵커**로 교체. 채점이 밀려도 리스트·상승종목수·섹터 등락이 항상 최신 종가 반영. 수급(derived_metrics)만 score_date 유지.
+- **실시간 오버레이 창 확장**: `isKrMarketOpen` 09:00~15:30 → **09:00~18:00**. 마감(15:30)~EOD배치(16:10~) 공백에도 KIS가 오늘 종가/등락을 주므로 오버레이로 브리지.
 - 프론트: 모바일 카드/하단탭바 반응형(토스풍), 스크리너 하단 가로스크롤바 sticky, 상한가 섹션.
 
 ### 알려진 데이터 함정
@@ -44,8 +46,8 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 - **채점 지연**: 가격은 최신일(예 07-07)인데 canslim_scores는 이전일(07-06)일 수 있음(DART 재수집 등). 헤더 "매일 갱신" 날짜 = 최신 채점일.
 
 ### 미해결/주의
-- **가격 실시간 반영 지연**(사용자 리포트) — 조사 중. 장중 KIS 오버레이 vs 배치 anchoring 확인 필요.
-- 스크리너 리스트 changeRate는 loadPriceAndFlow가 score_date 앵커 → 채점 지연 시 리스트도 이전일 등락 보일 수 있음(상한가섹션만 최신가격 앵커로 고침).
+- **가격 실시간 반영 지연** → 위 '가격 지연 근본 픽스'로 해소. 남은 진짜 지연원: (a) 15:30~16:10 배치 미적재 구간(오버레이로 브리지), (b) 장중 KIS 쿼터/토큰 실패 시 오버레이 공백 → `/api/realtime/debug`로 진단.
+- 수급(inst/foreign net buy)은 여전히 derived_metrics(EOD 배치) 기준 — 장중 실시간 아님(설계).
 
 ---
 
