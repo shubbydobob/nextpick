@@ -709,7 +709,8 @@ public class ScreenerController {
             params.add(BigDecimal.valueOf(maxCap));
         }
 
-        String cte = """
+        // 단일 쿼리: COUNT(*) OVER()로 count+data 한 번에 (CTE 중복 실행 제거)
+        String sql = """
             WITH ranked AS (
                 SELECT security_id, close_adj, volume, turnover, trade_date,
                        ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn,
@@ -727,21 +728,6 @@ public class ScreenerController {
                 FROM derived_metrics
                 WHERE as_of_date = (SELECT MAX(as_of_date) FROM derived_metrics WHERE inst_net_buy_10d IS NOT NULL)
             )
-            """;
-
-        // count
-        String countSql = cte +
-            "SELECT COUNT(*) FROM canslim_scores cs " +
-            "JOIN instruments i ON i.id = cs.security_id " +
-            "JOIN cur c ON c.security_id = cs.security_id " +
-            "LEFT JOIN flow f ON f.security_id = cs.security_id " +
-            "WHERE " + where;
-        Long total = jdbc.queryForObject(countSql, Long.class, params.toArray());
-        if (total == null || total == 0)
-            return new ScreenerPageResponse(List.of(), 0, page, size);
-
-        // data
-        String dataSql = cte + """
             SELECT cs.security_id, cs.score_date, cs.market, cs.market_rank, cs.market_percentile,
                    cs.composite_score, cs.c_score, cs.a_score, cs.n_score,
                    cs.s_score, cs.l_score, cs.i_score, cs.m_score,
@@ -754,7 +740,8 @@ public class ScreenerController {
                    COALESCE(f.after_hours_close, c.close_adj) * i.total_shares AS market_cap,
                    f.inst_net_buy_10d, f.foreign_net_buy_10d, f.program_net_buy_10d,
                    f.after_hours_close, f.after_hours_change_pct,
-                   cs.composite_score - prev_s.composite_score AS score_delta
+                   cs.composite_score - prev_s.composite_score AS score_delta,
+                   COUNT(*) OVER() AS total_count
             FROM canslim_scores cs
             JOIN instruments i ON i.id = cs.security_id
             JOIN cur c ON c.security_id = cs.security_id
@@ -770,35 +757,39 @@ public class ScreenerController {
         dataParams.add(size);
         dataParams.add((long) page * size);
 
-        List<ScreenerItemResponse> items = jdbc.query(dataSql, (rs, idx) -> new ScreenerItemResponse(
-            rs.getLong("security_id"),
-            rs.getString("ticker"),
-            rs.getString("name"),
-            rs.getString("market"),
-            rs.getDate("score_date").toLocalDate(),
-            rs.getObject("market_rank") != null ? rs.getInt("market_rank") : null,
-            rs.getBigDecimal("market_percentile"),
-            rs.getBigDecimal("composite_score"),
-            rs.getBigDecimal("c_score"), rs.getBigDecimal("a_score"),
-            rs.getBigDecimal("n_score"), rs.getBigDecimal("s_score"),
-            rs.getBigDecimal("l_score"), rs.getBigDecimal("i_score"), rs.getBigDecimal("m_score"),
-            rs.getBigDecimal("effective_close"),
-            rs.getBigDecimal("change_rate"),
-            null,
-            rs.getBigDecimal("volume"),
-            rs.getBigDecimal("turnover"),
-            rs.getBigDecimal("inst_net_buy_10d"),
-            rs.getBigDecimal("foreign_net_buy_10d"),
-            rs.getBigDecimal("program_net_buy_10d"),
-            rs.getBigDecimal("after_hours_close"),
-            rs.getBigDecimal("after_hours_change_pct"),
-            rs.getBigDecimal("market_cap"),
-            rs.getString("sector"),
-            rs.getBigDecimal("score_delta"),
-            false, null
-        ), dataParams.toArray());
+        long[] totalHolder = {0};
+        List<ScreenerItemResponse> items = jdbc.query(sql, (rs, idx) -> {
+            if (idx == 0) totalHolder[0] = rs.getLong("total_count");
+            return new ScreenerItemResponse(
+                rs.getLong("security_id"),
+                rs.getString("ticker"),
+                rs.getString("name"),
+                rs.getString("market"),
+                rs.getDate("score_date").toLocalDate(),
+                rs.getObject("market_rank") != null ? rs.getInt("market_rank") : null,
+                rs.getBigDecimal("market_percentile"),
+                rs.getBigDecimal("composite_score"),
+                rs.getBigDecimal("c_score"), rs.getBigDecimal("a_score"),
+                rs.getBigDecimal("n_score"), rs.getBigDecimal("s_score"),
+                rs.getBigDecimal("l_score"), rs.getBigDecimal("i_score"), rs.getBigDecimal("m_score"),
+                rs.getBigDecimal("effective_close"),
+                rs.getBigDecimal("change_rate"),
+                null,
+                rs.getBigDecimal("volume"),
+                rs.getBigDecimal("turnover"),
+                rs.getBigDecimal("inst_net_buy_10d"),
+                rs.getBigDecimal("foreign_net_buy_10d"),
+                rs.getBigDecimal("program_net_buy_10d"),
+                rs.getBigDecimal("after_hours_close"),
+                rs.getBigDecimal("after_hours_change_pct"),
+                rs.getBigDecimal("market_cap"),
+                rs.getString("sector"),
+                rs.getBigDecimal("score_delta"),
+                false, null
+            );
+        }, dataParams.toArray());
 
-        return new ScreenerPageResponse(items, total, page, size);
+        return new ScreenerPageResponse(items, totalHolder[0], page, size);
     }
 
     private Set<Long> loadBreakouts(List<Long> ids, LocalDate scoreDate) {
