@@ -1409,11 +1409,13 @@ export default function ScreenerPage() {
           )}
         </div>
 
-        {/* sticky mirror scrollbar (넓은 테이블 전용 — 모바일 카드 뷰에선 숨김) */}
+        {/* 하단 고정 가로 스크롤바 — 세로 스크롤 중에도 뷰포트 하단에 붙어 항상 조작 가능
+            (넓은 테이블 전용 — 모바일 카드 뷰에선 숨김) */}
         {!isMobile && (
-          <div ref={mirrorRef} onScroll={onMirrorScroll} style={{
+          <div ref={mirrorRef} onScroll={onMirrorScroll} className="sticky-hscroll" style={{
             position: 'sticky', bottom: 0, overflowX: 'auto', overflowY: 'hidden',
-            zIndex: 5, background: 'var(--bg-base)', borderTop: '1px solid var(--bg-surface)',
+            zIndex: 6, background: 'var(--bg-nav)', borderTop: '1px solid var(--border)',
+            boxShadow: '0 -4px 12px rgba(0,0,0,0.12)',
           }}>
             <div style={{
               minWidth: 1200, height: 1,

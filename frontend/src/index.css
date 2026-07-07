@@ -100,6 +100,24 @@ a { color: inherit; text-decoration: none; }
   display: none;
 }
 
+/* 하단 고정 가로 스크롤바 — 항상 보이고 잡기 쉽게 (오버레이 스크롤바 환경에서도 노출) */
+.sticky-hscroll {
+  scrollbar-width: thin;                                   /* Firefox */
+  scrollbar-color: var(--border-sub) transparent;
+}
+.sticky-hscroll::-webkit-scrollbar { height: 12px; }
+.sticky-hscroll::-webkit-scrollbar-track {
+  background: var(--bg-nav);
+}
+.sticky-hscroll::-webkit-scrollbar-thumb {
+  background: var(--border-sub);
+  border-radius: 6px;
+  border: 3px solid var(--bg-nav);                         /* 트랙 여백 → 두툼한 thumb */
+}
+.sticky-hscroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-4);
+}
+
 button {
   cursor: pointer;
   border: none;
