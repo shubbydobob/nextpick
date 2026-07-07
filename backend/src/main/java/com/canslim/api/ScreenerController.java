@@ -299,10 +299,7 @@ public class ScreenerController {
             JOIN instruments i ON i.id = cur.security_id
             LEFT JOIN canslim_scores cs
                    ON cs.security_id = cur.security_id AND cs.score_date = ? AND cs.market = ?
-            -- 국내 가격제한 ±30% → 진짜 상한가는 +29~31% 범위.
-            -- 31% 초과는 거래정지 재개/정리매매/이벤트성 리프라이싱(예: 299→1172)이라 제외.
             WHERE (cur.close_adj - prev.close) / prev.close * 100 >= ?
-              AND (cur.close_adj - prev.close) / prev.close * 100 <= 31
             ORDER BY change_rate DESC
             LIMIT 60
             """;
