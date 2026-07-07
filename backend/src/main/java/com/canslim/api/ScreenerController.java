@@ -611,12 +611,12 @@ public class ScreenerController {
         Long[] idArr = ids.toArray(new Long[0]);
 
         String sql = """
-            WITH cur AS (
-                SELECT DISTINCT ON (security_id)
-                    security_id, close_adj, volume, turnover, trade_date
+            WITH ranked AS (
+                SELECT security_id, close_adj, volume, turnover, trade_date,
+                       ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn,
+                       LEAD(close_adj) OVER (PARTITION BY security_id ORDER BY trade_date DESC) AS prev_close
                 FROM price_daily
                 WHERE security_id = ANY(?) AND trade_date >= CURRENT_DATE - INTERVAL '14 days'
-                ORDER BY security_id, trade_date DESC
             ),
             flow AS (
                 SELECT security_id, inst_net_buy_10d, foreign_net_buy_10d, program_net_buy_10d,
@@ -624,23 +624,19 @@ public class ScreenerController {
                 FROM derived_metrics
                 WHERE as_of_date = (SELECT MAX(as_of_date) FROM derived_metrics WHERE inst_net_buy_10d IS NOT NULL)
             )
-            SELECT c.security_id,
-                   COALESCE(f.after_hours_close, c.close_adj) AS effective_close,
-                   c.volume, c.turnover,
-                   CASE WHEN prev.close_adj > 0
-                        THEN ROUND((COALESCE(f.after_hours_close, c.close_adj) - prev.close_adj) / prev.close_adj * 100, 2)
+            SELECT r.security_id,
+                   COALESCE(f.after_hours_close, r.close_adj) AS effective_close,
+                   r.volume, r.turnover,
+                   CASE WHEN r.prev_close > 0
+                        THEN ROUND((COALESCE(f.after_hours_close, r.close_adj) - r.prev_close) / r.prev_close * 100, 2)
                    END AS change_rate,
-                   COALESCE(f.after_hours_close, c.close_adj) * i.total_shares AS market_cap,
+                   COALESCE(f.after_hours_close, r.close_adj) * i.total_shares AS market_cap,
                    f.inst_net_buy_10d, f.foreign_net_buy_10d, f.program_net_buy_10d,
                    f.after_hours_close, f.after_hours_change_pct
-            FROM cur c
-            JOIN instruments i ON i.id = c.security_id
-            LEFT JOIN LATERAL (
-                SELECT close_adj FROM price_daily p2
-                WHERE p2.security_id = c.security_id AND p2.trade_date < c.trade_date
-                ORDER BY p2.trade_date DESC LIMIT 1
-            ) prev ON true
-            LEFT JOIN flow f ON f.security_id = c.security_id
+            FROM ranked r
+            JOIN instruments i ON i.id = r.security_id
+            LEFT JOIN flow f ON f.security_id = r.security_id
+            WHERE r.rn = 1
             """;
         try {
             jdbc.query(con -> {
@@ -714,12 +710,16 @@ public class ScreenerController {
         }
 
         String cte = """
-            WITH cur AS (
-                SELECT DISTINCT ON (security_id)
-                    security_id, close_adj, volume, turnover, trade_date
+            WITH ranked AS (
+                SELECT security_id, close_adj, volume, turnover, trade_date,
+                       ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn,
+                       LEAD(close_adj) OVER (PARTITION BY security_id ORDER BY trade_date DESC) AS prev_close
                 FROM price_daily
                 WHERE trade_date >= CURRENT_DATE - INTERVAL '14 days'
-                ORDER BY security_id, trade_date DESC
+            ),
+            cur AS (
+                SELECT security_id, close_adj, volume, turnover, trade_date, prev_close
+                FROM ranked WHERE rn = 1
             ),
             flow AS (
                 SELECT security_id, inst_net_buy_10d, foreign_net_buy_10d, program_net_buy_10d,
@@ -748,8 +748,8 @@ public class ScreenerController {
                    i.ticker, i.name, i.sector,
                    COALESCE(f.after_hours_close, c.close_adj) AS effective_close,
                    c.volume, c.turnover,
-                   CASE WHEN prev.close_adj > 0
-                        THEN ROUND((COALESCE(f.after_hours_close, c.close_adj) - prev.close_adj) / prev.close_adj * 100, 2)
+                   CASE WHEN c.prev_close > 0
+                        THEN ROUND((COALESCE(f.after_hours_close, c.close_adj) - c.prev_close) / c.prev_close * 100, 2)
                    END AS change_rate,
                    COALESCE(f.after_hours_close, c.close_adj) * i.total_shares AS market_cap,
                    f.inst_net_buy_10d, f.foreign_net_buy_10d, f.program_net_buy_10d,
@@ -758,11 +758,6 @@ public class ScreenerController {
             FROM canslim_scores cs
             JOIN instruments i ON i.id = cs.security_id
             JOIN cur c ON c.security_id = cs.security_id
-            LEFT JOIN LATERAL (
-                SELECT close_adj FROM price_daily p2
-                WHERE p2.security_id = c.security_id AND p2.trade_date < c.trade_date
-                ORDER BY p2.trade_date DESC LIMIT 1
-            ) prev ON true
             LEFT JOIN flow f ON f.security_id = cs.security_id
             LEFT JOIN canslim_scores prev_s ON prev_s.security_id = cs.security_id
                 AND prev_s.score_date = cs.score_date - INTERVAL '1 day'
