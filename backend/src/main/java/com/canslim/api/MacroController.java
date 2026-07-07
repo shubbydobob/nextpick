@@ -63,6 +63,47 @@ public class MacroController {
             Double price, Double change, Double changePct,
             String currency, String marketState) {}
 
+    /** KRX 코스피 업종 지수 (FID_COND_MRKT_DIV_CODE=U). 시총 큰 순 정렬로 나열. */
+    private static final LinkedHashMap<String, String> SECTOR_INDICES = new LinkedHashMap<>();
+    static {
+        SECTOR_INDICES.put("0010", "전기전자");
+        SECTOR_INDICES.put("0018", "금융업");
+        SECTOR_INDICES.put("0005", "화학");
+        SECTOR_INDICES.put("0012", "운수장비");
+        SECTOR_INDICES.put("0006", "의약품");
+        SECTOR_INDICES.put("0008", "철강금속");
+        SECTOR_INDICES.put("0013", "유통업");
+        SECTOR_INDICES.put("0021", "서비스업");
+        SECTOR_INDICES.put("0015", "건설업");
+        SECTOR_INDICES.put("0002", "음식료품");
+        SECTOR_INDICES.put("0009", "기계");
+        SECTOR_INDICES.put("0017", "통신업");
+        SECTOR_INDICES.put("0020", "보험");
+        SECTOR_INDICES.put("0019", "증권");
+        SECTOR_INDICES.put("0014", "전기가스");
+        SECTOR_INDICES.put("0016", "운수창고");
+        SECTOR_INDICES.put("0011", "의료정밀");
+        SECTOR_INDICES.put("0007", "비금속광물");
+        SECTOR_INDICES.put("0003", "섬유의복");
+        SECTOR_INDICES.put("0004", "종이목재");
+    }
+
+    /** GET /api/macro/sectors — KRX 코스피 업종 지수 실시간 등락률 (finviz식 섹터 히트맵용). */
+    @GetMapping("/sectors")
+    public ResponseEntity<List<QuoteDto>> getSectorIndices() {
+        List<Future<QuoteDto>> futures = SECTOR_INDICES.entrySet().stream()
+                .map(e -> POOL.submit(() -> fetchKisIndex(e.getKey(), e.getKey(), e.getValue())))
+                .toList();
+        List<QuoteDto> result = new ArrayList<>();
+        for (Future<QuoteDto> f : futures) {
+            try {
+                QuoteDto q = f.get(10, TimeUnit.SECONDS);
+                if (q != null) result.add(q);
+            } catch (Exception ignore) { }
+        }
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/quotes")
     public ResponseEntity<List<QuoteDto>> getQuotes() {
         List<Future<QuoteDto>> futures = SYMBOLS.entrySet().stream()

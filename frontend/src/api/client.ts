@@ -59,6 +59,20 @@ export async function fetchLimitUp(market = 'KR', threshold = 29): Promise<Limit
   } catch { return [] }
 }
 
+export interface SectorIndex { name: string; changePct: number | null }
+
+/** KRX 코스피 업종 지수 실시간 등락률 (섹터 히트맵용). */
+export async function fetchSectorIndices(): Promise<SectorIndex[]> {
+  try {
+    const res = await fetch(`${BASE}/macro/sectors`)
+    if (!res.ok) return []
+    const list = await res.json()
+    return (Array.isArray(list) ? list : []).map((q: { name: string; changePct: number | null }) => ({
+      name: q.name, changePct: q.changePct,
+    }))
+  } catch { return [] }
+}
+
 export async function fetchSectors(): Promise<string[]> {
   const res = await fetch(`${BASE}/screener/sectors`)
   if (!res.ok) return []

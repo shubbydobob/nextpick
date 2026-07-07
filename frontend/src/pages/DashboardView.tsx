@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { ScreenerItem } from '../types'
-import { fetchScreenerStats, fetchLimitUp, fetchLiveQuotes } from '../api/client'
-import type { ScreenerStats, LimitUpStock, LiveQuote } from '../api/client'
+import { fetchScreenerStats, fetchLimitUp, fetchLiveQuotes, fetchSectorIndices } from '../api/client'
+import type { ScreenerStats, LimitUpStock, LiveQuote, SectorIndex } from '../api/client'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 interface Props {
@@ -71,6 +71,7 @@ export default function DashboardView({
   const [stats, setStats] = useState<ScreenerStats | null>(null)
   const [limitUp, setLimitUp] = useState<LimitUpStock[]>([])
   const [liveMap, setLiveMap] = useState<Record<string, LiveQuote>>({})
+  const [sectorIdx, setSectorIdx] = useState<SectorIndex[]>([])
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -91,7 +92,11 @@ export default function DashboardView({
       }
     }
     loadLive()
-    const timer = setInterval(loadLive, 15000)   // 15초 실시간 갱신
+    fetchSectorIndices().then(setSectorIdx).catch(() => {})
+    const timer = setInterval(() => {
+      loadLive()
+      fetchSectorIndices().then(setSectorIdx).catch(() => {})
+    }, 15000)   // 15초 실시간 갱신
     return () => clearInterval(timer)
   }, [items])
 
@@ -110,12 +115,6 @@ export default function DashboardView({
   const avgScore  = stats ? Math.round(stats.avgScore) : 0
   const upCount   = stats?.upCount ?? 0
   const total     = stats?.total ?? 0
-  const sectorStats = (stats?.sectorStats ?? []).map(r => ({
-    sector:    r.sector,
-    count:     Number(r.cnt),
-    avgChange: r.avg_change != null ? Number(r.avg_change) : 0,
-    avgScore:  r.avg_score  != null ? Number(r.avg_score)  : 0,
-  }))
   const marketLabel = computeMarketLabel(marketStates, items, loading)
 
   // TOP 15 for ranking panel
@@ -407,77 +406,58 @@ export default function DashboardView({
             borderBottom: '1px solid var(--border)',
           }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
-              섹터 히트맵
+              업종 히트맵
             </span>
+            <span style={{ fontSize: 11, color: 'var(--text-4)', marginLeft: 8 }}>KRX 업종지수 · 실시간</span>
           </div>
 
-          {/* Sector grid */}
+          {/* 업종 지수 grid (KIS 실시간 등락률) */}
           <div style={{
             padding: '12px',
             display: 'grid',
             gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
             gap: isMobile ? 8 : 6,
           }}>
-            {sectorStats.length === 0 ? (
+            {sectorIdx.length === 0 ? (
               <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px 0', color: 'var(--text-4)', fontSize: 12 }}>
-                섹터 데이터 없음
+                업종 데이터 없음 (장중에만 실시간)
               </div>
             ) : (
-              sectorStats
-                .sort((a, b) => Math.abs(b.avgChange) - Math.abs(a.avgChange))
-                .slice(0, 15)
+              [...sectorIdx]
+                .sort((a, b) => Math.abs(b.changePct ?? 0) - Math.abs(a.changePct ?? 0))
                 .map(sec => {
-                  const isUp = sec.avgChange >= 0
+                  const ch = sec.changePct ?? 0
+                  const isUp = ch >= 0
                   const bgColor = isUp
-                    ? `rgba(232, 51, 63, ${Math.min(0.18, Math.abs(sec.avgChange) * 0.05)})`
-                    : `rgba(47, 115, 224, ${Math.min(0.18, Math.abs(sec.avgChange) * 0.05)})`
+                    ? `rgba(232, 51, 63, ${Math.min(0.20, Math.abs(ch) * 0.10)})`
+                    : `rgba(47, 115, 224, ${Math.min(0.20, Math.abs(ch) * 0.10)})`
                   const borderColor = isUp
-                    ? `rgba(232, 51, 63, ${Math.min(0.35, Math.abs(sec.avgChange) * 0.1)})`
-                    : `rgba(47, 115, 224, ${Math.min(0.35, Math.abs(sec.avgChange) * 0.1)})`
+                    ? `rgba(232, 51, 63, ${Math.min(0.38, Math.abs(ch) * 0.18)})`
+                    : `rgba(47, 115, 224, ${Math.min(0.38, Math.abs(ch) * 0.18)})`
                   const textClr = isUp ? 'var(--up)' : 'var(--down)'
 
                   return (
                     <button
-                      key={sec.sector}
-                      onClick={() => onSectorClick(sec.sector)}
+                      key={sec.name}
+                      onClick={() => onSectorClick(sec.name)}
                       style={{
                         background: bgColor,
                         border: `1px solid ${borderColor}`,
                         borderRadius: 8,
                         padding: '10px 10px 8px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'opacity 0.12s',
+                        textAlign: 'left', cursor: 'pointer',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.opacity = '0.8' }}
-                      onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
                     >
                       <div style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: 'var(--text-1)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        marginBottom: 4,
+                        fontSize: 11, fontWeight: 700, color: 'var(--text-1)',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4,
                       }}>
-                        {sec.sector}
+                        {sec.name}
                       </div>
                       <div style={{
-                        fontSize: 13,
-                        fontWeight: 800,
-                        color: textClr,
-                        fontFamily: 'var(--font-mono)',
-                        marginBottom: 3,
+                        fontSize: 14, fontWeight: 800, color: textClr, fontFamily: 'var(--font-mono)',
                       }}>
-                        {sec.avgChange >= 0 ? '+' : ''}{sec.avgChange.toFixed(2)}%
-                      </div>
-                      <div style={{
-                        fontSize: 9,
-                        color: 'var(--text-4)',
-                        fontFamily: 'var(--font-mono)',
-                      }}>
-                        {sec.count}종목
+                        {sec.changePct == null ? '—' : (ch >= 0 ? '+' : '') + ch.toFixed(2) + '%'}
                       </div>
                     </button>
                   )
