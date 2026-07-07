@@ -744,8 +744,8 @@ public class ScreenerController {
             JOIN instruments i ON i.id = cs.security_id
             LEFT JOIN derived_metrics f ON f.security_id = cs.security_id
                 AND f.as_of_date = (SELECT MAX(as_of_date) FROM derived_metrics WHERE inst_net_buy_10d IS NOT NULL)
-            WHERE """ + where + """
-            ORDER BY """ + sortCol + " " + direction + """
+            WHERE """ + " " + where + """
+            ORDER BY """ + " " + sortCol + " " + direction + """
             LIMIT ? OFFSET ?
             """;
 
