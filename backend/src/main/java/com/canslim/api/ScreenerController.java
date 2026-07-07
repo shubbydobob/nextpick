@@ -39,10 +39,15 @@ record PriceBar(String date, BigDecimal open, BigDecimal high, BigDecimal low,
 public class ScreenerController {
 
     private static final Logger log = LoggerFactory.getLogger(ScreenerController.class);
+    private static final long PRICE_CACHE_TTL = 60_000; // 60초 — 가격 데이터 일 1회 배치
 
     private final CanslimScoreRepository scoreRepo;
     private final InstrumentRepository   instRepo;
     private final JdbcTemplate           jdbc;
+
+    // 가격 정렬 캐시: key = "sortBy|desc|page|size|minScore|keyword|sector|minCap|maxCap"
+    private final Map<String, CachedPage> priceSortCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private record CachedPage(ScreenerPageResponse data, long ts) {}
 
     public ScreenerController(CanslimScoreRepository scoreRepo,
                               InstrumentRepository instRepo,
@@ -80,11 +85,22 @@ public class ScreenerController {
         boolean isDefaultSort = "compositeScore".equals(sortBy) && "desc".equals(sortDir);
         final String keyword = isSearch ? q.trim().toLowerCase() : null;
 
-        // 가격 기반 정렬: DB에서 직접 정렬+페이징 (전체 로드 회피)
+        // 가격 기반 정렬: 캐시 우선 → DB 직접 정렬+페이징
         if (isPriceSort) {
-            return ResponseEntity.ok(screenByPriceSort(
+            String cacheKey = String.join("|", market, sortBy, sortDir,
+                    String.valueOf(page), String.valueOf(size), String.valueOf(minScore),
+                    String.valueOf(keyword), String.valueOf(sector),
+                    String.valueOf(minCap), String.valueOf(maxCap));
+            CachedPage cached = priceSortCache.get(cacheKey);
+            long now = System.currentTimeMillis();
+            if (cached != null && now - cached.ts() < PRICE_CACHE_TTL) {
+                return ResponseEntity.ok(cached.data());
+            }
+            ScreenerPageResponse result = screenByPriceSort(
                     scoreDate, market, sortBy, "desc".equals(sortDir),
-                    page, size, minScore, keyword, sector, minCap, maxCap));
+                    page, size, minScore, keyword, sector, minCap, maxCap);
+            priceSortCache.put(cacheKey, new CachedPage(result, now));
+            return ResponseEntity.ok(result);
         }
 
         boolean hasFilter = isSearch || sector != null || minCap != null || maxCap != null;
