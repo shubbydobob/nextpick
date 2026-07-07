@@ -1,0 +1,40 @@
+name: DB migrate (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'SQL file to run (relative to repo root)'
+        required: true
+        default: 'db/migrate_v3_price_snapshot.sql'
+
+jobs:
+  migrate:
+    name: Run migration SQL
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run SQL via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            cd /home/ubuntu/canslim
+            git pull --ff-only
+
+            echo "===== Running: ${{ github.event.inputs.script }} ====="
+            docker exec -i canslim-postgres \
+              psql -U canslim_user -d canslim < "${{ github.event.inputs.script }}"
+            echo "===== Done ====="
+
+            echo "===== Verify: canslim_scores columns ====="
+            docker exec canslim-postgres \
+              psql -U canslim_user -d canslim -A -t -c \
+              "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='canslim_scores' AND column_name IN ('close_price','prev_close','change_rate','volume','turnover','market_cap') ORDER BY column_name;"
+
+            echo "===== Verify: rows with price data ====="
+            docker exec canslim-postgres \
+              psql -U canslim_user -d canslim -A -t -c \
+              "SELECT count(*) AS total, count(*) FILTER (WHERE close_price IS NOT NULL) AS has_price FROM canslim_scores WHERE score_date=(SELECT max(score_date) FROM canslim_scores);"
