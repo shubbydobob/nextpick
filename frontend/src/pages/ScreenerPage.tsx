@@ -1179,6 +1179,28 @@ export default function ScreenerPage() {
               </div>
             </FilterCell>
 
+            {/* 정렬 */}
+            <FilterCell label="정렬">
+              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                {([
+                  ['compositeScore', '종합점수'],
+                  ['turnover', '거래대금'],
+                  ['marketCap', '시총'],
+                  ['changeRate', '등락률'],
+                ] as const).map(([k, lbl]) => (
+                  <button key={k} onClick={() => { setSortKey(k as SortKey); setSortDir('desc'); setPage(0) }} style={{
+                    padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 3,
+                    background: sortKey === k ? '#1f3a5f' : 'var(--bg-surface)',
+                    color: sortKey === k ? '#58a6ff' : 'var(--text-3)',
+                    border: `1px solid ${sortKey === k ? 'var(--accent-strong)' : 'var(--border)'}`,
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </FilterCell>
+
             {/* 관심종목 */}
             <FilterCell label="관심종목">
               <button onClick={() => setShowWatchOnly(v => !v)} style={{

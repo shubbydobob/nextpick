@@ -40,6 +40,25 @@ export async function fetchScreenerStats(market = 'KR'): Promise<ScreenerStats> 
   return res.json()
 }
 
+export interface LimitUpStock {
+  securityId: number
+  ticker: string
+  name: string
+  sector: string | null
+  changeRate: number
+  closePrice: number
+  compositeScore: number | null
+}
+
+/** 상한가·급등 종목 (당일 등락률 >= 29%). 대시보드 섹션용. */
+export async function fetchLimitUp(market = 'KR'): Promise<LimitUpStock[]> {
+  try {
+    const res = await fetch(`${BASE}/screener/limit-up?market=${market}`)
+    if (!res.ok) return []
+    return res.json()
+  } catch { return [] }
+}
+
 export async function fetchSectors(): Promise<string[]> {
   const res = await fetch(`${BASE}/screener/sectors`)
   if (!res.ok) return []

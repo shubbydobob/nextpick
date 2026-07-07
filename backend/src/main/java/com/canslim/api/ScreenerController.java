@@ -25,6 +25,8 @@ import java.util.stream.Collectors;
 record ScreenerPageResponse(List<ScreenerItemResponse> items, long total, int page, int size) {}
 record ScreenerStats(long total, long bullCount, double avgScore, long upCount,
                      List<Map<String, Object>> sectorStats) {}
+record LimitUpStock(long securityId, String ticker, String name, String sector,
+                    double changeRate, double closePrice, Double compositeScore) {}
 record FinancialRecord(int fiscalYear, int fiscalQuarter, String periodType,
                        String periodEndDate, BigDecimal revenue,
                        BigDecimal operatingIncome, BigDecimal netIncome, BigDecimal eps,
@@ -267,6 +269,51 @@ public class ScreenerController {
         long up       = agg.get("up_count") != null ? ((Number) agg.get("up_count")).longValue() : 0;
 
         return ResponseEntity.ok(new ScreenerStats(total, bull, avg, up, sectorRows));
+    }
+
+    /** 상한가·급등 종목 (당일 등락률 >= threshold%, 기본 29% — 국내 가격제한 ±30% 근접). */
+    @GetMapping("/limit-up")
+    public ResponseEntity<List<LimitUpStock>> getLimitUp(
+            @RequestParam(name = "market", defaultValue = "KR") String market,
+            @RequestParam(name = "threshold", defaultValue = "29.0") double threshold) {
+
+        LocalDate scoreDate = resolveDate(market, null);
+        if (scoreDate == null) return ResponseEntity.ok(List.of());
+
+        // score_date 이하 최신 2개 거래일(cur/prev)로 당일 등락률 계산 (연속 거래일 = 주말 제외).
+        String sql = """
+            WITH ranked AS (
+              SELECT security_id, close_adj, trade_date,
+                     ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn
+              FROM price_daily
+              WHERE trade_date >= ? - INTERVAL '14 days' AND trade_date <= ?
+            ),
+            cur  AS (SELECT security_id, close_adj FROM ranked WHERE rn = 1),
+            prev AS (SELECT security_id, close_adj AS close FROM ranked WHERE rn = 2)
+            SELECT i.id AS security_id, i.ticker, i.name, i.sector,
+                   ROUND((cur.close_adj - prev.close) / prev.close * 100, 2) AS change_rate,
+                   cur.close_adj AS close_price,
+                   cs.composite_score
+            FROM cur
+            JOIN prev ON prev.security_id = cur.security_id AND prev.close > 0
+            JOIN instruments i ON i.id = cur.security_id
+            LEFT JOIN canslim_scores cs
+                   ON cs.security_id = cur.security_id AND cs.score_date = ? AND cs.market = ?
+            WHERE (cur.close_adj - prev.close) / prev.close * 100 >= ?
+            ORDER BY change_rate DESC
+            LIMIT 60
+            """;
+
+        List<LimitUpStock> rows = jdbc.query(sql, (rs, i) -> {
+            Object comp = rs.getObject("composite_score");
+            return new LimitUpStock(
+                    rs.getLong("security_id"), rs.getString("ticker"),
+                    rs.getString("name"), rs.getString("sector"),
+                    rs.getDouble("change_rate"), rs.getDouble("close_price"),
+                    comp == null ? null : ((Number) comp).doubleValue());
+        }, scoreDate, scoreDate, scoreDate, market, threshold);
+
+        return ResponseEntity.ok(rows);
     }
 
     @GetMapping("/sectors")

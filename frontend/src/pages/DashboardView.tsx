@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { ScreenerItem } from '../types'
-import { fetchScreenerStats } from '../api/client'
-import type { ScreenerStats } from '../api/client'
+import { fetchScreenerStats, fetchLimitUp } from '../api/client'
+import type { ScreenerStats, LimitUpStock } from '../api/client'
 import { useIsMobile } from '../hooks/useIsMobile'
 
 interface Props {
@@ -69,10 +69,12 @@ export default function DashboardView({
 }: Props) {
   const [hoveredRankId, setHoveredRankId] = useState<number | null>(null)
   const [stats, setStats] = useState<ScreenerStats | null>(null)
+  const [limitUp, setLimitUp] = useState<LimitUpStock[]>([])
   const isMobile = useIsMobile()
 
   useEffect(() => {
     fetchScreenerStats('KR').then(setStats).catch(() => {})
+    fetchLimitUp('KR').then(setLimitUp).catch(() => {})
   }, [])
 
   // ── Stats (전체 2558종목 기준) ──────────────────────────────────
@@ -170,6 +172,55 @@ export default function DashboardView({
             {marketStates.find(m => m.market === 'KOSPI')?.stateDate ?? '—'}
           </div>
         </div>
+      </div>
+
+      {/* ── 상한가·급등 섹션 (당일 +29%↑) ──────────────────────── */}
+      <div style={{
+        background: 'var(--bg-surface)', border: '1px solid var(--border)',
+        borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        marginBottom: isMobile ? 14 : 24, overflow: 'hidden',
+      }}>
+        <div style={{
+          padding: '14px 18px 12px', borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>🚀 상한가·급등</span>
+          <span style={{ fontSize: 11, color: 'var(--text-4)' }}>당일 +29% 이상</span>
+          {limitUp.length > 0 && (
+            <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: 'var(--up)', fontFamily: 'var(--font-mono)' }}>
+              {limitUp.length}종목
+            </span>
+          )}
+        </div>
+        {limitUp.length === 0 ? (
+          <div style={{ padding: '22px', textAlign: 'center', color: 'var(--text-4)', fontSize: 12 }}>
+            오늘 상한가·급등 종목 없음
+          </div>
+        ) : (
+          <div className="hide-scrollbar" style={{ display: 'flex', gap: 8, padding: 12, overflowX: 'auto' }}>
+            {limitUp.map(s => (
+              <button
+                key={s.securityId}
+                onClick={() => onStockClick(s.securityId)}
+                style={{
+                  flexShrink: 0, minWidth: 124, textAlign: 'left', cursor: 'pointer',
+                  background: 'rgba(232,51,63,0.08)', border: '1px solid rgba(232,51,63,0.28)',
+                  borderRadius: 12, padding: '10px 12px',
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
+                <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 700, marginTop: 2 }}>{s.ticker}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--up)', fontFamily: 'var(--font-mono)', marginTop: 5 }}>
+                  +{s.changeRate.toFixed(2)}%
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginTop: 1 }}>
+                  {Math.round(s.closePrice).toLocaleString()}원{s.compositeScore != null ? ` · ${Math.round(s.compositeScore)}점` : ''}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Bottom: Ranking + Sector Heatmap (모바일은 세로 스택) ── */}
