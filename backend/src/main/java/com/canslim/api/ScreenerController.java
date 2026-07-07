@@ -211,49 +211,54 @@ public class ScreenerController {
         LocalDate scoreDate = resolveDate(market, null);
         if (scoreDate == null) return ResponseEntity.ok(new ScreenerStats(0, 0, 0, 0, List.of()));
 
-        // prev CTE 범위를 7일로 제한 → price_daily 풀스캔 방지
+        // score_date에 정확히 일치하는 가격이 없어도(가격 적재가 채점일보다 뒤처진 경우)
+        // score_date 이하 '최신 2개' 거래일을 cur/prev로 잡아 등락 계산 (풀스캔 방지 14일 윈도우).
         String aggSql = """
-            WITH prev AS (
-              SELECT DISTINCT ON (security_id) security_id, close_adj AS close
+            WITH ranked AS (
+              SELECT security_id, close_adj, trade_date,
+                     ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn
               FROM price_daily
-              WHERE trade_date >= ? - INTERVAL '7 days' AND trade_date < ?
-              ORDER BY security_id, trade_date DESC
-            )
+              WHERE trade_date >= ? - INTERVAL '14 days' AND trade_date <= ?
+            ),
+            cur  AS (SELECT security_id, close_adj FROM ranked WHERE rn = 1),
+            prev AS (SELECT security_id, close_adj AS close FROM ranked WHERE rn = 2)
             SELECT
               COUNT(*) AS total,
               SUM(CASE WHEN cs.composite_score >= 70 THEN 1 ELSE 0 END) AS bull_count,
               AVG(cs.composite_score) AS avg_score,
-              SUM(CASE WHEN p.close_adj > prev.close THEN 1 ELSE 0 END) AS up_count
+              SUM(CASE WHEN cur.close_adj > prev.close THEN 1 ELSE 0 END) AS up_count
             FROM canslim_scores cs
-            LEFT JOIN price_daily p ON p.security_id = cs.security_id AND p.trade_date = cs.score_date
+            LEFT JOIN cur  ON cur.security_id  = cs.security_id
             LEFT JOIN prev ON prev.security_id = cs.security_id
             WHERE cs.score_date = ? AND cs.market = ?
             """;
 
         Map<String, Object> agg = jdbc.queryForMap(aggSql, scoreDate, scoreDate, scoreDate, market);
 
-        // 섹터별 집계
+        // 섹터별 집계 (동일하게 score_date 이하 최신 2개 거래일 기준)
         List<Map<String, Object>> sectorRows = jdbc.queryForList("""
-            WITH prev AS (
-              SELECT DISTINCT ON (security_id) security_id, close_adj AS close
+            WITH ranked AS (
+              SELECT security_id, close_adj, trade_date,
+                     ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn
               FROM price_daily
-              WHERE trade_date >= ? - INTERVAL '7 days' AND trade_date < ?
-              ORDER BY security_id, trade_date DESC
-            )
+              WHERE trade_date >= ? - INTERVAL '14 days' AND trade_date <= ?
+            ),
+            cur  AS (SELECT security_id, close_adj FROM ranked WHERE rn = 1),
+            prev AS (SELECT security_id, close_adj AS close FROM ranked WHERE rn = 2)
             SELECT i.sector,
                    COUNT(*) AS cnt,
                    AVG(CASE WHEN prev.close > 0
-                       THEN (p.close_adj - prev.close) / prev.close * 100
+                       THEN (cur.close_adj - prev.close) / prev.close * 100
                        ELSE NULL END) AS avg_change,
                    AVG(cs.composite_score) AS avg_score
             FROM canslim_scores cs
             JOIN instruments i ON i.id = cs.security_id
-            LEFT JOIN price_daily p ON p.security_id = cs.security_id AND p.trade_date = cs.score_date
+            LEFT JOIN cur  ON cur.security_id  = cs.security_id
             LEFT JOIN prev ON prev.security_id = cs.security_id
             WHERE cs.score_date = ? AND cs.market = ?
               AND i.sector IS NOT NULL
             GROUP BY i.sector
-            ORDER BY AVG(CASE WHEN prev.close > 0 THEN (p.close_adj - prev.close) / prev.close * 100 ELSE NULL END) DESC NULLS LAST
+            ORDER BY AVG(CASE WHEN prev.close > 0 THEN (cur.close_adj - prev.close) / prev.close * 100 ELSE NULL END) DESC NULLS LAST
             """, scoreDate, scoreDate, scoreDate, market);
 
         long total    = ((Number) agg.get("total")).longValue();

@@ -81,10 +81,16 @@ def main():
     logger.info("=" * 60)
 
     # ── 1. 종목 목록 갱신 (월요일) ─────────────────────────────
+    # 비치명적: 종목목록 소스(FinanceDataReader/KRX)가 실패해도 나머지 파이프라인은 계속.
+    # (기존엔 여기서 크래시하면 price·normalize·derived·scoring이 전부 안 돌아
+    #  월요일마다 스코어가 통째로 깨졌음)
     if target_date.weekday() == 0:
         logger.info("[1/10] 종목 목록 갱신 (월요일)")
-        from .instrument_loader import load as load_instruments
-        load_instruments(target_date)
+        try:
+            from .instrument_loader import load as load_instruments
+            load_instruments(target_date)
+        except Exception as e:
+            logger.error("[1/10] 종목 목록 갱신 실패 (비치명적, 기존 목록 유지): %s", e)
     else:
         logger.info("[1/10] 종목 목록 갱신 생략 (월요일 아님)")
 

@@ -1,0 +1,51 @@
+name: Recover scores (manual)
+
+# 월요일 종목수집 크래시로 가격/파생이 밀려 스코어가 깨졌을 때 즉시 복구.
+# 가격 수집 → 수급 → 정규화 → 파생 → 채점 (지정일 기준). 삭제 없음(전부 upsert).
+on:
+  workflow_dispatch:
+    inputs:
+      score_date:
+        description: "복구 기준일 YYYY-MM-DD (완전한 최근 거래일 권장)"
+        type: string
+        default: "2026-07-06"
+
+jobs:
+  recover:
+    name: Recover pipeline for date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recover via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -e
+            cd /home/ubuntu/canslim
+            git fetch origin master && git checkout master && git pull origin master
+            .venv/bin/pip install -q -r etl/requirements.txt
+
+            D="${{ inputs.score_date }}"
+            PY="PYTHONUTF8=1 .venv/bin/python -c"
+
+            echo "===== [1/5] 가격 수집 ($D) ====="
+            PYTHONUTF8=1 .venv/bin/python -c "from datetime import date; from etl.kr_adapter.price_loader import load_daily; load_daily(date.fromisoformat('$D'))"
+
+            echo "===== [2/5] 수급 수집 ($D) ====="
+            PYTHONUTF8=1 .venv/bin/python -c "from datetime import date; from etl.kr_adapter.investor_flow_loader import load_investor_flow; load_investor_flow(as_of_date=date.fromisoformat('$D'))" || echo "(수급 실패 — 계속)"
+
+            echo "===== [3/5] 정규화 ($D) ====="
+            PYTHONUTF8=1 .venv/bin/python -c "from datetime import date; from etl.kr_adapter.financial_normalizer import normalize_all; normalize_all(date.fromisoformat('$D'))"
+
+            echo "===== [4/5] 파생 ($D) ====="
+            PYTHONUTF8=1 .venv/bin/python -c "from datetime import date; from etl.kr_adapter.derived_metrics_calculator import calculate; print('updated rows:', calculate(date.fromisoformat('$D')))"
+
+            echo "===== [5/5] 채점 ($D) ====="
+            curl -s -S -X POST --max-time 900 "http://localhost:8080/api/admin/scoring/run?date=$D" || echo "(채점 트리거 실패)"
+            echo ""
+
+            echo "===== 결과 확인 ====="
+            docker exec canslim-postgres psql -U canslim_user -d canslim -A -t -c "SELECT score_date, count(*) tot, round(avg(composite_score)::numeric,1) avg, count(*) FILTER (WHERE c_score IS NOT NULL) c_ok, count(*) FILTER (WHERE a_score IS NOT NULL) a_ok, count(*) FILTER (WHERE l_score IS NOT NULL) l_ok, count(*) FILTER (WHERE i_score IS NOT NULL) i_ok FROM canslim_scores WHERE score_date='$D' GROUP BY score_date;"
