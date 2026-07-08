@@ -62,7 +62,7 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 
 ### 알려진 데이터 함정
 - **넥스트레이드(NXT) 통합 시세**: 2025 대체거래소 출범 후 실제 체결가는 KRX+NXT 통합. KIS 조회는 `fid_cond_mrkt_div_code` **"UN"(통합)** 우선 → 미지원/빈값 시 **"J"(KRX) 폴백**. `RealtimePriceController`의 `inquirePriceOutput`(시세)·`fetchInvestorRow`(투자자) 둘 다 적용. J만 쓰면 NXT 체결 누락돼 시세·등락률·거래량이 어긋남(진단 예: 삼성전자 UN -9.80% vs J -6.25%). 진단은 `kis-probe.yml`.
-- **거래정지 종목**: 정지 기간 종가 고정+거래량 0, 재개일 폭등. "상한가" 아님. limit-up은 최신 가격일 앵커로 자연 배제.
+- **거래정지 종목**: 정지 기간 종가 고정+거래량 0, 재개일 폭등. "상한가" 아님. 재개일 등락률을 정지 전 stale 종가로 계산하면 허위 폭등(예: 금호에이치티 214330 정지 2555→재개 9030 = **+253%**, KIS는 재산정 기준가 6950 대비 +29.93%). **픽스(2026-07-08)**: `ScreenerController`의 `loadPriceAndFlow`(리스트/상세 표시)·`/limit-up`·`/stats`(상승종목수·섹터 평균등락) 모두 **전일 거래량>0** 조건으로 정지 갭 배제 → 정지 종목은 등락률 null. 정상 상한가(전일 거래량>0)는 영향 없음. 장중엔 실시간 오버레이가 KIS 정확값 표시. (canslim_scores.change_rate 정렬 앵커엔 배치값 잔존 — 표시는 loadPriceAndFlow로 교정되나 정렬 순서는 재채점 전까지 stale 가능.)
 - **채점 지연**: 가격은 최신일인데 canslim_scores는 이전일일 수 있음. 헤더 "매일 갱신" 날짜 = 최신 채점일.
 - **프로그램 10일 누적 불가**: KIS에 "종목별" 프로그램매매 일별 API 없음(시장별 종합만). → 배치 `program_net_buy_10d`는 null, 장중 실시간(`pgtr_ntby_qty`)만 제공. 프론트도 이 전제로 표시.
 - **시간외 종가**: pykrx 종가는 정규장(15:30) 기준. 시간외 단일가는 `after_hours_loader`(20:05)가 별도 컬럼에 적재 → COALESCE 오버레이로만 표시(운영 첫 배치 후 `derived_metrics.after_hours_close` 확인 권장).
