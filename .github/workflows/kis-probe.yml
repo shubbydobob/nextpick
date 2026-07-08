@@ -24,10 +24,21 @@ jobs:
           script: |
             cd /home/ubuntu/canslim
             TICKER="${{ inputs.ticker }}" PYTHONUTF8=1 .venv/bin/python - <<'PY'
-            import os, json, requests
+            import os, re, json, requests
             from etl.kr_adapter.investor_flow_loader import _load_config, _get_token, _BASE_URL
             cfg = _load_config(); token = _get_token(cfg)
-            ticker = os.environ.get("TICKER", "005930")
+            arg = os.environ.get("TICKER", "005930")
+            # 6자리 숫자가 아니면 종목명으로 보고 DB에서 ticker 조회
+            if re.match(r'^\d{6}$', arg):
+                ticker = arg
+            else:
+                from etl.shared.db_writer import get_session
+                from sqlalchemy import text
+                with get_session() as s:
+                    row = s.execute(text("SELECT ticker, name FROM instruments WHERE name LIKE :n ORDER BY length(name) LIMIT 1"),
+                                    {"n": f"%{arg}%"}).fetchone()
+                    ticker = row.ticker if row else arg
+                    print(f"종목명 '{arg}' → ticker={ticker} ({row.name if row else '없음'})")
 
             def probe(label, tr, path, params):
                 h = {"content-type":"application/json; charset=utf-8",
@@ -53,8 +64,9 @@ jobs:
                         r = requests.get(_BASE_URL + path, headers=h, params=p, timeout=10)
                         j = r.json(); o = j.get("output") or {}
                         print(f"=== {label} mkt={mkt} rt_cd={j.get('rt_cd')} msg={j.get('msg1')} "
-                              f"prpr={o.get('stck_prpr')} ctrt={o.get('prdy_ctrt')} vol={o.get('acml_vol')} "
-                              f"rprs_mrkt={o.get('rprs_mrkt_kor_name')}")
+                              f"prpr={o.get('stck_prpr')} sdpr(기준가)={o.get('stck_sdpr')} "
+                              f"vrss={o.get('prdy_vrss')} ctrt={o.get('prdy_ctrt')} vol={o.get('acml_vol')} "
+                              f"stat={o.get('iscd_stat_cls_code')} rprs_mrkt={o.get('rprs_mrkt_kor_name')}")
                     except Exception as e:
                         print(f"=== {label} mkt={mkt} ERROR {e}")
                 one("현재가", "FHKST01010100", "/uapi/domestic-stock/v1/quotations/inquire-price",
