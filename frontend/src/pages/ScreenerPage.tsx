@@ -554,60 +554,48 @@ export default function ScreenerPage() {
       { k: '수급', v: item.sScore }, { k: '선도', v: item.lScore }, { k: '기관', v: item.iScore },
     ]
     return (
-      <div key={item.securityId}
-        onClick={() => { setSelectedStockId(item.securityId); setViewTab('detail') }}
-        style={{
-          background: 'var(--bg-nav)', border: '1px solid var(--border)', borderRadius: 10,
-          padding: '12px 14px', marginBottom: 8, cursor: 'pointer',
-        }}>
-        {/* 1행: 순위·종목명·티커/섹터 | 관심·SCORE */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-4)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>#{item.marketRank}</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-              {item.breakoutToday === true && (
-                <span style={{ fontSize: 9, background: '#16a34a', color: '#fff', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>NEW</span>
-              )}
+      <div key={item.securityId} className="scard"
+        onClick={() => { setSelectedStockId(item.securityId); setViewTab('detail') }}>
+        {/* 1행: 순위·종목명·섹터 | 관심·SCORE */}
+        <div className="scard-row1">
+          <div className="scard-id">
+            <div className="scard-name-line">
+              <span className="scard-rank">#{item.marketRank}</span>
+              <span className="scard-name">{item.name}</span>
+              {item.breakoutToday === true && <span className="scard-badge-new">NEW</span>}
               <StatusBadges statuses={liveMap[item.ticker]?.statuses ?? item.statuses} size="xs" />
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3, fontFamily: 'var(--font-mono)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <span style={{ color: '#3b82f6', fontWeight: 700 }}>{item.ticker}</span>
+            <div className="scard-sub">
+              <span className="scard-ticker">{item.ticker}</span>
               {item.sector && <span> · {item.sector}</span>}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-            <span onClick={e => toggleWatch(item.securityId, e)}
-              style={{ fontSize: 18, lineHeight: 1, color: isWatched ? '#facc15' : 'var(--text-4)', userSelect: 'none' }}>
+          <div className="scard-right">
+            <span className={isWatched ? 'scard-star on' : 'scard-star'}
+              onClick={e => toggleWatch(item.securityId, e)}>
               {isWatched ? '★' : '☆'}
             </span>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: grade.color, lineHeight: 1 }}>
-                {Math.round(item.compositeScore)}
-              </div>
-              <div style={{ fontSize: 10, color: grade.color, opacity: 0.85, marginTop: 1 }}>{grade.label}</div>
+            <div className="scard-score" style={{ ['--sc-grade' as string]: grade.color }}>
+              <div className="scard-score-num">{Math.round(item.compositeScore)}</div>
+              <div className="scard-score-label">{grade.label}</div>
             </div>
           </div>
         </div>
 
         {/* 2행: 종가 · 등락률 · 시총 */}
-        <div className={flash ? `flash-${flash}` : undefined}
-          style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: 10, borderRadius: 6,
-            fontFamily: 'var(--font-mono)' }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>{fmtPrice(item.closePrice)}</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: changeColor(item.changeRate) }}>{fmtRate(item.changeRate)}</span>
-          <span style={{ fontSize: 11, color: 'var(--text-4)' }}>거래량 {fmtVolume(item.volume)}</span>
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>시총 {fmtMarketCap(item.marketCap)}</span>
+        <div className={'scard-price' + (flash ? ` flash-${flash}` : '')}>
+          <span className="scard-close">{fmtPrice(item.closePrice)}</span>
+          <span className="scard-rate" style={{ ['--sc-rate' as string]: changeColor(item.changeRate) }}>{fmtRate(item.changeRate)}</span>
+          <span className="scard-vol">거래량 {fmtVolume(item.volume)}</span>
+          <span className="scard-cap">시총 {fmtMarketCap(item.marketCap)}</span>
         </div>
 
-        {/* 3행: C·A·N·S·L·I 팩터 스트립 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4, marginTop: 10 }}>
+        {/* 3행: 팩터 스트립 */}
+        <div className="scard-factors">
           {factors.map(f => (
-            <div key={f.k} style={{ textAlign: 'center', background: scoreBg(f.v), borderRadius: 5, padding: '4px 0' }}>
-              <div style={{ fontSize: 9, color: 'var(--text-4)' }}>{f.k}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: scoreFg(f.v) }}>
+            <div key={f.k} className="scard-factor" style={{ ['--sc-bg' as string]: scoreBg(f.v) }}>
+              <div className="scard-factor-k">{f.k}</div>
+              <div className="scard-factor-v" style={{ ['--sc-fg' as string]: scoreFg(f.v) }}>
                 {f.v !== null ? Math.round(f.v) : '·'}
               </div>
             </div>

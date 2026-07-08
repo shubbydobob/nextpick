@@ -150,6 +150,32 @@ body {
 .scr-muted { text-align: right; color: var(--text-3); }
 .scr-muted.mono { font-family: var(--font-mono); }
 
+/* 스크리너 모바일 카드 */
+.scard { background: var(--bg-nav); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; }
+.scard-row1 { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.scard-id { min-width: 0; flex: 1; }
+.scard-name-line { display: flex; align-items: center; gap: 6px; }
+.scard-rank { font-size: 11px; color: var(--text-4); font-family: var(--font-mono); flex-shrink: 0; }
+.scard-name { font-size: 15px; font-weight: 700; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scard-badge-new { font-size: 9px; background: #16a34a; color: #fff; border-radius: 3px; padding: 1px 4px; flex-shrink: 0; }
+.scard-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scard-ticker { color: #3b82f6; font-weight: 700; }
+.scard-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.scard-star { font-size: 18px; line-height: 1; color: var(--text-4); user-select: none; }
+.scard-star.on { color: #facc15; }
+.scard-score { text-align: right; }
+.scard-score-num { font-size: 22px; font-weight: 800; color: var(--sc-grade, var(--text-1)); line-height: 1; }
+.scard-score-label { font-size: 10px; color: var(--sc-grade, var(--text-3)); opacity: 0.85; margin-top: 1px; }
+.scard-price { display: flex; align-items: baseline; gap: 12px; margin-top: 10px; border-radius: 6px; font-family: var(--font-mono); }
+.scard-close { font-size: 16px; font-weight: 700; color: var(--text-1); }
+.scard-rate { font-size: 14px; font-weight: 700; color: var(--sc-rate, var(--text-3)); }
+.scard-vol { font-size: 11px; color: var(--text-4); }
+.scard-cap { margin-left: auto; font-size: 12px; color: var(--text-3); }
+.scard-factors { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 10px; }
+.scard-factor { text-align: center; background: var(--sc-bg, transparent); border-radius: 5px; padding: 4px 0; }
+.scard-factor-k { font-size: 9px; color: var(--text-4); }
+.scard-factor-v { font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: var(--sc-fg, var(--text-1)); }
+
 /* 로딩 스피너 */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner {
