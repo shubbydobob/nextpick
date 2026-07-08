@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt, fmtFinAmt, fmtVol, fmtFlow } from '../utils/format'
-import { scoreGrade } from '../utils/canslim'
+import { scoreGrade } from '../utils/factors'
 import { isPremium, isLoggedIn } from '../api/auth'
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip,

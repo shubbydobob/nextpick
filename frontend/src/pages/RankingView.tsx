@@ -3,7 +3,7 @@ import type { ScreenerItem } from '../types'
 import type { LiveQuote } from '../api/client'
 import { useIsMobile } from '../hooks/useIsMobile'
 import StatusBadges from '../components/StatusBadges'
-import { scoreFg, changeColor } from '../utils/canslim'
+import { scoreFg, changeColor } from '../utils/factors'
 import { fmtRate } from '../utils/format'
 
 interface Props {

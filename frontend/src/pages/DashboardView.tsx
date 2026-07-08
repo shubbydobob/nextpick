@@ -3,7 +3,7 @@ import type { ScreenerItem } from '../types'
 import { fetchScreenerStats, fetchLimitUp, fetchLiveQuotes, fetchSectorIndices } from '../api/client'
 import type { ScreenerStats, LimitUpStock, LiveQuote, SectorIndex } from '../api/client'
 import { useIsMobile } from '../hooks/useIsMobile'
-import { scoreFg, changeColor } from '../utils/canslim'
+import { scoreFg, changeColor } from '../utils/factors'
 
 interface Props {
   items: ScreenerItem[]

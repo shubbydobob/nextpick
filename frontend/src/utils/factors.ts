@@ -1,19 +1,5 @@
-// frontend/src/utils/canslim.ts
-// CAN SLIM 팩터 메타 + 스코어→색/티어 매핑 (실제 index.css 변수 사용).
-// 색은 전부 CSS 변수라 [data-theme] 라이트/다크에 자동 대응됩니다.
-import type { ScreenerItem } from '../types'
-
-export const CANSLIM = [
-  { key: 'cScore', letter: 'C', name: '최근 분기 실적', desc: '최근 분기 EPS·매출 성장률' },
-  { key: 'aScore', letter: 'A', name: '연간 실적',     desc: '연간 EPS 성장·ROE' },
-  { key: 'nScore', letter: 'N', name: '신고가·신제품', desc: '52주 신고가·베이스 돌파' },
-  { key: 'sScore', letter: 'S', name: '수급',          desc: '거래량·기관/외인 순매수' },
-  { key: 'lScore', letter: 'L', name: '주도주',        desc: '상대강도·업종 내 순위' },
-  { key: 'iScore', letter: 'I', name: '기관 수급',     desc: '기관 보유·프로그램 순매수' },
-  { key: 'mScore', letter: 'M', name: '시장 방향',     desc: '시장 추세·M지수' },
-] as const
-
-export type CanslimKey = (typeof CANSLIM)[number]['key']
+// frontend/src/utils/factors.ts
+// 팩터 스코어 → 색/티어/등급 매핑 (전부 index.css 변수 → [data-theme] 라이트/다크 자동 대응).
 
 export interface Tier { color: string; label: string; tint: string }
 
@@ -26,24 +12,11 @@ export function scoreTier(score: number | null): Tier {
   return               { color: 'var(--text-3)',       label: '약함',       tint: 'transparent' }
 }
 
-/** 개별 팩터 값(0~100) → 막대 색. null(DART 커버리지 부족)은 연한 회색. */
-export function factorColor(v: number | null): string {
-  if (v == null) return 'var(--border-sub)'
-  if (v >= 70)   return 'var(--accent)'
-  if (v >= 45)   return 'color-mix(in srgb, var(--accent) 55%, var(--surface))'
-  return           'color-mix(in srgb, var(--accent) 28%, var(--surface))'
-}
-
-/** ScreenerItem → C..M 7개 값 배열 (null 유지). 레이더/막대에 그대로 전달. */
-export function canslimValues(item: ScreenerItem): (number | null)[] {
-  return CANSLIM.map(m => item[m.key] as number | null)
-}
-
 /** 한국식 등락 색 (index.css --up/--down). */
 export const changeColor = (chg: number | null): string =>
   chg == null ? 'var(--text-3)' : chg > 0 ? 'var(--up)' : chg < 0 ? 'var(--down)' : 'var(--text-3)'
 
-/** 스코어(0~100) → 텍스트/포인트 색. 여러 뷰에서 쓰이던 near-중복 정의를 단일화. */
+/** 스코어(0~100) → 텍스트/포인트 색. */
 export function scoreFg(v: number | null): string {
   if (v == null) return 'var(--text-4)'
   if (v >= 85) return '#4ade80'

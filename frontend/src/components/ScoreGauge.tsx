@@ -1,6 +1,6 @@
 // frontend/src/components/ScoreGauge.tsx
 // 종합 스코어 도넛 게이지. compositeScore 하나만 넘기면 됩니다.
-import { scoreTier } from '../utils/canslim'
+import { scoreTier } from '../utils/factors'
 
 interface Props {
   score: number | null       // item.compositeScore

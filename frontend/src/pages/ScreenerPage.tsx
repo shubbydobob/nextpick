@@ -14,7 +14,7 @@ import StatusBadges from '../components/StatusBadges'
 import { useIsMobile } from '../hooks/useIsMobile'
 import type { ScreenerItem } from '../types'
 import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt, fmtVolume } from '../utils/format'
-import { scoreBg, scoreFg, scoreGrade, changeColor } from '../utils/canslim'
+import { scoreBg, scoreFg, scoreGrade, changeColor } from '../utils/factors'
 
 
 // ── types ──────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ export default function ScreenerPage() {
   const [showGacha, setShowGacha] = useState(false)
   const [visitCount, setVisitCount] = useState<number | null>(null)
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    const saved = localStorage.getItem('canslim_theme') as 'dark' | 'light' | null
+    const saved = localStorage.getItem('nextpick_theme') as 'dark' | 'light' | null
     if (saved) return saved
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
@@ -724,7 +724,7 @@ export default function ScreenerPage() {
   const toggleTheme = () => {
     const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light'
     document.documentElement.setAttribute('data-theme', next)
-    localStorage.setItem('canslim_theme', next)
+    localStorage.setItem('nextpick_theme', next)
     setTheme(next as 'dark' | 'light')
   }
 

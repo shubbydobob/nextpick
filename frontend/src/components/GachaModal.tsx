@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { ScreenerItem } from '../types'
-import { scoreFg } from '../utils/canslim'
+import { scoreFg } from '../utils/factors'
 
 interface Props {
   items: ScreenerItem[]

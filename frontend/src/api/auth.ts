@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'canslim_token'
+const TOKEN_KEY = 'nextpick_token'
 const API_ORIGIN = import.meta.env.VITE_API_URL ?? ''
 const BASE = `${API_ORIGIN}/api/auth`
 
@@ -23,7 +23,7 @@ export function clearToken(): void {
 export function isPremium(): boolean {
   // Fast local check: store plan in localStorage too
   try {
-    const raw = localStorage.getItem('canslim_user')
+    const raw = localStorage.getItem('nextpick_user')
     if (!raw) return false
     const user: UserInfo = JSON.parse(raw)
     return user.plan === 'premium'
@@ -43,11 +43,11 @@ export async function fetchMe(): Promise<UserInfo | null> {
     })
     if (!res.ok) {
       clearToken()
-      localStorage.removeItem('canslim_user')
+      localStorage.removeItem('nextpick_user')
       return null
     }
     const data: UserInfo = await res.json()
-    localStorage.setItem('canslim_user', JSON.stringify(data))
+    localStorage.setItem('nextpick_user', JSON.stringify(data))
     return data
   } catch { return null }
 }
@@ -78,5 +78,5 @@ export async function register(email: string, password: string): Promise<{ userI
 
 export function logout(): void {
   clearToken()
-  localStorage.removeItem('canslim_user')
+  localStorage.removeItem('nextpick_user')
 }

@@ -128,11 +128,6 @@ body {
 /* 라우트/로딩 폴백 */
 .route-fallback { display: flex; align-items: center; justify-content: center; height: 100vh; gap: 10px; color: var(--text-3); font-size: 13px; }
 
-/* 팩터 미니 막대 (FactorBars) */
-.factor-bars { display: flex; align-items: flex-end; gap: var(--fb-gap, 5px); height: var(--fb-h, 34px); }
-.factor-bar  { width: var(--fb-w, 7px); height: 100%; display: flex; align-items: flex-end; background: var(--track); border-radius: 3px; overflow: hidden; }
-.factor-bar > i { display: block; width: 100%; height: var(--fb-fill, 0%); background: var(--fb-color, var(--track)); border-radius: 3px; }
-
 /* 매크로 티커 */
 .macro-ticker { background: var(--bg-nav); border-bottom: 1px solid var(--border); height: 36px; overflow: hidden; position: relative; }
 @keyframes ticker-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
