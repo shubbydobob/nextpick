@@ -219,26 +219,11 @@ public class RealtimePriceController {
         return q;
     }
 
-    /** KIS 주식현재가시세 1콜 → 시세 맵. */
+    /** KIS 주식현재가시세 → 시세 맵. 넥스트레이드 통합("UN") 우선, 실패 시 KRX("J") 폴백. */
     private Map<String, Object> fetchQuote(String ticker, Map<String, Object> cfg, String token) {
-        if (!acquireRate()) return null;   // 전역 초당 레이트리밋
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("authorization", "Bearer " + token);
-        headers.set("appkey",   (String) cfg.get("app_key"));
-        headers.set("appsecret", (String) cfg.get("app_secret"));
-        headers.set("tr_id",    "FHKST01010100");
-        headers.set("custtype", "P");
-
-        String url = KIS_BASE + PRICE_PATH
-                + "?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=" + ticker;
-
-        ResponseEntity<Map> resp = rest.exchange(
-                url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-
-        if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) return null;
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> output = (Map<String, Object>) resp.getBody().get("output");
+        // NXT(넥스트레이드) 대체거래소 출범(2025) 이후, 실제 체결가는 KRX+NXT 통합("UN").
+        Map<String, Object> output = inquirePriceOutput(ticker, cfg, token, "UN");
+        if (output == null) output = inquirePriceOutput(ticker, cfg, token, "J");  // UN 미지원/빈값 폴백
         if (output == null) return null;
 
         Map<String, Object> q = new LinkedHashMap<>();
@@ -252,6 +237,38 @@ public class RealtimePriceController {
         q.put("programNetVol", parseLong((String) output.getOrDefault("pgtr_ntby_qty", "0"))); // 프로그램 순매수(주) — 3단계
         q.put("statuses",   deriveStatuses(output));                                          // 거래정지·주의·과열 등 특이사항 뱃지
         return q;
+    }
+
+    /**
+     * 주식현재가시세 1콜 → output(시장구분 mktDiv). 유효한 현재가가 없으면 null(폴백 유도).
+     * mktDiv: "UN"=KRX+NXT 통합, "J"=KRX, "NX"=넥스트레이드.
+     */
+    private Map<String, Object> inquirePriceOutput(String ticker, Map<String, Object> cfg, String token, String mktDiv) {
+        if (!acquireRate()) return null;   // 전역 초당 레이트리밋
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("authorization", "Bearer " + token);
+        headers.set("appkey",   (String) cfg.get("app_key"));
+        headers.set("appsecret", (String) cfg.get("app_secret"));
+        headers.set("tr_id",    "FHKST01010100");
+        headers.set("custtype", "P");
+
+        String url = KIS_BASE + PRICE_PATH
+                + "?FID_COND_MRKT_DIV_CODE=" + mktDiv + "&FID_INPUT_ISCD=" + ticker;
+        try {
+            ResponseEntity<Map> resp = rest.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) return null;
+            Object rt = resp.getBody().get("rt_cd");
+            if (rt != null && !"0".equals(String.valueOf(rt))) return null;   // 미지원/에러 → 폴백
+            @SuppressWarnings("unchecked")
+            Map<String, Object> output = (Map<String, Object>) resp.getBody().get("output");
+            if (output == null) return null;
+            // 유효 현재가(>0)가 없으면 폴백(UN이 빈값 주는 종목 방지).
+            if (parseLong((String) output.getOrDefault("stck_prpr", "0")) <= 0) return null;
+            return output;
+        } catch (Exception e) {
+            log.debug("KIS 시세 조회 실패 ({}, mkt={}): {}", ticker, mktDiv, e.getMessage());
+            return null;
+        }
     }
 
     /**
