@@ -452,11 +452,11 @@ export default function ScreenerPage() {
       <tr>
         <th style={{ ...S.td, width: 28, textAlign: 'center', color: 'var(--text-3)', fontSize: 11, borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)' }}>★</th>
         <th style={{ ...S.td, width: 36, textAlign: 'center', color: 'var(--text-3)', fontSize: 11, borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)' }}>#</th>
-        <Th label="티커" align="center" style={{ width: 72 }} />
-        <Th label="종목명" align="left" style={{ width: 140 }} />
-        <Th label="섹터" align="left" style={{ width: 80 }} />
+        <Th label="티커" align="center" style={{ width: 66 }} />
+        <Th label="종목명" align="left" style={{ width: 118 }} />
+        <Th label="섹터" align="left" style={{ width: 54 }} />
         <Th label="SCORE" sortKey="compositeScore" style={{ width: 70 }} tip="C·A·N·S·L·I 가중합산 종합점수 (0~100)" />
-        <Th label="Δ" style={{ width: 48, textAlign: 'center' }} tip="전일 대비 종합점수 변동" />
+        <Th label="Δ" style={{ width: 44, textAlign: 'center' }} tip="전일 대비 종합점수 변동" />
         <Th label="실적" sortKey="cScore" align="center" style={{ width: 46 }} tip="분기실적: 당분기 EPS 전년대비 성장률" />
         <Th label="성장" sortKey="aScore" align="center" style={{ width: 46 }} tip="연간성장: 3년 EPS 연평균 성장률 + ROE" />
         <Th label="고가" sortKey="nScore" align="center" style={{ width: 46 }} tip="신고가: 52주 고점 근접도 + 돌파 여부" />
@@ -1310,7 +1310,7 @@ export default function ScreenerPage() {
           ) : (
             <table style={{
               width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed',
-              minWidth: 1200,
+              minWidth: 1040,
             }}>
               <thead>{renderHead()}</thead>
               <tbody>
@@ -1348,7 +1348,7 @@ export default function ScreenerPage() {
             boxShadow: '0 -4px 12px rgba(0,0,0,0.12)',
           }}>
             <div style={{
-              minWidth: 1200, height: 1,
+              minWidth: 1040, height: 1,
             }} />
           </div>
         )}
