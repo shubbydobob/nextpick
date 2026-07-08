@@ -192,16 +192,49 @@ public class RealtimePriceController {
         Map<String, Object> output = (Map<String, Object>) resp.getBody().get("output");
         if (output == null) return null;
 
-        return Map.of(
-                "ticker",     ticker,
-                "name",       output.getOrDefault("hts_kor_isnm", ""),
-                "price",      parseLong((String) output.getOrDefault("stck_prpr", "0")),
-                "change",     parseLong((String) output.getOrDefault("prdy_vrss", "0")),
-                "changeRate", parseDouble((String) output.getOrDefault("prdy_ctrt", "0")),
-                "volume",     parseLong((String) output.getOrDefault("acml_vol", "0")),        // 누적 거래량(주)
-                "turnover",   parseLong((String) output.getOrDefault("acml_tr_pbmn", "0")),    // 누적 거래대금(원)
-                "programNetVol", parseLong((String) output.getOrDefault("pgtr_ntby_qty", "0")) // 프로그램 순매수(주) — 3단계
-        );
+        Map<String, Object> q = new LinkedHashMap<>();
+        q.put("ticker",     ticker);
+        q.put("name",       output.getOrDefault("hts_kor_isnm", ""));
+        q.put("price",      parseLong((String) output.getOrDefault("stck_prpr", "0")));
+        q.put("change",     parseLong((String) output.getOrDefault("prdy_vrss", "0")));
+        q.put("changeRate", parseDouble((String) output.getOrDefault("prdy_ctrt", "0")));
+        q.put("volume",     parseLong((String) output.getOrDefault("acml_vol", "0")));        // 누적 거래량(주)
+        q.put("turnover",   parseLong((String) output.getOrDefault("acml_tr_pbmn", "0")));    // 누적 거래대금(원)
+        q.put("programNetVol", parseLong((String) output.getOrDefault("pgtr_ntby_qty", "0"))); // 프로그램 순매수(주) — 3단계
+        q.put("statuses",   deriveStatuses(output));                                          // 거래정지·주의·과열 등 특이사항 뱃지
+        return q;
+    }
+
+    /**
+     * KIS 시세 응답에서 종목 특이사항(뱃지) 리스트를 도출.
+     *   - iscd_stat_cls_code: 종목 상태 (58=거래정지, 51=관리, 52=투자위험, 53=투자경고, 54=투자주의, 59=단기과열)
+     *   - mrkt_warn_cls_code: 시장 경고 (01=투자주의, 02=투자경고, 03=투자위험)
+     *   - short_over_yn / sltr_yn: 단기과열 / 정리매매 여부(Y/N)
+     * 여러 소스가 겹칠 수 있어 중복은 제거. 심각한 상태 우선.
+     */
+    private List<String> deriveStatuses(Map<String, Object> output) {
+        List<String> statuses = new ArrayList<>();
+        String stat = String.valueOf(output.getOrDefault("iscd_stat_cls_code", "")).trim();
+        String warn = String.valueOf(output.getOrDefault("mrkt_warn_cls_code", "")).trim();
+        boolean shortOver = "Y".equalsIgnoreCase(String.valueOf(output.getOrDefault("short_over_yn", "")).trim());
+        boolean sltr      = "Y".equalsIgnoreCase(String.valueOf(output.getOrDefault("sltr_yn", "")).trim());
+
+        if ("58".equals(stat)) addUnique(statuses, "거래정지");
+        if (sltr)              addUnique(statuses, "정리매매");
+        if ("51".equals(stat)) addUnique(statuses, "관리");
+
+        // 시장경고: 종목상태코드(52/53/54)와 시장경고코드(01/02/03) 둘 다 반영, 중복 제거.
+        if ("03".equals(warn) || "52".equals(stat)) addUnique(statuses, "위험");
+        if ("02".equals(warn) || "53".equals(stat)) addUnique(statuses, "경고");
+        if ("01".equals(warn) || "54".equals(stat)) addUnique(statuses, "주의");
+
+        if (shortOver || "59".equals(stat)) addUnique(statuses, "과열");
+
+        return statuses;
+    }
+
+    private void addUnique(List<String> list, String v) {
+        if (!list.contains(v)) list.add(v);
     }
 
     /**

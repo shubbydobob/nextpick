@@ -96,6 +96,7 @@ export interface LiveQuote {
   volume: number | null
   turnover: number | null
   programNetVol?: number | null   // 프로그램 순매수(주) — 3단계
+  statuses?: string[] | null      // 거래정지·주의·경고·과열 등 특이사항 뱃지 (장중 오버레이)
 }
 
 export interface InvestorFlow {

@@ -10,6 +10,7 @@ import SectorMap from '../components/SectorMap'
 import AppSidebar from '../components/AppSidebar'
 import DashboardView from './DashboardView'
 import RankingView from './RankingView'
+import StatusBadges from '../components/StatusBadges'
 import { useIsMobile } from '../hooks/useIsMobile'
 import type { ScreenerItem } from '../types'
 import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt } from '../utils/format'
@@ -513,9 +514,11 @@ export default function ScreenerPage() {
             <span style={{ fontSize: 10, background: '#16a34a', color: '#fff', borderRadius: 3, padding: '1px 3px', marginLeft: 3 }}>NEW</span>
           )}
         </td>
-        <td style={{ ...S.td, fontSize: 13, color: hovered ? 'var(--text-1)' : 'var(--text-1)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
-          {item.name}
+        <td style={{ ...S.td, fontSize: 13, color: 'var(--text-1)', maxWidth: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+            <StatusBadges statuses={liveMap[item.ticker]?.statuses} size="sm" />
+          </div>
         </td>
       </>
     )
@@ -611,6 +614,7 @@ export default function ScreenerPage() {
               {item.breakoutToday === true && (
                 <span style={{ fontSize: 9, background: '#16a34a', color: '#fff', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>NEW</span>
               )}
+              <StatusBadges statuses={liveMap[item.ticker]?.statuses} size="xs" />
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3, fontFamily: 'var(--font-mono)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -929,6 +933,7 @@ export default function ScreenerPage() {
         <RankingView
           items={items}
           loading={loading}
+          liveMap={liveMap}
           onStockClick={(id) => { setSelectedStockId(id); setMainTab('screener'); setViewTab('detail') }}
         />
       )}
