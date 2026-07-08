@@ -249,18 +249,19 @@ public class ScreenerController {
 
         String aggSql = """
             WITH ranked AS (
-              SELECT security_id, close_adj, trade_date,
+              SELECT security_id, close_adj, volume, trade_date,
                      ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn
               FROM price_daily
               WHERE trade_date >= ? - INTERVAL '14 days' AND trade_date <= ?
             ),
             cur  AS (SELECT security_id, close_adj FROM ranked WHERE rn = 1),
-            prev AS (SELECT security_id, close_adj AS close FROM ranked WHERE rn = 2)
+            prev AS (SELECT security_id, close_adj AS close, volume FROM ranked WHERE rn = 2)
             SELECT
               COUNT(*) AS total,
               SUM(CASE WHEN cs.composite_score >= 70 THEN 1 ELSE 0 END) AS bull_count,
               AVG(cs.composite_score) AS avg_score,
-              SUM(CASE WHEN cur.close_adj > prev.close THEN 1 ELSE 0 END) AS up_count
+              -- prev.volume > 0: 거래정지 전일종가로 상승 오판정 방지
+              SUM(CASE WHEN prev.volume > 0 AND cur.close_adj > prev.close THEN 1 ELSE 0 END) AS up_count
             FROM canslim_scores cs
             LEFT JOIN cur  ON cur.security_id  = cs.security_id
             LEFT JOIN prev ON prev.security_id = cs.security_id
@@ -272,16 +273,17 @@ public class ScreenerController {
         // 섹터별 집계 (동일하게 최신 가격일 기준)
         List<Map<String, Object>> sectorRows = jdbc.queryForList("""
             WITH ranked AS (
-              SELECT security_id, close_adj, trade_date,
+              SELECT security_id, close_adj, volume, trade_date,
                      ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn
               FROM price_daily
               WHERE trade_date >= ? - INTERVAL '14 days' AND trade_date <= ?
             ),
             cur  AS (SELECT security_id, close_adj FROM ranked WHERE rn = 1),
-            prev AS (SELECT security_id, close_adj AS close FROM ranked WHERE rn = 2)
+            prev AS (SELECT security_id, close_adj AS close, volume FROM ranked WHERE rn = 2)
             SELECT i.sector,
                    COUNT(*) AS cnt,
-                   AVG(CASE WHEN prev.close > 0
+                   -- prev.volume > 0: 거래정지→재개 갭(+253% 등)이 섹터 평균등락 왜곡하는 것 방지
+                   AVG(CASE WHEN prev.close > 0 AND prev.volume > 0
                        THEN (cur.close_adj - prev.close) / prev.close * 100
                        ELSE NULL END) AS avg_change,
                    AVG(cs.composite_score) AS avg_score
@@ -292,7 +294,7 @@ public class ScreenerController {
             WHERE cs.score_date = ? AND cs.market = ?
               AND i.sector IS NOT NULL
             GROUP BY i.sector
-            ORDER BY AVG(CASE WHEN prev.close > 0 THEN (cur.close_adj - prev.close) / prev.close * 100 ELSE NULL END) DESC NULLS LAST
+            ORDER BY AVG(CASE WHEN prev.close > 0 AND prev.volume > 0 THEN (cur.close_adj - prev.close) / prev.close * 100 ELSE NULL END) DESC NULLS LAST
             """, priceDate, priceDate, scoreDate, market);
 
         long total    = ((Number) agg.get("total")).longValue();
@@ -318,19 +320,21 @@ public class ScreenerController {
         // 최신 가격일 이하 최신 2개 거래일(cur/prev)로 당일 등락률 계산 (연속 거래일 = 주말 제외).
         String sql = """
             WITH ranked AS (
-              SELECT security_id, close_adj, trade_date,
+              SELECT security_id, close_adj, volume, trade_date,
                      ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn
               FROM price_daily
               WHERE trade_date >= ? - INTERVAL '14 days' AND trade_date <= ?
             ),
             cur  AS (SELECT security_id, close_adj FROM ranked WHERE rn = 1),
-            prev AS (SELECT security_id, close_adj AS close FROM ranked WHERE rn = 2)
+            -- prev.volume > 0 조건으로 거래정지(거래량 0) 전일종가 배제.
+            -- 정지→재개 갭(예: 금호에이치티 2555→9030=+253%)이 허위 상한가로 오르는 것 방지.
+            prev AS (SELECT security_id, close_adj AS close, volume FROM ranked WHERE rn = 2)
             SELECT i.id AS security_id, i.ticker, i.name, i.sector,
                    ROUND((cur.close_adj - prev.close) / prev.close * 100, 2) AS change_rate,
                    cur.close_adj AS close_price,
                    cs.composite_score
             FROM cur
-            JOIN prev ON prev.security_id = cur.security_id AND prev.close > 0
+            JOIN prev ON prev.security_id = cur.security_id AND prev.close > 0 AND prev.volume > 0
             JOIN instruments i ON i.id = cur.security_id
             LEFT JOIN canslim_scores cs
                    ON cs.security_id = cur.security_id AND cs.score_date = ? AND cs.market = ?
@@ -633,7 +637,8 @@ public class ScreenerController {
             WITH ranked AS (
                 SELECT security_id, close_adj, volume, turnover, trade_date,
                        ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn,
-                       LEAD(close_adj) OVER (PARTITION BY security_id ORDER BY trade_date DESC) AS prev_close
+                       LEAD(close_adj) OVER (PARTITION BY security_id ORDER BY trade_date DESC) AS prev_close,
+                       LEAD(volume) OVER (PARTITION BY security_id ORDER BY trade_date DESC) AS prev_volume
                 FROM price_daily
                 WHERE security_id = ANY(?) AND trade_date >= CURRENT_DATE - INTERVAL '14 days'
             ),
@@ -646,7 +651,10 @@ public class ScreenerController {
             SELECT r.security_id,
                    COALESCE(f.after_hours_close, r.close_adj) AS effective_close,
                    r.volume, r.turnover,
-                   CASE WHEN r.prev_close > 0
+                   -- 전일이 거래정지(거래량 0) 구간이면 전일종가가 stale(정지 전 고정값)이라
+                   -- 재개일 갭이 253% 같은 허위 등락률을 만든다 → 신뢰 불가로 null 처리.
+                   -- 정상 상한가(전일 거래량>0)는 영향 없음. 실시간 창에서만 KIS 정확값 표시.
+                   CASE WHEN r.prev_close > 0 AND COALESCE(r.prev_volume, 0) > 0
                         THEN ROUND((COALESCE(f.after_hours_close, r.close_adj) - r.prev_close) / r.prev_close * 100, 2)
                    END AS change_rate,
                    COALESCE(f.after_hours_close, r.close_adj) * i.total_shares AS market_cap,
