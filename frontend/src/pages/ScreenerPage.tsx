@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useMemo, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchScreener, fetchSectors, fetchLiveQuotes, fetchLiveInvestors } from '../api/client'
 import type { LiveQuote, LiveInvestor } from '../api/client'
 import { isPremium } from '../api/auth'
 import MacroTicker from '../components/MacroTicker'
-import StockDetailPanel from '../components/StockDetailPanel'
+// 차트(recharts) 포함 상세 패널은 lazy — 스크리너 초기 로드에서 제외.
+const StockDetailPanel = lazy(() => import('../components/StockDetailPanel'))
 import GachaModal from '../components/GachaModal'
 import AppSidebar from '../components/AppSidebar'
 import DashboardView from './DashboardView'
@@ -773,7 +774,7 @@ export default function ScreenerPage() {
       default:                 return item[key] as number | null
     }
   }
-  const displayItems = (() => {
+  const displayItems = useMemo(() => {
     const arr = items
       .filter(i => !showWatchOnly || watchlist.has(i.securityId))
       .filter(i => !showBreakoutOnly || i.breakoutToday)
@@ -788,12 +789,13 @@ export default function ScreenerPage() {
       if (bv == null) return -1
       return (av - bv) * dir
     })
-  })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, showWatchOnly, showBreakoutOnly, watchlist, sortKey, sortDir, liveMap, investorMap])
   const hasActiveFilter = sector !== '' || capRange !== 'all' || query !== '' || minScore > 0 || showWatchOnly || showBreakoutOnly
   const activeFilterCount = [sector !== '', capRange !== 'all', query !== '', minScore > 0, showWatchOnly, showBreakoutOnly].filter(Boolean).length
 
   // ── sector stats for dashboard ─────────────────────────────
-  const sectorStats = (() => {
+  const sectorStats = useMemo(() => {
     const map = new Map<string, { changes: number[]; scores: number[]; count: number }>()
     for (const item of items) {
       const s = item.sector ?? '기타'
@@ -809,11 +811,11 @@ export default function ScreenerPage() {
       count: g.count,
       avgScore: g.scores.reduce((a, b) => a + b, 0) / g.scores.length,
     }))
-  })()
+  }, [items])
 
-  const topSector = sectorStats.length > 0
+  const topSector = useMemo(() => sectorStats.length > 0
     ? sectorStats.reduce((best, s) => s.avgChange > best.avgChange ? s : best, sectorStats[0])
-    : null
+    : null, [sectorStats])
 
   const toggleTheme = () => {
     const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light'
@@ -1378,11 +1380,13 @@ export default function ScreenerPage() {
 
       {/* ── Detail panel (inline) ───────────────────────────── */}
       {viewTab === 'detail' && selectedStockId && (
-        <StockDetailPanel
-          securityId={selectedStockId}
-          onSelectStock={(id) => setSelectedStockId(id)}
-          onBack={() => window.history.back()}
-        />
+        <Suspense fallback={<div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}><span className="spinner" /> 상세 로딩 중...</div>}>
+          <StockDetailPanel
+            securityId={selectedStockId}
+            onSelectStock={(id) => setSelectedStockId(id)}
+            onBack={() => window.history.back()}
+          />
+        </Suspense>
       )}
 
       {/* ── Table area ───────────────────────────────────────── */}
