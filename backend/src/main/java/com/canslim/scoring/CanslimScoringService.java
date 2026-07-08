@@ -8,7 +8,9 @@ import com.canslim.scoring.port.MarketDataPort;
 import com.canslim.scoring.scorer.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -43,12 +45,19 @@ public class CanslimScoringService {
     private final SScorer sScorer;
     private final LScorer lScorer;
     private final IScorer iScorer;
+    /**
+     * 자기 자신의 프록시 참조. scoreAll → scoreMarket 을 프록시 경유로 호출해야
+     * REQUIRES_NEW(마켓별 독립 트랜잭션)가 적용된다. 직접 this 호출은 self-invocation
+     * 이라 트랜잭션 어드바이스가 무시됨. 생성자 순환을 피하려고 ObjectProvider 로 지연 조회.
+     */
+    private final ObjectProvider<CanslimScoringService> selfProvider;
 
     public CanslimScoringService(List<MarketDataPort> marketAdapters,
                                  CanslimScoreRepository scoreRepository,
                                  MGateChecker mGateChecker,
                                  CScorer cScorer, AScorer aScorer, NScorer nScorer,
-                                 SScorer sScorer, LScorer lScorer, IScorer iScorer) {
+                                 SScorer sScorer, LScorer lScorer, IScorer iScorer,
+                                 ObjectProvider<CanslimScoringService> selfProvider) {
         this.marketAdapters  = marketAdapters;
         this.scoreRepository = scoreRepository;
         this.mGateChecker    = mGateChecker;
@@ -58,21 +67,41 @@ public class CanslimScoringService {
         this.sScorer = sScorer;
         this.lScorer = lScorer;
         this.iScorer = iScorer;
+        this.selfProvider = selfProvider;
     }
 
-    /** 전체 시장 채점 실행. ScoringJob에서 호출. */
-    @Transactional
+    /**
+     * 전체 시장 채점 실행. ScoringJob에서 호출.
+     *
+     * 마켓별로 독립 트랜잭션(REQUIRES_NEW)으로 분리한다. 한 마켓 실패(예: US
+     * 미활성 예외, SQL 오류)가 다른 마켓 커밋을 롤백시키지 않도록 하기 위함.
+     * scoreAll 자체는 트랜잭션 없이 오케스트레이션만 담당한다.
+     */
     public void scoreAll(LocalDate scoreDate) {
+        CanslimScoringService self = selfProvider.getObject();
         for (MarketDataPort port : marketAdapters) {
+            String market = port.getMarket();
+
+            // 1) 점수 산출 + 랭킹 — 마켓 단위 독립 트랜잭션
             try {
-                scoreMarket(port, scoreDate);
+                self.scoreMarket(port, scoreDate);
             } catch (Exception e) {
-                log.error("[{}] 채점 실패: {}", port.getMarket(), e.getMessage(), e);
+                log.error("[{}] 채점 실패 (해당 마켓만 롤백): {}", market, e.getMessage(), e);
+                continue; // 점수 커밋 실패 시 스냅샷은 무의미
+            }
+
+            // 2) 가격 스냅샷 — 점수 커밋 후 별도 트랜잭션(비치명적).
+            //    같은 트랜잭션에 두면 스냅샷 실패가 그 마켓 점수를 롤백시키므로 분리.
+            try {
+                self.updatePriceSnapshot(scoreDate, market);
+                log.info("[{}] 가격 스냅샷 적재 완료", market);
+            } catch (Exception e) {
+                log.warn("[{}] 가격 스냅샷 적재 실패 (비치명적): {}", market, e.getMessage());
             }
         }
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void scoreMarket(MarketDataPort port, LocalDate scoreDate) {
         String market = port.getMarket();
         MarketConfig cfg = port.getActiveConfig();
@@ -125,15 +154,16 @@ public class CanslimScoringService {
 
         scoreRepository.updateRankings(scoreDate, market);
 
-        // 가격 스냅샷 적재 (정렬 인덱스용)
-        try {
-            scoreRepository.updatePriceSnapshot(scoreDate, market);
-            log.info("[{}] 가격 스냅샷 적재 완료", market);
-        } catch (Exception e) {
-            log.warn("[{}] 가격 스냅샷 적재 실패 (비치명적): {}", market, e.getMessage());
-        }
-
         log.info("[{}] 채점 완료: {}건 저장, {}건 오류", market, done, skipped);
+    }
+
+    /**
+     * 가격 스냅샷 일괄 적재 (정렬 인덱스용). 점수 커밋 후 별도 트랜잭션에서 실행되므로
+     * 실패해도 이미 저장된 점수에는 영향이 없다(비치명적).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updatePriceSnapshot(LocalDate scoreDate, String market) {
+        scoreRepository.updatePriceSnapshot(scoreDate, market);
     }
 
     private ScoringResult computeScores(Instrument inst, DerivedMetric dm, MarketConfig cfg) {
