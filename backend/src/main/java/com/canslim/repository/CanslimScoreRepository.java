@@ -71,8 +71,8 @@ public interface CanslimScoreRepository extends JpaRepository<CanslimScore, Long
                    ROW_NUMBER() OVER (PARTITION BY security_id ORDER BY trade_date DESC) rn,
                    LEAD(close_adj) OVER (PARTITION BY security_id ORDER BY trade_date DESC) AS prev_close
             FROM price_daily
-            WHERE trade_date >= :scoreDate - INTERVAL '14 days'
-              AND trade_date <= :scoreDate
+            WHERE trade_date >= CAST(:scoreDate AS date) - INTERVAL '14 days'
+              AND trade_date <= CAST(:scoreDate AS date)
         ),
         cur AS (
             SELECT security_id, close_adj, prev_close, volume, turnover
