@@ -13,7 +13,7 @@ import RankingView from './RankingView'
 import StatusBadges from '../components/StatusBadges'
 import { useIsMobile } from '../hooks/useIsMobile'
 import type { ScreenerItem } from '../types'
-import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt } from '../utils/format'
+import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt, fmtVolume } from '../utils/format'
 
 
 // ── types ──────────────────────────────────────────────────────
@@ -509,7 +509,8 @@ export default function ScreenerPage() {
         <Th label="기관" sortKey="iScore" align="center" style={{ width: 46 }} tip="기관투자: 외인+기관 10일 순매수 강도" />
         <Th label="종가" sortKey="closePrice" style={{ width: 78 }} />
         <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} tip="전일 종가 대비 당일 등락률" />
-        <Th label="거래대금" sortKey="turnover" style={{ width: 72 }} tip="당일 누적 거래대금" />
+        <Th label="거래량" sortKey="volume" style={{ width: 64 }} tip="당일 누적 거래량 (만·천만주)" />
+        <Th label="거래대금" sortKey="turnover" style={{ width: 72 }} tip="당일 누적 거래대금 (억·천억원)" />
         <Th label="외인" sortKey="foreignNetBuy10d" style={{ width: 62 }} tip="외국인 순매수 (억원) — 장중: 당일 실시간(잠정), 장외: 최근 10거래일 누적" />
         <Th label="기관" sortKey="instNetBuy10d" style={{ width: 62 }} tip="기관 순매수 (억원) — 장중: 당일 실시간(잠정), 장외: 최근 10거래일 누적" />
         <Th label="프로그램" sortKey="programNetBuy10d" style={{ width: 62 }} tip="프로그램 순매수 (억원) — 장중: 당일 실시간(잠정), 장외: 최근 10거래일 누적" />
@@ -625,23 +626,26 @@ export default function ScreenerPage() {
           style={{ ...S.td, textAlign: 'right', fontWeight: 600, color: changeColor(item.changeRate) }}>
           {fmtRate(item.changeRate)}
         </td>
+        <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)', fontFamily: 'monospace' }}>
+          {fmtVolume(item.volume)}
+        </td>
         <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
           {fmtAmt(item.turnover)}
         </td>
         <td title={flowLive ? '당일 실시간(잠정)' : undefined}
           style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
           color: foreignVal == null ? 'var(--text-4)' : foreignVal > 0 ? '#22d3ee' : '#f87171' }}>
-          {foreignVal == null ? '—' : (foreignVal > 0 ? '+' : '') + Math.round(foreignVal / 1e8)}
+          {foreignVal == null ? '—' : (foreignVal > 0 ? '+' : '') + Math.round(foreignVal / 1e8) + '억'}
         </td>
         <td title={flowLive ? '당일 실시간(잠정)' : undefined}
           style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
           color: instVal == null ? 'var(--text-4)' : instVal > 0 ? '#a78bfa' : '#f87171' }}>
-          {instVal == null ? '—' : (instVal > 0 ? '+' : '') + Math.round(instVal / 1e8)}
+          {instVal == null ? '—' : (instVal > 0 ? '+' : '') + Math.round(instVal / 1e8) + '억'}
         </td>
         <td title={item.programNetBuyToday != null ? '당일 실시간(잠정)' : undefined}
           style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
           color: progVal == null ? 'var(--text-4)' : progVal > 0 ? '#34d399' : '#f87171' }}>
-          {progVal == null ? '—' : (progVal > 0 ? '+' : '') + Math.round(progVal / 1e8)}
+          {progVal == null ? '—' : (progVal > 0 ? '+' : '') + Math.round(progVal / 1e8) + '억'}
         </td>
         <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
           {fmtMarketCap(item.marketCap)}
@@ -711,6 +715,7 @@ export default function ScreenerPage() {
             fontFamily: 'var(--font-mono)' }}>
           <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>{fmtPrice(item.closePrice)}</span>
           <span style={{ fontSize: 14, fontWeight: 700, color: changeColor(item.changeRate) }}>{fmtRate(item.changeRate)}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-4)' }}>거래량 {fmtVolume(item.volume)}</span>
           <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-3)' }}>시총 {fmtMarketCap(item.marketCap)}</span>
         </div>
 
@@ -726,12 +731,12 @@ export default function ScreenerPage() {
           ))}
         </div>
 
-        {/* 4행: 수급 (외인·기관·프로그램) — 장중 당일 실시간, 장외 10일 누적 */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+        {/* 4행: 수급 (외인·기관·프로그램, 억원) — 장중 당일 실시간, 장외 10일 누적 */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 4, marginTop: 8, fontSize: 11, fontFamily: 'var(--font-mono)' }}>
           {flow.map(f => (
             <span key={f.k} style={{ color: 'var(--text-4)' }}>
               {f.k} <b style={{ color: f.v == null ? 'var(--text-4)' : f.v > 0 ? f.c : '#f87171' }}>
-                {f.v == null ? '—' : (f.v > 0 ? '+' : '') + Math.round(f.v / 1e8)}
+                {f.v == null ? '—' : (f.v > 0 ? '+' : '') + Math.round(f.v / 1e8) + '억'}
               </b>
             </span>
           ))}

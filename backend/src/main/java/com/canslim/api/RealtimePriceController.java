@@ -329,13 +329,15 @@ public class RealtimePriceController {
         if (out == null || out.isEmpty()) return null;
         Map<String, Object> row = out.get(0);
 
-        // 순매수 거래대금(원) 기준.
+        // KIS 순매수 거래대금(_tr_pbmn)은 백만원 단위 → 원으로 환산(×1,000,000).
+        // (배치 investor_flow_loader와 단위 일치 — 안 하면 실시간이 100만배 작아짐.)
+        final long MW = 1_000_000L;
         Map<String, Object> data = Map.of(
                 "ticker",            ticker,
                 "date",              row.getOrDefault("stck_bsop_date", ""),
-                "foreignNetBuy",     parseLong((String) row.getOrDefault("frgn_ntby_tr_pbmn", "0")),
-                "instNetBuy",        parseLong((String) row.getOrDefault("orgn_ntby_tr_pbmn", "0")),
-                "individualNetBuy",  parseLong((String) row.getOrDefault("prsn_ntby_tr_pbmn", "0")),
+                "foreignNetBuy",     parseLong((String) row.getOrDefault("frgn_ntby_tr_pbmn", "0")) * MW,
+                "instNetBuy",        parseLong((String) row.getOrDefault("orgn_ntby_tr_pbmn", "0")) * MW,
+                "individualNetBuy",  parseLong((String) row.getOrDefault("prsn_ntby_tr_pbmn", "0")) * MW,
                 "foreignNetVol",     parseLong((String) row.getOrDefault("frgn_ntby_qty", "0")),
                 "instNetVol",        parseLong((String) row.getOrDefault("orgn_ntby_qty", "0"))
         );
