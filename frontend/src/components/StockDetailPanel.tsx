@@ -513,22 +513,34 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
           </ResponsiveContainer>
         </Card>
         <Card style={{ width: 200, flexShrink: 0 }}>
-          <SectionTitle>10일 순매수</SectionTitle>
+          <SectionTitle>
+            수급
+            {investor && (investor.foreignNetBuy != null || investor.instNetBuy != null || live?.programNetBuyToday != null)
+              ? <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#22c55e' }}>● 실시간</span>
+              : <span style={{ marginLeft: 6, fontSize: 9, color: 'var(--text-3)' }}>10일 누적</span>}
+          </SectionTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 6 }}>
             {[
-              { label: '기관', value: stock.instNetBuy10d, color: '#f6ad55' },
-              { label: '외국인', value: stock.foreignNetBuy10d, color: '#76e4f7' },
-            ].map(({ label, value, color }) => {
+              { label: '외국인', today: investor?.foreignNetBuy, batch: stock.foreignNetBuy10d, color: '#76e4f7' },
+              { label: '기관',   today: investor?.instNetBuy,    batch: stock.instNetBuy10d,    color: '#f6ad55' },
+              { label: '프로그램', today: live?.programNetBuyToday, batch: null as number | null, color: '#34d399' },
+            ].map(({ label, today, batch, color }) => {
+              const isLive = today != null
+              const value = (isLive ? today : batch) ?? null
               const amt = fmtFlow(value)
-              const isPos = value !== null && value > 0
-              const isNeg = value !== null && value < 0
+              const isPos = value != null && value > 0
+              const isNeg = value != null && value < 0
+              const scale = isLive ? 3e10 : 5e9   // 당일(원) vs 10일 누적(원) 바 스케일
               return (
                 <div key={label}>
-                  <div style={{ fontSize: 9, color: 'var(--text-4)', fontWeight: 600, marginBottom: 4 }}>{label}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                    <span style={{ fontSize: 9, color: 'var(--text-4)', fontWeight: 600 }}>{label}</span>
+                    <span style={{ fontSize: 8, color: 'var(--text-4)' }}>{isLive ? '당일' : batch != null ? '10일' : ''}</span>
+                  </div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: isPos ? '#4ade80' : isNeg ? '#f87171' : color }}>{amt}</div>
                   <div style={{ marginTop: 4, height: 3, background: 'var(--border)', borderRadius: 2 }}>
-                    {value !== null && (
-                      <div style={{ height: 3, borderRadius: 2, width: `${Math.min(100, Math.abs(value) / 5e9 * 100)}%`, background: isPos ? '#4ade80' : '#f87171' }} />
+                    {value != null && (
+                      <div style={{ height: 3, borderRadius: 2, width: `${Math.min(100, Math.abs(value) / scale * 100)}%`, background: isPos ? '#4ade80' : '#f87171' }} />
                     )}
                   </div>
                 </div>

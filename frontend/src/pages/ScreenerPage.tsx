@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchScreener, fetchSectors, fetchLiveQuotes, fetchLiveInvestors } from '../api/client'
-import type { LiveQuote, LiveInvestor } from '../api/client'
+import { fetchScreener, fetchSectors, fetchLiveQuotes } from '../api/client'
+import type { LiveQuote } from '../api/client'
 import { isPremium } from '../api/auth'
 import MacroTicker from '../components/MacroTicker'
 // 차트(recharts) 포함 상세 패널은 lazy — 스크리너 초기 로드에서 제외.
@@ -23,7 +23,7 @@ type MainTab = 'dashboard' | 'ranking' | 'screener' | 'watchlist'
 type SortKey = keyof Pick<ScreenerItem,
   'compositeScore' | 'cScore' | 'aScore' | 'nScore' | 'sScore' | 'lScore' | 'iScore' | 'mScore' |
   'closePrice' | 'changeRate' | 'weekHigh52' | 'turnover' | 'volume' |
-  'foreignNetBuy10d' | 'instNetBuy10d' | 'programNetBuy10d' | 'marketPercentile' | 'marketCap'
+  'marketPercentile' | 'marketCap'
 >
 
 // 평일 08:00~20:00 KST(실시간 오버레이 창, 넥스트레이드 프리~애프터마켓) 여부.
@@ -202,7 +202,6 @@ export default function ScreenerPage() {
   const isMobile = useIsMobile()
   const [items, setItems] = useState<ScreenerItem[]>([])
   const [liveMap, setLiveMap] = useState<Record<string, LiveQuote>>({})
-  const [investorMap, setInvestorMap] = useState<Record<string, LiveInvestor>>({})
   const [flashMap, setFlashMap] = useState<Record<string, 'up' | 'down'>>({})
   const prevPriceRef = useRef<Record<string, number>>({})
   const [total, setTotal] = useState(0)
@@ -404,17 +403,6 @@ export default function ScreenerPage() {
     return () => { cancelled = true; clearInterval(id) }
   }, [items, mainTab])
 
-  // 당일 외인·기관 수급 오버레이 — 시세와 분리해 15초 폴링(쿼터 절약).
-  useEffect(() => {
-    if (!items.length || mainTab === 'dashboard') { setInvestorMap({}); return }
-    const tickers = items.map(i => i.ticker)
-    let cancelled = false
-    const load = () => fetchLiveInvestors(tickers).then(m => { if (!cancelled) setInvestorMap(m) })
-    load()
-    const id = setInterval(load, 15_000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [items, mainTab])
-
   const FREE_WATCHLIST_LIMIT = 5
 
   const toggleWatch = (id: number, e: React.MouseEvent) => {
@@ -511,30 +499,21 @@ export default function ScreenerPage() {
         <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} tip="전일 종가 대비 당일 등락률" />
         <Th label="거래량" sortKey="volume" style={{ width: 64 }} tip="당일 누적 거래량 (만·천만주)" />
         <Th label="거래대금" sortKey="turnover" style={{ width: 72 }} tip="당일 누적 거래대금 (억·천억원)" />
-        <Th label="외인" sortKey="foreignNetBuy10d" style={{ width: 62 }} tip="외국인 순매수 (억원) — 장중: 당일 실시간(잠정), 장외: 최근 10거래일 누적" />
-        <Th label="기관" sortKey="instNetBuy10d" style={{ width: 62 }} tip="기관 순매수 (억원) — 장중: 당일 실시간(잠정), 장외: 최근 10거래일 누적" />
-        <Th label="프로그램" sortKey="programNetBuy10d" style={{ width: 62 }} tip="프로그램 순매수 (억원) — 장중 당일 실시간(잠정). 장외엔 미제공" />
         <Th label="시총" sortKey="marketCap" style={{ width: 68 }} />
       </tr>
     )
   }
 
-  // 장중 라이브를 배치 아이템 위에 머지.
-  // 시세(빠른 폴링)=liveMap, 외인·기관 수급(느린 폴링)=investorMap, 프로그램=시세에 포함.
+  // 장중 라이브 시세(빠른 폴링=liveMap)를 배치 아이템 위에 머지. 수급은 상세에서만 실시간 표시.
   const mergeLive = (item: ScreenerItem): ScreenerItem => {
     const q = liveMap[item.ticker]
-    const inv = investorMap[item.ticker]
-    if (!q && !inv) return item
+    if (!q) return item
     return {
       ...item,
       closePrice: q?.price ?? item.closePrice,
       changeRate: q?.changeRate ?? item.changeRate,
       volume: q?.volume ?? item.volume,
       turnover: q?.turnover ?? item.turnover,
-      // 당일 실시간 순매수(장중 잠정) — 없으면 undefined 유지(렌더에서 10일 누적 폴백)
-      programNetBuyToday: q?.programNetBuyToday,
-      foreignNetBuyToday: inv?.foreignNetBuyToday,
-      instNetBuyToday: inv?.instNetBuyToday,
     }
   }
 
@@ -542,11 +521,6 @@ export default function ScreenerPage() {
     const hovered = hoveredId === item.securityId
     const grade = compositeGrade(item.compositeScore)
     const isWatched = watchlist.has(item.securityId)
-    // 수급: 장중이면 당일 실시간(원), 장외면 10일 누적(원). 값(억원)으로 표시.
-    const foreignVal = item.foreignNetBuyToday ?? item.foreignNetBuy10d
-    const instVal    = item.instNetBuyToday ?? item.instNetBuy10d
-    const progVal    = item.programNetBuyToday ?? item.programNetBuy10d
-    const flowLive   = item.foreignNetBuyToday != null || item.instNetBuyToday != null
 
     const watchBtn = (
       <td style={{ ...S.td, textAlign: 'center', padding: '0 2px' }}
@@ -632,21 +606,6 @@ export default function ScreenerPage() {
         <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
           {fmtAmt(item.turnover)}
         </td>
-        <td title={flowLive ? '당일 실시간(잠정)' : undefined}
-          style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
-          color: foreignVal == null ? 'var(--text-4)' : foreignVal > 0 ? '#22d3ee' : '#f87171' }}>
-          {foreignVal == null ? '—' : (foreignVal > 0 ? '+' : '') + Math.round(foreignVal / 1e8) + '억'}
-        </td>
-        <td title={flowLive ? '당일 실시간(잠정)' : undefined}
-          style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
-          color: instVal == null ? 'var(--text-4)' : instVal > 0 ? '#a78bfa' : '#f87171' }}>
-          {instVal == null ? '—' : (instVal > 0 ? '+' : '') + Math.round(instVal / 1e8) + '억'}
-        </td>
-        <td title={item.programNetBuyToday != null ? '당일 실시간(잠정)' : undefined}
-          style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
-          color: progVal == null ? 'var(--text-4)' : progVal > 0 ? '#34d399' : '#f87171' }}>
-          {progVal == null ? '—' : (progVal > 0 ? '+' : '') + Math.round(progVal / 1e8) + '억'}
-        </td>
         <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
           {fmtMarketCap(item.marketCap)}
         </td>
@@ -659,13 +618,6 @@ export default function ScreenerPage() {
     const grade = compositeGrade(item.compositeScore)
     const isWatched = watchlist.has(item.securityId)
     const flash = flashMap[item.ticker]
-    // 수급: 장중 당일 실시간(원) → 장외 10일 누적(원). 억원 표시.
-    const flow: { k: string; v: number | null | undefined; c: string }[] = [
-      { k: '외인', v: item.foreignNetBuyToday ?? item.foreignNetBuy10d, c: '#22d3ee' },
-      { k: '기관', v: item.instNetBuyToday ?? item.instNetBuy10d, c: '#a78bfa' },
-      { k: '프로', v: item.programNetBuyToday ?? item.programNetBuy10d, c: '#34d399' },
-    ]
-    const flowLive = item.foreignNetBuyToday != null || item.instNetBuyToday != null
     const factors: { k: string; v: number | null }[] = [
       { k: '실적', v: item.cScore }, { k: '성장', v: item.aScore }, { k: '고가', v: item.nScore },
       { k: '수급', v: item.sScore }, { k: '선도', v: item.lScore }, { k: '기관', v: item.iScore },
@@ -731,17 +683,6 @@ export default function ScreenerPage() {
           ))}
         </div>
 
-        {/* 4행: 수급 (외인·기관·프로그램, 억원) — 장중 당일 실시간, 장외 10일 누적 */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 4, marginTop: 8, fontSize: 11, fontFamily: 'var(--font-mono)' }}>
-          {flow.map(f => (
-            <span key={f.k} style={{ color: 'var(--text-4)' }}>
-              {f.k} <b style={{ color: f.v == null ? 'var(--text-4)' : f.v > 0 ? f.c : '#f87171' }}>
-                {f.v == null ? '—' : (f.v > 0 ? '+' : '') + Math.round(f.v / 1e8) + '억'}
-              </b>
-            </span>
-          ))}
-          {flowLive && <span style={{ marginLeft: 'auto', color: '#22c55e', fontSize: 9 }}>● 실시간</span>}
-        </div>
       </div>
     )
   }
@@ -764,22 +705,16 @@ export default function ScreenerPage() {
   // (전체 정렬은 백엔드 페이징이 담당 — 장중 실시간 전체 정렬은 보이는 종목 한계상 페이지 단위.)
   const LIVE_SORT_KEYS = new Set<SortKey>([
     'changeRate', 'closePrice', 'turnover', 'volume',
-    'foreignNetBuy10d', 'instNetBuy10d', 'programNetBuy10d',
   ])
-  // 정렬 기준값 = 화면 표시와 동일. 수급은 장중 당일 실시간 우선(→ 표시-순서 일치).
+  // 정렬 기준값 = 화면 표시(라이브 시세)와 동일.
   const liveSortVal = (item: ScreenerItem, key: SortKey): number | null => {
-    switch (key) {
-      case 'foreignNetBuy10d': return item.foreignNetBuyToday ?? item.foreignNetBuy10d
-      case 'instNetBuy10d':    return item.instNetBuyToday ?? item.instNetBuy10d
-      case 'programNetBuy10d': return item.programNetBuyToday ?? item.programNetBuy10d
-      default:                 return item[key] as number | null
-    }
+    return item[key] as number | null
   }
   const displayItems = useMemo(() => {
     const arr = items
       .filter(i => !showWatchOnly || watchlist.has(i.securityId))
       .filter(i => !showBreakoutOnly || i.breakoutToday)
-    const liveActive = Object.keys(liveMap).length > 0 || Object.keys(investorMap).length > 0
+    const liveActive = Object.keys(liveMap).length > 0
     if (!LIVE_SORT_KEYS.has(sortKey) || !liveActive) return arr
     const dir = sortDir === 'asc' ? 1 : -1
     return arr.map(mergeLive).sort((a, b) => {
@@ -791,7 +726,7 @@ export default function ScreenerPage() {
       return (av - bv) * dir
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, showWatchOnly, showBreakoutOnly, watchlist, sortKey, sortDir, liveMap, investorMap])
+  }, [items, showWatchOnly, showBreakoutOnly, watchlist, sortKey, sortDir, liveMap])
   const hasActiveFilter = sector !== '' || capRange !== 'all' || query !== '' || minScore > 0 || showWatchOnly || showBreakoutOnly
   const activeFilterCount = [sector !== '', capRange !== 'all', query !== '', minScore > 0, showWatchOnly, showBreakoutOnly].filter(Boolean).length
 

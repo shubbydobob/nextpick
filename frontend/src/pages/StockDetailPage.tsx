@@ -8,7 +8,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   ComposedChart, Line,
 } from 'recharts'
-import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations } from '../api/client'
+import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations, fetchInvestorFlow, fetchLiveQuotes } from '../api/client'
 import type { NewsItem, SectorPeer, CorrelationStock } from '../api/client'
 import PriceChart from '../components/PriceChart'
 import ScoreGauge from '../components/ScoreGauge'
@@ -155,6 +155,8 @@ export default function StockDetailPage() {
   const [watched, setWatched] = useState(false)
   const [userIsPremium] = useState(() => isPremium())
   const [userIsLoggedIn] = useState(() => isLoggedIn())
+  // 당일 실시간 수급(외인·기관·프로그램, 원). 장외엔 null → 10일 누적 폴백.
+  const [liveFlow, setLiveFlow] = useState<{ foreign: number | null; inst: number | null; program: number | null } | null>(null)
 
   // C-4: id 변경 시 watched 동기화
   useEffect(() => {
@@ -183,6 +185,29 @@ export default function StockDetailPage() {
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [id])
+
+  // 당일 실시간 수급 폴링 (외인·기관=investor, 프로그램=quotes). 장중만 값이 오고 장외엔 null.
+  useEffect(() => {
+    const ticker = stock?.ticker
+    if (!ticker) return
+    let cancelled = false
+    setLiveFlow(null)
+    const load = () => {
+      Promise.all([fetchInvestorFlow(ticker), fetchLiveQuotes([ticker])])
+        .then(([inv, quotes]) => {
+          if (cancelled) return
+          const q = quotes[ticker]
+          setLiveFlow({
+            foreign: inv?.foreignNetBuy ?? null,
+            inst: inv?.instNetBuy ?? null,
+            program: q?.programNetBuyToday ?? null,
+          })
+        })
+    }
+    load()
+    const t = setInterval(load, 15_000)
+    return () => { cancelled = true; clearInterval(t) }
+  }, [stock?.ticker])
 
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--bg-base)', color: 'var(--text-3)', fontSize: 13 }}>
@@ -472,26 +497,38 @@ export default function StockDetailPage() {
 
           {/* 수급 */}
           <Card style={{ width: 220, flexShrink: 0 }}>
-            <SectionTitle>10일 순매수</SectionTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
+            <SectionTitle>
+              수급
+              {liveFlow && (liveFlow.foreign != null || liveFlow.inst != null || liveFlow.program != null)
+                ? <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#22c55e' }}>● 실시간</span>
+                : <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--text-3)' }}>10일 누적</span>}
+            </SectionTitle>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
               {[
-                { label: '기관', value: stock.instNetBuy10d, color: '#f6ad55' },
-                { label: '외국인', value: stock.foreignNetBuy10d, color: '#76e4f7' },
-              ].map(({ label, value, color }) => {
+                { label: '외국인', today: liveFlow?.foreign, batch: stock.foreignNetBuy10d, color: '#76e4f7' },
+                { label: '기관',   today: liveFlow?.inst,    batch: stock.instNetBuy10d,    color: '#f6ad55' },
+                { label: '프로그램', today: liveFlow?.program, batch: null as number | null,  color: '#34d399' },
+              ].map(({ label, today, batch, color }) => {
+                const isLive = today != null
+                const value = (isLive ? today : batch) ?? null
                 const amt = fmtFlow(value)
-                const isPos = value !== null && value > 0
-                const isNeg = value !== null && value < 0
+                const isPos = value != null && value > 0
+                const isNeg = value != null && value < 0
+                const scale = isLive ? 3e10 : 5e9   // 당일(원) vs 10일 누적(원) 바 스케일
                 return (
                   <div key={label}>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>{label}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: isPos ? 'var(--up)' : isNeg ? 'var(--down)' : color }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>{label}</span>
+                      <span style={{ fontSize: 9, color: 'var(--text-4)' }}>{isLive ? '당일' : batch != null ? '10일' : ''}</span>
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: isPos ? 'var(--up)' : isNeg ? 'var(--down)' : color }}>
                       {amt}
                     </div>
                     <div style={{ marginTop: 6, height: 3, background: 'var(--border)', borderRadius: 2 }}>
-                      {value !== null && (
+                      {value != null && (
                         <div style={{
                           height: 3, borderRadius: 2,
-                          width: `${Math.min(100, Math.abs(value) / 5e9 * 100)}%`,
+                          width: `${Math.min(100, Math.abs(value) / scale * 100)}%`,
                           background: isPos ? 'var(--up)' : 'var(--down)',
                         }} />
                       )}
