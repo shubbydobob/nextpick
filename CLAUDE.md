@@ -59,6 +59,8 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 - **시간외 단일가**: `after_hours_loader` TR 정정(FHPST02300000/inquire-overtime-price, `ovtm_untp_prpr`/`ovtm_untp_prdy_ctrt`) + run_daily 7c 편입. 정규장 종가 불변, `after_hours_close`만 적재(COALESCE 오버레이).
 - **성능**: 코드 스플릿(App 라우트 lazy + StockDetailPanel/recharts lazy + vite manualChunks vendor-react/charts) → 945KB 단일청크 분할. `useMemo`(displayItems·sectorStats).
 - **진단**: `kis-probe.yml`(workflow_dispatch) — KIS TR 후보 실호출로 필드 확인(읽기 전용).
+- **채점 프리즈 근본 픽스 (canslim_scores가 07-07에 고정)**: `updatePriceSnapshot`의 `:scoreDate - INTERVAL '14 days'`에서 LocalDate가 JPA `@Query`에 `unknown` 타입으로 바인딩 → PG가 `unknown - interval`을 interval로 해석해 `operator does not exist: date >= interval` → 채점 트랜잭션 오염 → catch("비치명적")에도 커밋 시점에 **KR 전 종목 롤백**. `CAST(:scoreDate AS date)`로 파라미터 타입 명시해 해결. (`CanslimScoreRepository`. `ScreenerController`의 `? - INTERVAL`은 JdbcTemplate이 date로 바인딩해 정상 — JPA `@Query`만 문제였음.)
+- **채점 마켓별 독립 트랜잭션 분리**: `scoreAll`이 `@Transactional` 하나로 KR+US를 묶어(그리고 `scoreMarket`의 `@Transactional`은 self-invocation이라 무시됨) 한 마켓 실패가 전체를 롤백시키던 구조 → `scoreAll`은 트랜잭션 제거(오케스트레이션만), `scoreMarket`을 `REQUIRES_NEW` + **ObjectProvider self-proxy 경유** 호출로 마켓별 독립 커밋. US 미활성 예외는 이제 US만 롤백(로그 "해당 마켓만 롤백"). 가격 스냅샷도 **점수 커밋 후 별도 `REQUIRES_NEW`**로 분리(같은 트랜잭션이면 스냅샷 실패가 그 마켓 점수까지 롤백 → 이제 진짜 비치명적). `DerivedMetricsTxHelper`의 기존 REQUIRES_NEW 분리 관례와 동일.
 
 ### 알려진 데이터 함정
 - **넥스트레이드(NXT) 통합 시세**: 2025 대체거래소 출범 후 실제 체결가는 KRX+NXT 통합. KIS 조회는 `fid_cond_mrkt_div_code` **"UN"(통합)** 우선 → 미지원/빈값 시 **"J"(KRX) 폴백**. `RealtimePriceController`의 `inquirePriceOutput`(시세)·`fetchInvestorRow`(투자자) 둘 다 적용. J만 쓰면 NXT 체결 누락돼 시세·등락률·거래량이 어긋남(진단 예: 삼성전자 UN -9.80% vs J -6.25%). 진단은 `kis-probe.yml`.
