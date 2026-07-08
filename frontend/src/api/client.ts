@@ -97,9 +97,26 @@ export interface LiveQuote {
   turnover: number | null
   programNetVol?: number | null       // 프로그램 순매수(주) — 3단계
   statuses?: string[] | null          // 거래정지·주의·경고·과열 등 특이사항 뱃지 (장중 오버레이)
-  foreignNetBuyToday?: number | null  // 당일 외국인 순매수(원, 장중 잠정)
-  instNetBuyToday?: number | null     // 당일 기관 순매수(원, 장중 잠정)
-  programNetBuyToday?: number | null  // 당일 프로그램 순매수(원, 장중 잠정)
+  programNetBuyToday?: number | null  // 당일 프로그램 순매수(원, 장중 잠정) — 시세와 함께 빠른 폴링
+}
+
+/** 당일 외인·기관 순매수(원, 장중 잠정) — 시세와 분리해 느린 폴링(15초). */
+export interface LiveInvestor {
+  ticker: string
+  foreignNetBuyToday: number | null
+  instNetBuyToday: number | null
+}
+
+export async function fetchLiveInvestors(tickers: string[]): Promise<Record<string, LiveInvestor>> {
+  if (!tickers.length) return {}
+  try {
+    const res = await fetch(`${BASE}/realtime/investors?tickers=${encodeURIComponent(tickers.join(','))}`)
+    if (!res.ok) return {}
+    const list: LiveInvestor[] = await res.json()
+    const map: Record<string, LiveInvestor> = {}
+    for (const q of list) map[q.ticker] = q
+    return map
+  } catch { return {} }
 }
 
 export interface InvestorFlow {

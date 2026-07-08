@@ -45,8 +45,9 @@ public class RealtimePriceController {
     private static final String PRICE_PATH = "/uapi/domestic-stock/v1/quotations/inquire-price";
     private static final String INVESTOR_PATH = "/uapi/domestic-stock/v1/quotations/inquire-investor";
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final int MAX_BATCH = 60;         // 배치 상한 (쿼터 보호)
-    private static final long CACHE_TTL_MS = 10_000; // 10초 캐시 (15초 폴링이 항상 fresh 받도록)
+    private static final int MAX_BATCH = 60;             // 배치 상한 (쿼터 보호)
+    private static final long QUOTE_TTL_MS = 3_000;      // 시세 캐시 3초 (3~5초 폴링이 fresh 받도록)
+    private static final long INVESTOR_TTL_MS = 15_000;  // 투자자 캐시 15초 (수급은 느린 폴링 + 쿼터 절약)
 
     private final RestTemplate rest = new RestTemplate();
     private final KisClient kis;
@@ -86,19 +87,9 @@ public class RealtimePriceController {
             try {
                 Map<String, Object> q = quoteFor(ticker);
                 if (q == null) continue;
-                // 캐시 원본 오염 방지 위해 복사본에 당일 수급 병합.
+                // 시세는 빠른 폴링(3~5초). 외인·기관 수급은 별도 /investors(느린 폴링)로 분리.
+                // 프로그램은 시세 응답(programNetVol)에서 나오므로 여기서 당일 금액만 계산.
                 Map<String, Object> merged = new LinkedHashMap<>(q);
-                // 당일 외인·기관 순매수(원, 장중 잠정) — 종목당 투자자 1콜 추가(캐시).
-                try {
-                    Map<String, Object> inv = investorFor(ticker);
-                    if (inv != null) {
-                        merged.put("foreignNetBuyToday", inv.get("foreignNetBuy"));
-                        merged.put("instNetBuyToday",    inv.get("instNetBuy"));
-                    }
-                } catch (Exception ie) {
-                    log.debug("KIS 배치 투자자 실패 ({}): {}", ticker, ie.getMessage());
-                }
-                // 당일 프로그램 순매수 금액(원) = 프로그램 순매수 수량(주) × 현재가(원).
                 Object pv = merged.get("programNetVol");
                 Object px = merged.get("price");
                 if (pv instanceof Number && px instanceof Number) {
@@ -181,7 +172,7 @@ public class RealtimePriceController {
     private Map<String, Object> quoteFor(String ticker) throws Exception {
         CachedQuote cached = quoteCache.get(ticker);
         long now = System.currentTimeMillis();
-        if (cached != null && now - cached.ts() < CACHE_TTL_MS) return cached.data();
+        if (cached != null && now - cached.ts() < QUOTE_TTL_MS) return cached.data();
 
         Map<String, Object> cfg = kis.getConfig();
         String token = kis.getToken();
@@ -275,13 +266,45 @@ public class RealtimePriceController {
     }
 
     /**
+     * GET /api/realtime/investors?tickers=005930,000660,...
+     * 리스트 화면용 배치 당일 외인·기관 순매수(원, 장중 잠정). 시세(quotes)와 분리해
+     * 느린 폴링(15초)으로 호출 → 쿼터 절약. 장외 시간엔 빈 배열.
+     */
+    @GetMapping("/investors")
+    public ResponseEntity<List<Map<String, Object>>> getInvestors(@RequestParam("tickers") String tickersCsv) {
+        if (!isKrMarketOpen()) return ResponseEntity.ok(List.of());
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        String[] tickers = tickersCsv.split(",");
+        int count = 0;
+        for (String raw : tickers) {
+            String ticker = raw.trim();
+            if (ticker.isEmpty()) continue;
+            if (++count > MAX_BATCH) break;
+            try {
+                Map<String, Object> inv = investorFor(ticker);
+                if (inv != null) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("ticker", ticker);
+                    row.put("foreignNetBuyToday", inv.get("foreignNetBuy"));
+                    row.put("instNetBuyToday", inv.get("instNetBuy"));
+                    result.add(row);
+                }
+            } catch (Exception e) {
+                log.debug("KIS 배치 투자자 실패 ({}): {}", ticker, e.getMessage());
+            }
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    /**
      * KIS 주식현재가 투자자(FHKST01010900) → 당일 기관/외국인/개인 순매수 (캐시 우선).
      * 리스트 배치(getQuotes)와 상세(getInvestor) 공용. 장중 잠정치(가집계).
      */
     private Map<String, Object> investorFor(String ticker) throws Exception {
         CachedQuote cached = investorCache.get(ticker);
         long now = System.currentTimeMillis();
-        if (cached != null && now - cached.ts() < CACHE_TTL_MS) return cached.data();
+        if (cached != null && now - cached.ts() < INVESTOR_TTL_MS) return cached.data();
 
         Map<String, Object> cfg = kis.getConfig();
         String token = kis.getToken();

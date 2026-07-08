@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchScreener, fetchSectors, fetchLiveQuotes } from '../api/client'
-import type { LiveQuote } from '../api/client'
+import { fetchScreener, fetchSectors, fetchLiveQuotes, fetchLiveInvestors } from '../api/client'
+import type { LiveQuote, LiveInvestor } from '../api/client'
 import { isPremium } from '../api/auth'
 import MacroTicker from '../components/MacroTicker'
 import StockDetailPanel from '../components/StockDetailPanel'
@@ -191,6 +191,7 @@ export default function ScreenerPage() {
   const isMobile = useIsMobile()
   const [items, setItems] = useState<ScreenerItem[]>([])
   const [liveMap, setLiveMap] = useState<Record<string, LiveQuote>>({})
+  const [investorMap, setInvestorMap] = useState<Record<string, LiveInvestor>>({})
   const [flashMap, setFlashMap] = useState<Record<string, 'up' | 'down'>>({})
   const prevPriceRef = useRef<Record<string, number>>({})
   const [total, setTotal] = useState(0)
@@ -399,7 +400,18 @@ export default function ScreenerPage() {
       }
     })
     load()
-    const id = setInterval(load, 15_000)   // 15초 폴링
+    const id = setInterval(load, 4_000)   // 시세 4초 폴링 (등락률·가격·거래대금·프로그램)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [items])
+
+  // 당일 외인·기관 수급 오버레이 — 시세와 분리해 15초 폴링(쿼터 절약).
+  useEffect(() => {
+    if (!items.length) { setInvestorMap({}); return }
+    const tickers = items.map(i => i.ticker)
+    let cancelled = false
+    const load = () => fetchLiveInvestors(tickers).then(m => { if (!cancelled) setInvestorMap(m) })
+    load()
+    const id = setInterval(load, 15_000)
     return () => { cancelled = true; clearInterval(id) }
   }, [items])
 
@@ -506,20 +518,22 @@ export default function ScreenerPage() {
     )
   }
 
-  // 장중 라이브 시세를 배치 아이템 위에 머지 (시세성 필드 + 당일 수급)
+  // 장중 라이브를 배치 아이템 위에 머지.
+  // 시세(빠른 폴링)=liveMap, 외인·기관 수급(느린 폴링)=investorMap, 프로그램=시세에 포함.
   const mergeLive = (item: ScreenerItem): ScreenerItem => {
     const q = liveMap[item.ticker]
-    if (!q) return item
+    const inv = investorMap[item.ticker]
+    if (!q && !inv) return item
     return {
       ...item,
-      closePrice: q.price ?? item.closePrice,
-      changeRate: q.changeRate ?? item.changeRate,
-      volume: q.volume ?? item.volume,
-      turnover: q.turnover ?? item.turnover,
+      closePrice: q?.price ?? item.closePrice,
+      changeRate: q?.changeRate ?? item.changeRate,
+      volume: q?.volume ?? item.volume,
+      turnover: q?.turnover ?? item.turnover,
       // 당일 실시간 순매수(장중 잠정) — 없으면 undefined 유지(렌더에서 10일 누적 폴백)
-      foreignNetBuyToday: q.foreignNetBuyToday,
-      instNetBuyToday: q.instNetBuyToday,
-      programNetBuyToday: q.programNetBuyToday,
+      programNetBuyToday: q?.programNetBuyToday,
+      foreignNetBuyToday: inv?.foreignNetBuyToday,
+      instNetBuyToday: inv?.instNetBuyToday,
     }
   }
 
