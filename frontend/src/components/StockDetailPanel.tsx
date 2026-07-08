@@ -311,53 +311,40 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
       )}
 
       {/* ── Hero ── */}
-      <div className="detail-hero" style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
-        marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)',
-      }}>
+      <div className="detail-hero">
         <div>
-          <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, fontWeight: 600, letterSpacing: '0.08em' }}>
+          <div className="det-hero-meta">
             {stock.market} · {stock.scoreDate}
-            {stock.sector && <span style={{ color: 'var(--text-4)', marginLeft: 8 }}>{stock.sector}</span>}
+            {stock.sector && <span className="sector">{stock.sector}</span>}
           </div>
-          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-1px', color: 'var(--text-1)' }}>{stock.name}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-            <span style={{ fontSize: 13, fontFamily: 'monospace', color: '#58a6ff' }}>{stock.ticker}</span>
-            {stock.breakoutToday && (
-              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80' }}>N 돌파</span>
-            )}
+          <div className="det-hero-name">{stock.name}</div>
+          <div className="det-hero-tags">
+            <span className="det-ticker">{stock.ticker}</span>
+            {stock.breakoutToday && <span className="det-tag breakout">N 돌파</span>}
             {stock.baseDays != null && stock.baseDays > 0 && (
-              <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: 'rgba(88,166,255,0.1)', border: '1px solid rgba(88,166,255,0.3)', color: '#58a6ff' }}>
-                베이스 {stock.baseDays}일
-              </span>
+              <span className="det-tag base">베이스 {stock.baseDays}일</span>
             )}
             {stock.scoreDelta != null && Math.abs(stock.scoreDelta) >= 1 && (
-              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                background: stock.scoreDelta > 0 ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)',
-                border: `1px solid ${stock.scoreDelta > 0 ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
-                color: stock.scoreDelta > 0 ? '#4ade80' : '#f87171',
+              <span className="det-tag delta" style={{
+                ['--tag-bg' as string]: stock.scoreDelta > 0 ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)',
+                ['--tag-bd' as string]: stock.scoreDelta > 0 ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)',
+                ['--tag-fg' as string]: stock.scoreDelta > 0 ? '#4ade80' : '#f87171',
               }}>{stock.scoreDelta > 0 ? '+' : ''}{stock.scoreDelta.toFixed(1)}</span>
             )}
             <StatusBadges statuses={live?.statuses ?? stock.statuses} size="sm" />
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 9, color: 'var(--text-3)', marginBottom: 2, fontWeight: 600 }}>COMPOSITE SCORE</div>
-          <div style={{ fontSize: 42, fontWeight: 900, color: cColor, lineHeight: 1, letterSpacing: '-2px' }}>
-            {composite.toFixed(2)}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-            Rank <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{stock.marketRank}</span>
-            {' · '}Top <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{(100 - stock.marketPercentile * 100).toFixed(1)}%</span>
+        <div className="det-hero-right">
+          <div className="det-hero-score-label">COMPOSITE SCORE</div>
+          <div className="det-hero-score" style={{ ['--dc' as string]: cColor }}>{composite.toFixed(2)}</div>
+          <div className="det-hero-rank">
+            Rank <b>{stock.marketRank}</b>{' · '}Top <b>{(100 - stock.marketPercentile * 100).toFixed(1)}%</b>
           </div>
         </div>
       </div>
 
       {/* ── 가격 정보 바 ── */}
-      <div className="detail-price-bar" style={{
-        display: 'flex', gap: 0, marginBottom: 16,
-        background: 'var(--bg-nav)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden',
-      }}>
+      <div className="detail-price-bar">
         {(() => {
           // 장중 라이브 시세 오버레이 (배치값 위에 머지)
           const liveClose = live?.price ?? stock.closePrice
@@ -372,21 +359,13 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
           { label: '거래대금', value: fmtAmt(liveTurn) },
           { label: '거래량', value: fmtVol(liveVol) },
           ]
-        })().map(({ label, value, color, mono }, i) => {
+        })().map(({ label, value, color, mono }) => {
           const doFlash = priceFlash && (label === '현재가' || label === '등락률')
           return (
-          <div key={label}
-            className={doFlash ? `flash-${priceFlash}` : undefined}
-            style={{
-              flex: 1, padding: '12px 14px',
-              borderRight: i < 5 ? '1px solid var(--border)' : 'none',
-            }}>
-            <div style={{ fontSize: 9, color: 'var(--text-4)', fontWeight: 600, marginBottom: 3 }}>{label}</div>
-            <div style={{
-              fontSize: 13, fontWeight: 700,
-              color: color ?? 'var(--text-1)',
-              fontFamily: mono ? 'monospace' : 'inherit',
-            }}>{value}</div>
+          <div key={label} className={'det-pcell' + (doFlash ? ` flash-${priceFlash}` : '')}>
+            <div className="det-cell-label">{label}</div>
+            <div className={'det-cell-value' + (mono ? ' mono' : '')}
+              style={color ? { ['--dc' as string]: color } : undefined}>{value}</div>
           </div>
           )
         })}
@@ -399,33 +378,31 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
         const isLive = live != null || investor != null
         const eok = (won: number | null) => won == null ? null : Math.round(won / 1e8)
         const flowColor = (v: number | null) => v == null ? 'var(--text-3)' : v > 0 ? 'var(--up)' : v < 0 ? 'var(--down)' : 'var(--text-3)'
-        const cell = (label: string, won: number | null, tag: string, last = false) => {
+        const cell = (label: string, won: number | null, tag: string) => {
           const e = eok(won)
           return (
-            <div style={{ flex: 1, padding: '10px 14px', borderRight: last ? 'none' : '1px solid var(--border)' }}>
-              <div style={{ fontSize: 9, color: 'var(--text-4)', fontWeight: 600, marginBottom: 3 }}>
-                {label} <span style={{ fontSize: 8, fontWeight: 500, color: tag === '실시간' ? '#22c55e' : 'var(--text-4)' }}>{tag}</span>
+            <div className="metric-cell" key={label}>
+              <div className="metric-cell-label">
+                {label} <span className={'det-cell-sub' + (tag === '실시간' ? ' live' : '')}>{tag}</span>
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: flowColor(e) }}>
+              <div className="metric-cell-value mono" style={{ ['--mc' as string]: flowColor(e) }}>
                 {e == null ? '—' : (e > 0 ? '+' : '') + e + '억'}
               </div>
             </div>
           )
         }
         return (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.04em' }}>당일 수급</span>
-              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
-                background: isLive ? 'rgba(34,197,94,0.15)' : 'var(--bg-elevated)',
-                color: isLive ? '#22c55e' : 'var(--text-4)' }}>
+          <div className="metric-block">
+            <div className="det-sec-head">
+              <span className="det-sec-title">당일 수급</span>
+              <span className={'det-live-pill' + (isLive ? ' on' : '')}>
                 {isLive ? '● 장중 (외인·기관 잠정 / 프로그램 실시간)' : '장마감 · 종가 기준'}
               </span>
             </div>
-            <div style={{ display: 'flex', background: 'var(--bg-nav)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <div className="metric-strip">
               {cell('외국인', investor?.foreignNetBuy ?? null, '잠정')}
               {cell('기관', investor?.instNetBuy ?? null, '잠정')}
-              {cell('프로그램', progWon, '실시간', true)}
+              {cell('프로그램', progWon, '실시간')}
             </div>
           </div>
         )
@@ -491,18 +468,20 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
         if (stock.cScore === null) signals.push({ text: '분기 실적 데이터 미확보 — C 점수 산출 불가', color: '#484f58' })
         if (stock.aScore === null) signals.push({ text: '연간 성장 데이터 미확보 — A 점수 산출 불가', color: '#484f58' })
         return (
-          <div style={{ marginBottom: 16, background: verdict.bg, border: `1px solid ${verdict.border}`, borderRadius: 10, padding: '14px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: signals.length > 0 ? 10 : 0 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-3)' }}>매매 시그널</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: verdict.color }}>{verdict.label}</div>
-              <div style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-4)' }}>종합 {composite.toFixed(1)}점</div>
+          <div className="det-signal" style={{
+            ['--sig-bg' as string]: verdict.bg, ['--sig-bd' as string]: verdict.border, ['--sig-fg' as string]: verdict.color,
+          }}>
+            <div className={'det-signal-head' + (signals.length > 0 ? ' gap' : '')}>
+              <div className="det-signal-label">매매 시그널</div>
+              <div className="det-signal-verdict">{verdict.label}</div>
+              <div className="det-signal-score">종합 {composite.toFixed(1)}점</div>
             </div>
             {signals.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="det-signal-list">
                 {signals.map((s, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11 }}>
-                    <span style={{ color: s.color, marginTop: 1, flexShrink: 0 }}>›</span>
-                    <span style={{ color: 'var(--text-3)', lineHeight: 1.5 }}>{s.text}</span>
+                  <div key={i} className="det-signal-item">
+                    <span className="mark" style={{ ['--sg' as string]: s.color }}>›</span>
+                    <span className="txt">{s.text}</span>
                   </div>
                 ))}
               </div>
@@ -645,13 +624,12 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
       {peers.length > 0 && (
         <Card style={{ marginBottom: 20 }}>
           <SectionTitle>섹터 내 비교 ({stock?.sector})</SectionTitle>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <div className="det-table-wrap">
+            <table className="det-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <tr>
                   {['종목명', 'SCORE', '실적', '성장', '고가', '수급', '기관', '현재가'].map(h => (
-                    <th key={h} style={{ padding: '5px 8px', color: 'var(--text-4)', fontWeight: 600,
-                      textAlign: h === '종목명' ? 'left' : 'right', whiteSpace: 'nowrap', fontSize: 10 }}>{h}</th>
+                    <th key={h} className={h === '종목명' ? 'l' : undefined}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -659,26 +637,16 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
                 {peers.map(p => {
                   const isSelf = p.isSelf
                   const f = (v: number | null) => v != null ? Math.round(v) : '-'
+                  const fc = (v: number | null) => v != null && v >= 80 ? '#3fb950' : v != null && v >= 60 ? '#f6ad55' : 'var(--text-3)'
                   return (
-                    <tr key={p.ticker}
-                      onClick={() => !isSelf && handleSelectPeer(p.securityId)}
-                      style={{ borderBottom: '1px solid var(--bg-nav)', cursor: isSelf ? 'default' : 'pointer',
-                        background: isSelf ? 'rgba(31,111,235,0.08)' : 'transparent' }}>
-                      <td style={{ padding: '6px 8px', color: isSelf ? '#58a6ff' : 'var(--text-1)', fontWeight: isSelf ? 700 : 400, fontSize: 11 }}>
-                        {p.name}{isSelf && ' ◀'}
-                      </td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-1)', fontWeight: 600, fontSize: 11 }}>
-                        {p.compositeScore.toFixed(1)}
-                      </td>
+                    <tr key={p.ticker} className={isSelf ? 'self' : undefined}
+                      onClick={() => !isSelf && handleSelectPeer(p.securityId)}>
+                      <td className={isSelf ? 'name self' : 'name'}>{p.name}{isSelf && ' ◀'}</td>
+                      <td className="score">{p.compositeScore.toFixed(1)}</td>
                       {[p.cScore, p.aScore, p.nScore, p.sScore, p.iScore].map((v, i) => (
-                        <td key={i} style={{ padding: '6px 8px', textAlign: 'right', fontSize: 11,
-                          color: v != null && v >= 80 ? '#3fb950' : v != null && v >= 60 ? '#f6ad55' : 'var(--text-3)' }}>
-                          {f(v)}
-                        </td>
+                        <td key={i} className="f" style={{ ['--fc' as string]: fc(v) }}>{f(v)}</td>
                       ))}
-                      <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-3)', fontSize: 11 }}>
-                        {p.closePrice != null ? Number(p.closePrice).toLocaleString('ko-KR') : '-'}
-                      </td>
+                      <td>{p.closePrice != null ? Number(p.closePrice).toLocaleString('ko-KR') : '-'}</td>
                     </tr>
                   )
                 })}
@@ -692,13 +660,12 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
       {correlations.length > 0 && (
         <Card style={{ marginBottom: 20 }}>
           <SectionTitle>유사 종목</SectionTitle>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <div className="det-table-wrap">
+            <table className="det-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <tr>
                   {['종목명', '티커', 'SCORE', '섹터'].map(h => (
-                    <th key={h} style={{ padding: '5px 8px', color: 'var(--text-4)', fontWeight: 600,
-                      textAlign: h === '종목명' || h === '섹터' ? 'left' : 'right', whiteSpace: 'nowrap', fontSize: 10 }}>{h}</th>
+                    <th key={h} className={h === '종목명' || h === '섹터' ? 'l' : undefined}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -706,14 +673,11 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
                 {correlations.map(c => {
                   const scoreClr = c.compositeScore >= 70 ? '#4ade80' : c.compositeScore >= 55 ? '#fabd44' : '#f87171'
                   return (
-                    <tr key={c.ticker} style={{ borderBottom: '1px solid var(--bg-nav)', cursor: 'pointer' }}
-                      onClick={() => {
-                        // correlation uses ticker, not securityId — TODO: needs backend change
-                      }}>
-                      <td style={{ padding: '6px 8px', color: 'var(--text-1)', fontSize: 11 }}>{c.name}</td>
-                      <td style={{ padding: '6px 8px', color: '#58a6ff', fontFamily: 'monospace', fontSize: 11 }}>{c.ticker}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', color: scoreClr, fontWeight: 600, fontSize: 11 }}>{c.compositeScore.toFixed(1)}</td>
-                      <td style={{ padding: '6px 8px', color: 'var(--text-4)', fontSize: 10 }}>{c.sector ?? '—'}</td>
+                    <tr key={c.ticker}>
+                      <td className="name">{c.name}</td>
+                      <td className="name ticker">{c.ticker}</td>
+                      <td className="score f" style={{ ['--fc' as string]: scoreClr }}>{c.compositeScore.toFixed(1)}</td>
+                      <td className="name">{c.sector ?? '—'}</td>
                     </tr>
                   )
                 })}

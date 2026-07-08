@@ -115,7 +115,7 @@ body {
 .metric-cell { flex: 1; padding: 10px 14px; }
 .metric-cell + .metric-cell { border-left: 1px solid var(--border); }
 .metric-cell-label { font-size: 9px; color: var(--text-4); font-weight: 600; margin-bottom: 3px; }
-.metric-cell-value { font-size: 13px; font-weight: 700; color: var(--text-1); }
+.metric-cell-value { font-size: 13px; font-weight: 700; color: var(--mc, var(--text-1)); }
 .metric-cell-value.mono { font-family: monospace; }
 .metric-cell-value.pos { color: var(--up); }
 
@@ -191,6 +191,58 @@ body {
 .pg-btn { min-width: 28px; height: 26px; padding: 0 6px; background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--text-3); font-size: 12px; cursor: pointer; }
 .pg-btn.on { background: #1f3a5f; border-color: var(--accent); color: #58a6ff; font-weight: 700; }
 .pg-btn:disabled { color: var(--border); cursor: default; }
+
+/* 종목 상세 — 히어로/가격바/수급/시그널/비교표 (컨테이너는 반응형 미디어쿼리 있는 기존 클래스명 유지) */
+.detail-hero { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.det-hero-meta { font-size: 10px; color: var(--text-3); margin-bottom: 4px; font-weight: 600; letter-spacing: 0.08em; }
+.det-hero-meta .sector { color: var(--text-4); margin-left: 8px; }
+.det-hero-name { font-size: 26px; font-weight: 800; letter-spacing: -1px; color: var(--text-1); }
+.det-hero-tags { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.det-ticker { font-size: 13px; font-family: monospace; color: #58a6ff; }
+.det-tag { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+.det-tag.breakout { background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.4); color: #4ade80; }
+.det-tag.base { font-weight: 600; background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3); color: #58a6ff; }
+.det-tag.delta { background: var(--tag-bg); border: 1px solid var(--tag-bd); color: var(--tag-fg); }
+.det-hero-right { text-align: right; }
+.det-hero-score-label { font-size: 9px; color: var(--text-3); margin-bottom: 2px; font-weight: 600; }
+.det-hero-score { font-size: 42px; font-weight: 900; color: var(--dc, var(--text-1)); line-height: 1; letter-spacing: -2px; }
+.det-hero-rank { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+.det-hero-rank b { color: var(--text-1); font-weight: 600; }
+.detail-price-bar { display: flex; margin-bottom: 16px; background: var(--bg-nav); border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+.det-pcell { flex: 1; padding: 12px 14px; border-right: 1px solid var(--border); }
+.det-pcell:last-child { border-right: none; }
+.det-cell-label { font-size: 9px; color: var(--text-4); font-weight: 600; margin-bottom: 3px; }
+.det-cell-sub { font-size: 8px; font-weight: 500; color: var(--text-4); }
+.det-cell-sub.live { color: #22c55e; }
+.det-cell-value { font-size: 13px; font-weight: 700; color: var(--dc, var(--text-1)); }
+.det-cell-value.mono { font-family: monospace; }
+.det-sec-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.det-sec-title { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: 0.04em; }
+.det-live-pill { font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--bg-elevated); color: var(--text-4); }
+.det-live-pill.on { background: rgba(34,197,94,0.15); color: #22c55e; }
+.det-signal { margin-bottom: 16px; border-radius: 10px; padding: 14px 18px; background: var(--sig-bg); border: 1px solid var(--sig-bd); }
+.det-signal-head { display: flex; align-items: center; gap: 10px; }
+.det-signal-head.gap { margin-bottom: 10px; }
+.det-signal-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--text-3); }
+.det-signal-verdict { font-size: 12px; font-weight: 800; color: var(--sig-fg); }
+.det-signal-score { margin-left: auto; font-size: 10px; color: var(--text-4); }
+.det-signal-list { display: flex; flex-direction: column; gap: 4px; }
+.det-signal-item { display: flex; align-items: flex-start; gap: 6px; font-size: 11px; }
+.det-signal-item .mark { color: var(--sg, var(--text-3)); margin-top: 1px; flex-shrink: 0; }
+.det-signal-item .txt { color: var(--text-3); line-height: 1.5; }
+.det-table-wrap { overflow-x: auto; }
+.det-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.det-table thead tr { border-bottom: 1px solid var(--border); }
+.det-table th { padding: 5px 8px; color: var(--text-4); font-weight: 600; text-align: right; white-space: nowrap; font-size: 10px; }
+.det-table th.l { text-align: left; }
+.det-table tbody tr { border-bottom: 1px solid var(--bg-nav); cursor: pointer; }
+.det-table tbody tr.self { background: rgba(31,111,235,0.08); cursor: default; }
+.det-table td { padding: 6px 8px; text-align: right; font-size: 11px; color: var(--text-3); }
+.det-table td.name { text-align: left; color: var(--text-1); }
+.det-table td.name.self { color: #58a6ff; font-weight: 700; }
+.det-table td.score { color: var(--text-1); font-weight: 600; }
+.det-table td.f { color: var(--fc, var(--text-3)); }
+.det-table td.ticker { color: #58a6ff; font-family: monospace; }
 
 /* 로딩 스피너 */
 @keyframes spin { to { transform: rotate(360deg); } }
