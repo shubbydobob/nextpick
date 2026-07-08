@@ -24,7 +24,7 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
-            cd /home/ubuntu/canslim
+            cd /home/ubuntu/nextpick
             git fetch origin master && git checkout master && git pull origin master
             .venv/bin/pip install -q -r etl/requirements.txt
 
@@ -48,4 +48,4 @@ jobs:
             echo ""
 
             echo "===== 결과 확인 ====="
-            docker exec canslim-postgres psql -U canslim_user -d canslim -A -t -c "SELECT score_date, count(*) tot, round(avg(composite_score)::numeric,1) avg, count(*) FILTER (WHERE c_score IS NOT NULL) c_ok, count(*) FILTER (WHERE a_score IS NOT NULL) a_ok, count(*) FILTER (WHERE l_score IS NOT NULL) l_ok, count(*) FILTER (WHERE i_score IS NOT NULL) i_ok FROM nextpick_scores WHERE score_date='$D' GROUP BY score_date;"
+            docker exec nextpick-postgres psql -U nextpick_user -d nextpick -A -t -c "SELECT score_date, count(*) tot, round(avg(composite_score)::numeric,1) avg, count(*) FILTER (WHERE c_score IS NOT NULL) c_ok, count(*) FILTER (WHERE a_score IS NOT NULL) a_ok, count(*) FILTER (WHERE l_score IS NOT NULL) l_ok, count(*) FILTER (WHERE i_score IS NOT NULL) i_ok FROM nextpick_scores WHERE score_date='$D' GROUP BY score_date;"

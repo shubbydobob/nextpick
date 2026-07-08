@@ -22,7 +22,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-            cd /home/ubuntu/canslim
+            cd /home/ubuntu/nextpick
             # git 강제 동기화 — 로컬 변경/충돌로 pull이 조용히 실패해 옛 소스로 빌드되던 것 방지.
             git fetch origin master
             git reset --hard origin/master

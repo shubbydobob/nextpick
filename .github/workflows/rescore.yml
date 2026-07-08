@@ -24,7 +24,7 @@ jobs:
           command_timeout: 20m
           script: |
             set -e
-            cd /home/ubuntu/canslim
+            cd /home/ubuntu/nextpick
 
             D="${{ inputs.score_date }}"
             PYDATE="date.today()"
@@ -41,4 +41,4 @@ jobs:
             echo ""
 
             echo "===== 결과 확인: 최신 채점일 점수 건강도 ====="
-            docker exec canslim-postgres psql -U canslim_user -d canslim -A -t -c "SELECT score_date, count(*) total, count(*) FILTER (WHERE c_score IS NOT NULL) c_ok, count(*) FILTER (WHERE a_score IS NOT NULL) a_ok, count(*) FILTER (WHERE l_score IS NOT NULL) l_ok, count(*) FILTER (WHERE i_score IS NOT NULL) i_ok FROM nextpick_scores WHERE score_date=(SELECT max(score_date) FROM nextpick_scores) GROUP BY score_date;"
+            docker exec nextpick-postgres psql -U nextpick_user -d nextpick -A -t -c "SELECT score_date, count(*) total, count(*) FILTER (WHERE c_score IS NOT NULL) c_ok, count(*) FILTER (WHERE a_score IS NOT NULL) a_ok, count(*) FILTER (WHERE l_score IS NOT NULL) l_ok, count(*) FILTER (WHERE i_score IS NOT NULL) i_ok FROM nextpick_scores WHERE score_date=(SELECT max(score_date) FROM nextpick_scores) GROUP BY score_date;"

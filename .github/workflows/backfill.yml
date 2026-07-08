@@ -29,7 +29,7 @@ jobs:
           command_timeout: 10m
           script: |
             set -e
-            cd /home/ubuntu/canslim
+            cd /home/ubuntu/nextpick
             git fetch origin master
             git checkout master
             git pull origin master

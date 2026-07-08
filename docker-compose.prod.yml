@@ -1,28 +1,28 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: canslim-postgres
+    container_name: nextpick-postgres
     environment:
-      POSTGRES_DB: canslim
-      POSTGRES_USER: canslim_user
+      POSTGRES_DB: nextpick
+      POSTGRES_USER: nextpick_user
       POSTGRES_PASSWORD: "${DB_PASSWORD}"
     ports:
       - "5432:5432"
     volumes:
-      - canslim-pgdata:/var/lib/postgresql/data
+      - nextpick-pgdata:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U canslim_user -d canslim"]
+      test: ["CMD-SHELL", "pg_isready -U nextpick_user -d nextpick"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   backend:
     build: ./backend
-    container_name: canslim-backend
+    container_name: nextpick-backend
     environment:
       DB_PASSWORD: "${DB_PASSWORD}"
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/canslim"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/nextpick"
       # KIS 실시간 시세용 — 마운트한 kis.yaml 경로 (또는 KIS_APP_KEY/KIS_APP_SECRET 직접 주입)
       KIS_CONFIG_PATH: "/app/etl/config/kis.yaml"
     volumes:
@@ -36,4 +36,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  canslim-pgdata:
+  nextpick-pgdata:

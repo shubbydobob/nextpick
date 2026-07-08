@@ -17,7 +17,7 @@ jobs:
           command_timeout: 20m
           script: |
             set -e
-            cd /home/ubuntu/canslim
+            cd /home/ubuntu/nextpick
             echo "===== git 최신화 ====="
             git pull origin master 2>&1 | tail -3
             echo "현재 커밋: $(git log -1 --oneline)"

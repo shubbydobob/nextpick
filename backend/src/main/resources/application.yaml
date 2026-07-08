@@ -1,7 +1,7 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/canslim
-    username: canslim_user
+    url: jdbc:postgresql://localhost:5432/nextpick
+    username: nextpick_user
     password: ${DB_PASSWORD:1234}
     driver-class-name: org.postgresql.Driver
     hikari:

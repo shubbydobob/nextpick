@@ -17,10 +17,10 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           command_timeout: 3m
           script: |
-            PSQL="docker exec canslim-postgres psql -U canslim_user -d canslim -A -t"
+            PSQL="docker exec nextpick-postgres psql -U nextpick_user -d nextpick -A -t"
 
             echo "===== 백엔드 컨테이너 상태 ====="
-            docker ps -a --filter name=canslim-backend --format "{{.Status}}" 2>&1 || true
+            docker ps -a --filter name=nextpick-backend --format "{{.Status}}" 2>&1 || true
             echo "===== 백엔드 헬스 (screener) ====="
             curl -s -o /dev/null -w "HTTP %{http_code}\n" "http://localhost:8080/api/screener?market=KR&size=1" 2>&1 || echo "(연결 실패)"
             echo "===== flyway 최근 마이그레이션 ====="
@@ -29,7 +29,7 @@ jobs:
             curl -s -w "\nHTTP %{http_code}" "http://localhost:8080/api/screener?market=KR&sortBy=turnover&size=3" 2>&1 | tail -20 || echo "(실패)"
             echo ""
             echo "===== 백엔드 로그 마지막 80줄 ====="
-            docker logs canslim-backend --tail 80 2>&1 | tail -80 || echo "(로그 없음)"
+            docker logs nextpick-backend --tail 80 2>&1 | tail -80 || echo "(로그 없음)"
 
             echo "===== 금호건설(002990) 최근 종가/등락 ====="
             $PSQL -c "SELECT p.trade_date, p.close, p.close_adj, p.volume FROM price_daily p JOIN instruments i ON i.id=p.security_id WHERE i.ticker='002990' ORDER BY p.trade_date DESC LIMIT 6;" 2>&1 || true
@@ -69,7 +69,7 @@ jobs:
             ps -eo pid,etime,cmd | grep -E "run_daily|run_backfill|dart_loader" | grep -v grep || echo "(파이썬 ETL 프로세스 없음)"
 
             echo "===== 백필 로그 마지막 8줄 ====="
-            tail -n 8 /home/ubuntu/canslim/backfill_10yr.log 2>&1 || echo "(로그 없음)"
+            tail -n 8 /home/ubuntu/nextpick/backfill_10yr.log 2>&1 || echo "(로그 없음)"
 
             echo "===== etl_daily 로그 마지막 15줄 ====="
-            tail -n 15 /home/ubuntu/canslim/etl_daily.log 2>&1 || echo "(로그 없음)"
+            tail -n 15 /home/ubuntu/nextpick/etl_daily.log 2>&1 || echo "(로그 없음)"

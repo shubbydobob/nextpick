@@ -25,7 +25,7 @@ jobs:
           command_timeout: 20m
           script: |
             set -e
-            REPO_DIR=/home/ubuntu/canslim
+            REPO_DIR=/home/ubuntu/nextpick
             cd "$REPO_DIR"
             git pull origin master
 
@@ -40,6 +40,6 @@ jobs:
               echo "===== 지정현황(뱃지) 즉시 수집 (KIS 전종목) ====="
               PYTHONUTF8=1 .venv/bin/python -m etl.kr_adapter.kis_status_loader || echo "(상태 수집 실패 — 비치명적)"
               echo "== 적재 결과 =="
-              docker exec canslim-postgres psql -U canslim_user -d canslim -A -t -c \
+              docker exec nextpick-postgres psql -U nextpick_user -d nextpick -A -t -c \
                 "SELECT status_date, count(*) FROM security_status_daily WHERE status_date=(SELECT max(status_date) FROM security_status_daily) GROUP BY status_date;" || true
             fi

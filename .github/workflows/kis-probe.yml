@@ -22,7 +22,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           command_timeout: 5m
           script: |
-            cd /home/ubuntu/canslim
+            cd /home/ubuntu/nextpick
             TICKER="${{ inputs.ticker }}" PYTHONUTF8=1 .venv/bin/python - <<'PY'
             import os, re, json, requests
             from etl.kr_adapter.investor_flow_loader import _load_config, _get_token, _BASE_URL
@@ -75,7 +75,7 @@ jobs:
 
             echo ""
             echo "===== price_daily 최근 7거래일 (전일종가 앵커 확인) ====="
-            docker exec canslim-postgres psql -U canslim_user -d canslim -A -t -c \
+            docker exec nextpick-postgres psql -U nextpick_user -d nextpick -A -t -c \
               "SELECT p.trade_date, p.close, p.close_adj, p.volume FROM price_daily p JOIN instruments i ON i.id=p.security_id WHERE i.name LIKE '%금호에이치티%' ORDER BY p.trade_date DESC LIMIT 7;" || true
             echo ""
             echo "===== 상한가 목록에 금호에이치티(214330) 잔존 여부 (수정 후 없어야 정상) ====="
