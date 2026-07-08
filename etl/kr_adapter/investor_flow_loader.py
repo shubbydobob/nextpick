@@ -148,12 +148,10 @@ def _fetch_investor_rows(ticker: str, cfg: dict, token: str) -> list[dict] | Non
             try:
                 orgn_mn = int(row["orgn_ntby_tr_pbmn"])
                 frgn_mn = int(row["frgn_ntby_tr_pbmn"])
-                prgm_mn = int(row.get("prsn_ntby_tr_pbmn", 0))  # 프로그램 순매수 (백만원)
-                # KIS 응답에 prgm 필드가 별도 존재하면 사용, 없으면 0
-                prgm_mn = int(row["prgm_ntby_tr_pbmn"]) if "prgm_ntby_tr_pbmn" in row else 0
             except (KeyError, ValueError):
                 continue
-            rows.append({"date": d_obj, "orgn_mn": orgn_mn, "frgn_mn": frgn_mn, "prgm_mn": prgm_mn})
+            # 프로그램 순매수는 FHKST01010900(투자자동향) 응답에 없음 → 배치 미수집.
+            rows.append({"date": d_obj, "orgn_mn": orgn_mn, "frgn_mn": frgn_mn})
 
         return rows if rows else None
 
@@ -183,11 +181,9 @@ def _compute_flow_metrics(rows: list[dict], as_of_date: date) -> dict | None:
     # 백만원 → 원
     inst_won    = [r["orgn_mn"] * 1_000_000 for r in last10]
     foreign_won = [r["frgn_mn"] * 1_000_000 for r in last10]
-    program_won = [r.get("prgm_mn", 0) * 1_000_000 for r in last10]
 
     inst_10d    = sum(inst_won)
     foreign_10d = sum(foreign_won)
-    program_10d = sum(program_won)
 
     # inst_trend_flag: 최근 3 거래일 (last10[0]=가장 최근)
     d1, d2, d3 = inst_won[0], inst_won[1], inst_won[2]
@@ -207,7 +203,8 @@ def _compute_flow_metrics(rows: list[dict], as_of_date: date) -> dict | None:
     return {
         "inst_net_buy_10d":    inst_10d,
         "foreign_net_buy_10d": foreign_10d,
-        "program_net_buy_10d": program_10d,
+        # 프로그램은 배치 미수집(FHKST01010900에 없음) → null. 장중만 실시간 오버레이 표시.
+        "program_net_buy_10d": None,
         "inst_trend_flag":     trend_flag,
     }
 

@@ -6,7 +6,6 @@ import { isPremium } from '../api/auth'
 import MacroTicker from '../components/MacroTicker'
 import StockDetailPanel from '../components/StockDetailPanel'
 import GachaModal from '../components/GachaModal'
-import SectorMap from '../components/SectorMap'
 import AppSidebar from '../components/AppSidebar'
 import DashboardView from './DashboardView'
 import RankingView from './RankingView'
@@ -240,15 +239,10 @@ export default function ScreenerPage() {
     if (saved) return saved
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
-  const [histTab, setHistTab] = useState<'KOSPI' | 'KOSDAQ'>('KOSPI')
   const [marketStates, setMarketStates] = useState<Array<{
     market: string; marketPhase?: string; trendDirection?: string; stateDate?: string
     indexClose?: number; ma50d?: number; ma200d?: number; distributionDayCount?: number
   }>>([])
-  const [marketHistory, setMarketHistory] = useState<Record<string, Array<{
-    stateDate: string; marketPhase: string; trendDirection: string
-    indexClose: number; ma50d: number; ma200d: number
-  }>>>({})
   const closeGuide = (hide24h: boolean) => {
     if (hide24h) localStorage.setItem(GUIDE_KEY, String(Date.now() + 24 * 60 * 60 * 1000))
     setShowGuide(false)
@@ -311,13 +305,6 @@ export default function ScreenerPage() {
   useEffect(() => {
     fetch('/api/admin/market-state').then(r => r.json()).then(setMarketStates).catch(() => {})
   }, [])
-  useEffect(() => {
-    Promise.all(['KOSPI', 'KOSDAQ'].map(m =>
-      fetch(`/api/admin/market-state/history?market=${m}&days=60`)
-        .then(r => r.json())
-        .then((rows: typeof marketHistory[string]) => [m, [...rows].reverse()] as const)
-    )).then(pairs => setMarketHistory(Object.fromEntries(pairs))).catch(() => {})
-  }, [mainTab])
 
   // 관심종목은 알림용으로만 참조 — fetch 의존성에서 제외해 ★ 토글 시 전체 재조회 방지
   const watchlistRef = useRef(watchlist)
@@ -377,10 +364,11 @@ export default function ScreenerPage() {
       .finally(() => { if (seq === reqSeqRef.current) setLoading(false) })
   }, [page, size, mainTab, debouncedQuery, sector, capRange, sortKey, sortDir, minScore])
 
-  // 장중 실시간 시세 오버레이 — 화면에 보이는 종목만, 1분 폴링.
+  // 장중 실시간 시세 오버레이 — 화면에 보이는 종목만, 4초 폴링.
   // 장외 시간엔 백엔드가 빈 결과 → 배치(EOD)값 유지.
+  // 대시보드 탭은 자체 폴링(DashboardView)이 있어 여기선 스킵(KIS 이중 호출 방지).
   useEffect(() => {
-    if (!items.length) { setLiveMap({}); return }
+    if (!items.length || mainTab === 'dashboard') { setLiveMap({}); return }
     const tickers = items.map(i => i.ticker)
     let cancelled = false
     const load = () => fetchLiveQuotes(tickers).then(m => {
@@ -402,18 +390,18 @@ export default function ScreenerPage() {
     load()
     const id = setInterval(load, 4_000)   // 시세 4초 폴링 (등락률·가격·거래대금·프로그램)
     return () => { cancelled = true; clearInterval(id) }
-  }, [items])
+  }, [items, mainTab])
 
   // 당일 외인·기관 수급 오버레이 — 시세와 분리해 15초 폴링(쿼터 절약).
   useEffect(() => {
-    if (!items.length) { setInvestorMap({}); return }
+    if (!items.length || mainTab === 'dashboard') { setInvestorMap({}); return }
     const tickers = items.map(i => i.ticker)
     let cancelled = false
     const load = () => fetchLiveInvestors(tickers).then(m => { if (!cancelled) setInvestorMap(m) })
     load()
     const id = setInterval(load, 15_000)
     return () => { cancelled = true; clearInterval(id) }
-  }, [items])
+  }, [items, mainTab])
 
   const FREE_WATCHLIST_LIMIT = 5
 
@@ -513,7 +501,7 @@ export default function ScreenerPage() {
         <Th label="거래대금" sortKey="turnover" style={{ width: 72 }} tip="당일 누적 거래대금 (억·천억원)" />
         <Th label="외인" sortKey="foreignNetBuy10d" style={{ width: 62 }} tip="외국인 순매수 (억원) — 장중: 당일 실시간(잠정), 장외: 최근 10거래일 누적" />
         <Th label="기관" sortKey="instNetBuy10d" style={{ width: 62 }} tip="기관 순매수 (억원) — 장중: 당일 실시간(잠정), 장외: 최근 10거래일 누적" />
-        <Th label="프로그램" sortKey="programNetBuy10d" style={{ width: 62 }} tip="프로그램 순매수 (억원) — 장중: 당일 실시간(잠정), 장외: 최근 10거래일 누적" />
+        <Th label="프로그램" sortKey="programNetBuy10d" style={{ width: 62 }} tip="프로그램 순매수 (억원) — 장중 당일 실시간(잠정). 장외엔 미제공" />
         <Th label="시총" sortKey="marketCap" style={{ width: 68 }} />
       </tr>
     )
@@ -762,16 +750,29 @@ export default function ScreenerPage() {
   // 화면 표시(실시간 등락률 등)가 어긋나 "정렬이 안 된 것처럼" 보인다.
   // 이 필드들은 라이브 병합값으로 현재 페이지를 다시 정렬해 표시와 순서를 일치시킨다.
   // (전체 정렬은 백엔드 페이징이 담당 — 장중 실시간 전체 정렬은 보이는 종목 한계상 페이지 단위.)
-  const LIVE_SORT_KEYS = new Set<SortKey>(['changeRate', 'closePrice', 'turnover', 'volume'])
+  const LIVE_SORT_KEYS = new Set<SortKey>([
+    'changeRate', 'closePrice', 'turnover', 'volume',
+    'foreignNetBuy10d', 'instNetBuy10d', 'programNetBuy10d',
+  ])
+  // 정렬 기준값 = 화면 표시와 동일. 수급은 장중 당일 실시간 우선(→ 표시-순서 일치).
+  const liveSortVal = (item: ScreenerItem, key: SortKey): number | null => {
+    switch (key) {
+      case 'foreignNetBuy10d': return item.foreignNetBuyToday ?? item.foreignNetBuy10d
+      case 'instNetBuy10d':    return item.instNetBuyToday ?? item.instNetBuy10d
+      case 'programNetBuy10d': return item.programNetBuyToday ?? item.programNetBuy10d
+      default:                 return item[key] as number | null
+    }
+  }
   const displayItems = (() => {
     const arr = items
       .filter(i => !showWatchOnly || watchlist.has(i.securityId))
       .filter(i => !showBreakoutOnly || i.breakoutToday)
-    if (!LIVE_SORT_KEYS.has(sortKey) || Object.keys(liveMap).length === 0) return arr
+    const liveActive = Object.keys(liveMap).length > 0 || Object.keys(investorMap).length > 0
+    if (!LIVE_SORT_KEYS.has(sortKey) || !liveActive) return arr
     const dir = sortDir === 'asc' ? 1 : -1
     return arr.map(mergeLive).sort((a, b) => {
-      const av = a[sortKey] as number | null
-      const bv = b[sortKey] as number | null
+      const av = liveSortVal(a, sortKey)
+      const bv = liveSortVal(b, sortKey)
       if (av == null && bv == null) return 0
       if (av == null) return 1          // null은 항상 뒤로
       if (bv == null) return -1
@@ -1045,138 +1046,10 @@ export default function ScreenerPage() {
         <RankingView
           items={items.filter(i => watchlist.has(i.securityId))}
           loading={loading}
+          liveMap={liveMap}
           onStockClick={(id) => { setSelectedStockId(id); setMainTab('screener'); setViewTab('detail') }}
         />
       )}
-
-      {/* ══ Legacy market tab ═══════════════════════════════════ */}
-      {(mainTab as string) === 'market' && (() => {
-        // 국면별 스타일 + 메시지
-        const phaseInfo = (p?: string) => p === 'BULL'
-          ? { bg: 'rgba(74,222,128,0.08)', border: '#166534', text: '#4ade80', icon: '🟢', label: '강세장', verdict: '신규 매수 가능', desc: '주가가 장기 상승 추세 위에서 움직이고 있습니다.' }
-          : p === 'BEAR'
-          ? { bg: 'rgba(248,113,113,0.08)', border: '#7f1d1d', text: '#f87171', icon: '🔴', label: '약세장', verdict: '신규 매수 자제', desc: '주가가 장기 하락 추세 아래에 있습니다. 현금 비중을 높이세요.' }
-          : { bg: 'rgba(250,189,68,0.08)', border: '#78350f', text: '#fabd44', icon: '🟡', label: '조정', verdict: '관망 권장', desc: '단기 조정 구간입니다. 추세 확인 후 진입하세요.' }
-
-        // M스코어 = 오늘 items의 mScore (전 종목 동일값)
-        const mScore = items.length > 0 ? (items[0].mScore ?? 0) : 0
-        const mColor = mScore >= 40 ? '#4ade80' : mScore >= 20 ? '#fabd44' : '#f87171'
-        const mVerdict = mScore >= 40 ? '시장 전반이 상승 흐름에 있습니다.'
-          : mScore >= 20 ? '일부 종목만 강세입니다. 종목 선별이 중요합니다.'
-          : '대부분 종목이 고점 대비 크게 하락해 있습니다. 신중한 접근이 필요합니다.'
-
-        // 종합 투자 조언
-        const kospi = marketStates.find(m => m.market === 'KOSPI')
-        const kosdaq = marketStates.find(m => m.market === 'KOSDAQ')
-        const bothBull = kospi?.marketPhase === 'BULL' && kosdaq?.marketPhase === 'BULL'
-        const anyBear  = kospi?.marketPhase === 'BEAR'  || kosdaq?.marketPhase === 'BEAR'
-        const advice = bothBull && mScore >= 30
-          ? { color: '#4ade80', text: '매수 적기 — 스크리너 상위 종목에서 진입 기회를 찾으세요.' }
-          : anyBear && mScore < 20
-          ? { color: '#f87171', text: '매수 금지 — 현금 보유 또는 기존 포지션 손절 기준 점검을 권장합니다.' }
-          : { color: '#fabd44', text: '선별적 접근 — 강한 실적과 수급을 동반한 종목만 소규모 진입하세요.' }
-
-        const hist = marketHistory[histTab] ?? []
-
-        return (
-          <div className="market-section" style={{ padding: '20px', maxWidth: 900, margin: '0 auto' }}>
-
-            {/* ① 종합 투자 의견 */}
-            <div style={{
-              background: 'var(--bg-nav)', border: `1px solid ${advice.color}33`,
-              borderRadius: 10, padding: '16px 20px', marginBottom: 16,
-              display: 'flex', alignItems: 'center', gap: 12,
-            }}>
-              <div style={{ fontSize: 22 }}>💡</div>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 4, fontWeight: 600, letterSpacing: '0.05em' }}>오늘의 투자 의견</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: advice.color }}>{advice.text}</div>
-              </div>
-            </div>
-
-            {/* ② KOSPI / KOSDAQ 국면 카드 */}
-            <div className="market-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-              {[kospi, kosdaq].map(ms => {
-                if (!ms) return null
-                const pi = phaseInfo(ms.marketPhase)
-                return (
-                  <div key={ms.market} style={{
-                    background: 'var(--bg-nav)', border: `1px solid var(--border)`,
-                    borderRadius: 10, padding: '16px 20px',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                      <span style={{ fontSize: 18 }}>{pi.icon}</span>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>{ms.market} · {pi.label}</div>
-                        <div style={{ fontSize: 12, color: pi.text, fontWeight: 600 }}>{pi.verdict}</div>
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6 }}>{pi.desc}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-4)', marginTop: 8 }}>기준일 {ms.stateDate}</div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* ③ 시장 건강도 (M스코어) */}
-            <div style={{
-              background: 'var(--bg-nav)', border: '1px solid var(--border)',
-              borderRadius: 10, padding: '16px 20px', marginBottom: 16,
-            }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: 10 }}>시장 건강도</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div style={{ fontSize: 32, fontWeight: 800, color: mColor, minWidth: 70 }}>{Math.round(mScore)}<span style={{ fontSize: 14, color: 'var(--text-3)' }}>점</span></div>
-                <div style={{ flex: 1 }}>
-                  {/* 게이지 바 */}
-                  <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, marginBottom: 8, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${mScore}%`, background: mColor, borderRadius: 3, transition: 'width 0.5s' }} />
-                  </div>
-                  <div style={{ fontSize: 13, color: '#9ca3af', lineHeight: 1.5 }}>{mVerdict}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* ④ 국면 변화 이력 (타임라인) */}
-            <div style={{ background: 'var(--bg-nav)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.06em' }}>최근 60일 국면 변화</span>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {(['KOSPI', 'KOSDAQ'] as const).map(m => (
-                    <button key={m} onClick={() => setHistTab(m)} style={{
-                      fontSize: 12, padding: '2px 10px', borderRadius: 4, cursor: 'pointer',
-                      background: histTab === m ? 'rgba(31,111,235,0.2)' : 'none',
-                      border: histTab === m ? '1px solid var(--accent)' : '1px solid var(--border)',
-                      color: histTab === m ? '#58a6ff' : 'var(--text-3)',
-                    }}>{m}</button>
-                  ))}
-                </div>
-              </div>
-              {/* 국면 타임라인 - 연속 블록 시각화 */}
-              <div style={{ padding: '12px 16px' }}>
-                <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                  {hist.map(h => {
-                    const pi = phaseInfo(h.marketPhase)
-                    return (
-                      <div key={h.stateDate} title={`${h.stateDate} · ${pi.label}`}
-                        style={{ width: 10, height: 28, borderRadius: 2, background: pi.text, opacity: 0.7, cursor: 'default' }} />
-                    )
-                  })}
-                </div>
-                {/* 범례 + 최근 변화 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 10 }}>
-                  {[['#4ade80', '강세장'], ['#fabd44', '조정'], ['#f87171', '약세장']].map(([c, l]) => (
-                    <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-3)' }}>
-                      <div style={{ width: 10, height: 10, borderRadius: 2, background: c }} />{l}
-                    </div>
-                  ))}
-                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-4)' }}>← 과거 · 최근 →</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
 
       {/* ══ 시장 M 배너 ══════════════════════════════════════════ */}
       {mainTab === 'screener' && !loading && items.length > 0 && (() => {
@@ -1579,9 +1452,6 @@ export default function ScreenerPage() {
       </>}
 
       {/* ══ 섹터맵 — keep accessible from screener sector click ══ */}
-      {(mainTab as string) === 'sector' && (
-        <SectorMap onSectorClick={(s) => { setSector(s); setMainTab('screener'); setViewTab('table'); setPage(0) }} />
-      )}
 
         </main>
       </div>
