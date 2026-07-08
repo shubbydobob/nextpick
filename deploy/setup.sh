@@ -42,8 +42,9 @@ sudo mkdir -p /var/www/canslim
 sudo nginx -t && sudo systemctl reload nginx
 
 echo "=== [7/7] ETL crontab 등록 ==="
-(crontab -l 2>/dev/null; echo "10 16 * * 1-5 cd $REPO_DIR && $REPO_DIR/.venv/bin/python -m etl.kr_adapter.run_daily >> $REPO_DIR/etl_daily.log 2>&1") | crontab -
-echo "crontab 등록 완료 (평일 16:10)"
+# 시간외 단일가가 20:00 KST에 끝나므로, 그 이후 확정 종가·상태로 채점하도록 20:05 실행.
+(crontab -l 2>/dev/null; echo "5 20 * * 1-5 cd $REPO_DIR && $REPO_DIR/.venv/bin/python -m etl.kr_adapter.run_daily >> $REPO_DIR/etl_daily.log 2>&1") | crontab -
+echo "crontab 등록 완료 (평일 20:05)"
 
 echo ""
 echo "======================================"

@@ -135,6 +135,7 @@ public class ScreenerController {
             List<Long> filteredIds = filtered.stream().map(CanslimScore::getSecurityId).toList();
             Map<Long, BigDecimal[]> pf = loadPriceAndFlow(filteredIds, scoreDate);
             Map<Long, BigDecimal> deltaMap = loadScoreDeltas(filteredIds, scoreDate);
+            Map<Long, String[]> statusMap = loadStatuses(filteredIds);
 
             // 2차 필터: 시가총액 + 정렬
             Set<Long> breakouts = loadBreakouts(filteredIds, scoreDate);
@@ -145,7 +146,7 @@ public class ScreenerController {
                         BigDecimal[] data = pf.getOrDefault(s.getSecurityId(), new BigDecimal[8]);
                         BigDecimal delta = deltaMap.get(s.getSecurityId());
                         boolean breakout = breakouts.contains(s.getSecurityId());
-                        return ScreenerItemResponse.of(s, inst, data, delta, breakout, null);
+                        return ScreenerItemResponse.of(s, inst, data, delta, breakout, null, statusMap.get(s.getSecurityId()));
                     })
                     .filter(r -> {
                         if (minCap == null && maxCap == null) return true;
@@ -188,6 +189,7 @@ public class ScreenerController {
         Map<Long, Instrument> instMap = loadInstrumentMap(ids);
         Map<Long, BigDecimal[]> priceFlow = loadPriceAndFlow(ids, scoreDate);
         Map<Long, BigDecimal> deltaMap = loadScoreDeltas(ids, scoreDate);
+        Map<Long, String[]> statusMap = loadStatuses(ids);
 
         // 기본 페이징 경로: breakout 계산 생략 (365일 self-join 비용)
         // 필터/정렬 경로(useAllPath)에서만 계산
@@ -197,7 +199,7 @@ public class ScreenerController {
                     Instrument inst = instMap.get(s.getSecurityId());
                     BigDecimal[] data = priceFlow.getOrDefault(s.getSecurityId(), new BigDecimal[8]);
                     BigDecimal delta = deltaMap.get(s.getSecurityId());
-                    return ScreenerItemResponse.of(s, inst, data, delta, false, null);
+                    return ScreenerItemResponse.of(s, inst, data, delta, false, null, statusMap.get(s.getSecurityId()));
                 })
                 .toList();
 
@@ -381,7 +383,8 @@ public class ScreenerController {
 
         Map<Long, BigDecimal[]> pf = loadPriceAndFlow(List.of(securityId), scoreDate);
         BigDecimal[] data = pf.getOrDefault(securityId, new BigDecimal[7]);
-        return ResponseEntity.ok(ScreenerItemResponse.of(score.get(), inst, data));
+        String[] statuses = loadStatuses(List.of(securityId)).get(securityId);
+        return ResponseEntity.ok(ScreenerItemResponse.of(score.get(), inst, data, statuses));
     }
 
     @GetMapping("/{securityId}/history")
@@ -738,11 +741,14 @@ public class ScreenerController {
                 + " i.ticker, i.name, i.sector,"
                 + " cs.close_price, cs.change_rate, cs.volume, cs.turnover, cs.market_cap,"
                 + " f.inst_net_buy_10d, f.foreign_net_buy_10d, f.program_net_buy_10d,"
-                + " f.after_hours_close, f.after_hours_change_pct"
+                + " f.after_hours_close, f.after_hours_change_pct,"
+                + " sd.statuses"
                 + " FROM canslim_scores cs"
                 + " JOIN instruments i ON i.id = cs.security_id"
                 + " LEFT JOIN derived_metrics f ON f.security_id = cs.security_id"
                 + "   AND f.as_of_date = (SELECT MAX(as_of_date) FROM derived_metrics WHERE inst_net_buy_10d IS NOT NULL)"
+                + " LEFT JOIN security_status_daily sd ON sd.security_id = cs.security_id"
+                + "   AND sd.status_date = (SELECT MAX(status_date) FROM security_status_daily)"
                 + " WHERE " + where
                 + " ORDER BY " + sortCol + " " + direction
                 + " LIMIT ? OFFSET ?";
@@ -777,11 +783,53 @@ public class ScreenerController {
                 rs.getBigDecimal("market_cap"),
                 rs.getString("sector"),
                 null,
-                false, null
+                false, null,
+                arrToStrings(rs.getArray("statuses"))
             );
         }, dataParams.toArray());
 
         return new ScreenerPageResponse(items, totalCount, page, size);
+    }
+
+    /** PostgreSQL TEXT[] → String[] (null 안전). */
+    private static String[] arrToStrings(java.sql.Array arr) {
+        if (arr == null) return null;
+        try {
+            Object raw = arr.getArray();
+            if (raw instanceof String[] s) return s.length == 0 ? null : s;
+            if (raw instanceof Object[] o) {
+                String[] out = new String[o.length];
+                for (int i = 0; i < o.length; i++) out[i] = o[i] == null ? null : o[i].toString();
+                return out.length == 0 ? null : out;
+            }
+        } catch (Exception ignore) { }
+        return null;
+    }
+
+    /**
+     * 종목 특이사항(뱃지) 최신 스냅샷 조회 → security_id → statuses[].
+     * security_status_daily의 전역 MAX(status_date) 앵커(가격 앵커와 동일 원리).
+     * 특이사항 없는 종목은 맵에 없음(정상).
+     */
+    private Map<Long, String[]> loadStatuses(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Map.of();
+        Map<Long, String[]> result = new HashMap<>();
+        Long[] idArr = ids.toArray(new Long[0]);
+        String sql = """
+            SELECT security_id, statuses
+            FROM security_status_daily
+            WHERE security_id = ANY(?)
+              AND status_date = (SELECT MAX(status_date) FROM security_status_daily)
+            """;
+        jdbc.query(con -> {
+            PreparedStatement ps = con.prepareStatement(sql);
+            ps.setArray(1, con.createArrayOf("bigint", idArr));
+            return ps;
+        }, rs -> {
+            String[] st = arrToStrings(rs.getArray("statuses"));
+            if (st != null) result.put(rs.getLong("security_id"), st);
+        });
+        return result;
     }
 
     private Set<Long> loadBreakouts(List<Long> ids, LocalDate scoreDate) {

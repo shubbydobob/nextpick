@@ -548,7 +548,7 @@ export default function ScreenerPage() {
         <td style={{ ...S.td, fontSize: 13, color: 'var(--text-1)', maxWidth: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-            <StatusBadges statuses={liveMap[item.ticker]?.statuses} size="sm" />
+            <StatusBadges statuses={liveMap[item.ticker]?.statuses ?? item.statuses} size="sm" />
           </div>
         </td>
       </>
@@ -645,7 +645,7 @@ export default function ScreenerPage() {
               {item.breakoutToday === true && (
                 <span style={{ fontSize: 9, background: '#16a34a', color: '#fff', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>NEW</span>
               )}
-              <StatusBadges statuses={liveMap[item.ticker]?.statuses} size="xs" />
+              <StatusBadges statuses={liveMap[item.ticker]?.statuses ?? item.statuses} size="xs" />
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3, fontFamily: 'var(--font-mono)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

@@ -29,6 +29,7 @@ export interface ScreenerItem {
   scoreDelta: number | null
   breakoutToday: boolean
   baseDays: number | null
+  statuses?: string[] | null   // 거래정지·주의·경고·위험·과열·관리·정리매매 (EOD 배치 스냅샷)
 }
 
 export interface ScreenerPage {

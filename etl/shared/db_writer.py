@@ -211,6 +211,36 @@ def upsert_investor_flow(rows: list[dict]) -> int:
     return len(rows)
 
 
+def upsert_security_status(rows: list[dict]) -> tuple[int, int]:
+    """
+    security_status_daily 스냅샷 upsert.
+    rows: [{'security_id': ..., 'status_date': ..., 'statuses': ['거래정지', ...]}]
+    특이사항이 있는 종목만 담아 호출한다(정상 종목은 행 없음 = 조인 시 null).
+    statuses(list[str])는 psycopg2가 Postgres TEXT[]로 바인딩.
+    """
+    if not rows:
+        return 0, 0
+
+    sql = text("""
+        INSERT INTO security_status_daily (security_id, status_date, statuses)
+        VALUES (:security_id, :status_date, :statuses)
+        ON CONFLICT (security_id, status_date) DO UPDATE SET
+            statuses = EXCLUDED.statuses
+        RETURNING (xmax = 0) AS inserted
+    """)
+
+    inserted = updated = 0
+    with get_session() as session:
+        for row in rows:
+            result = session.execute(sql, row)
+            for r in result:
+                if r.inserted:
+                    inserted += 1
+                else:
+                    updated += 1
+    return inserted, updated
+
+
 def upsert_derived_metrics(rows: list[dict]) -> tuple[int, int]:
     """
     derived_metrics 테이블 upsert (Python ETL 담당 재무 컬럼만).

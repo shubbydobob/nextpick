@@ -1,0 +1,44 @@
+name: Update ETL cron 20:05 + seed status (manual)
+
+# 운영 EC2 crontab을 20:05(시간외 20:00 마감 후)로 갱신하고,
+# 원하면 종목 특이사항(뱃지) 스냅샷을 즉시 1회 수집한다.
+# deploy.yml(백엔드/Flyway V18)로 security_status_daily 테이블이 생성된 뒤 실행할 것.
+on:
+  workflow_dispatch:
+    inputs:
+      seed_status:
+        description: "지정현황(뱃지) 즉시 1회 수집 (KIS 전종목, 약 3~5분)"
+        type: boolean
+        default: true
+
+jobs:
+  update-cron:
+    name: Update crontab + optional status seed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            set -e
+            REPO_DIR=/home/ubuntu/canslim
+            cd "$REPO_DIR"
+            git pull origin master
+
+            echo "===== crontab 20:05로 갱신 (기존 run_daily 라인 교체) ====="
+            ( crontab -l 2>/dev/null | grep -v 'run_daily' ; \
+              echo "5 20 * * 1-5 cd $REPO_DIR && $REPO_DIR/.venv/bin/python -m etl.kr_adapter.run_daily >> $REPO_DIR/etl_daily.log 2>&1" ) | crontab -
+            echo "== 갱신된 crontab =="
+            crontab -l
+
+            if [ "${{ inputs.seed_status }}" = "true" ]; then
+              echo "===== 지정현황(뱃지) 즉시 수집 (KIS 전종목) ====="
+              PYTHONUTF8=1 .venv/bin/python -m etl.kr_adapter.kis_status_loader || echo "(상태 수집 실패 — 비치명적)"
+              echo "== 적재 결과 =="
+              docker exec canslim-postgres psql -U canslim_user -d canslim -A -t -c \
+                "SELECT status_date, count(*) FROM security_status_daily WHERE status_date=(SELECT max(status_date) FROM security_status_daily) GROUP BY status_date;" || true
+            fi

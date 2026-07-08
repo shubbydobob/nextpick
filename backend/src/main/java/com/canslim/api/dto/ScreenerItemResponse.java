@@ -40,10 +40,11 @@ public record ScreenerItemResponse(
         String sector,
         BigDecimal scoreDelta,
         boolean breakoutToday,
-        Integer baseDays
+        Integer baseDays,
+        String[] statuses    // 거래정지·주의·경고·위험·과열·관리·정리매매 (없으면 null)
 ) {
     /** idx: [0]=close [1]=inst [2]=foreign [3]=changeRate [4]=52wHigh [5]=volume [6]=turnover [7]=marketCap [8]=program [9]=ahClose [10]=ahChg */
-    public static ScreenerItemResponse of(CanslimScore score, Instrument inst, BigDecimal[] pf) {
+    public static ScreenerItemResponse of(CanslimScore score, Instrument inst, BigDecimal[] pf, String[] statuses) {
         return new ScreenerItemResponse(
                 inst.getId(), inst.getTicker(), inst.getName(),
                 score.getMarket(), score.getScoreDate(),
@@ -52,11 +53,11 @@ public record ScreenerItemResponse(
                 score.getCScore(), score.getAScore(), score.getNScore(),
                 score.getSScore(), score.getLScore(), score.getIScore(), score.getMScore(),
                 pf[0], pf[3], pf[4], pf[5], pf[6], pf[1], pf[2], pf[8], pf[9], pf[10], pf[7],
-                inst.getSector(), null, false, null
+                inst.getSector(), null, false, null, statuses
         );
     }
 
-    public static ScreenerItemResponse of(CanslimScore score, Instrument inst, BigDecimal[] pf, BigDecimal scoreDelta) {
+    public static ScreenerItemResponse of(CanslimScore score, Instrument inst, BigDecimal[] pf, BigDecimal scoreDelta, String[] statuses) {
         return new ScreenerItemResponse(
                 inst.getId(), inst.getTicker(), inst.getName(),
                 score.getMarket(), score.getScoreDate(),
@@ -65,12 +66,13 @@ public record ScreenerItemResponse(
                 score.getCScore(), score.getAScore(), score.getNScore(),
                 score.getSScore(), score.getLScore(), score.getIScore(), score.getMScore(),
                 pf[0], pf[3], pf[4], pf[5], pf[6], pf[1], pf[2], pf[8], pf[9], pf[10], pf[7],
-                inst.getSector(), scoreDelta, false, null
+                inst.getSector(), scoreDelta, false, null, statuses
         );
     }
 
     public static ScreenerItemResponse of(CanslimScore score, Instrument inst, BigDecimal[] pf,
-                                          BigDecimal scoreDelta, boolean breakoutToday, Integer baseDays) {
+                                          BigDecimal scoreDelta, boolean breakoutToday, Integer baseDays,
+                                          String[] statuses) {
         return new ScreenerItemResponse(
                 inst.getId(), inst.getTicker(), inst.getName(),
                 score.getMarket(), score.getScoreDate(),
@@ -79,7 +81,7 @@ public record ScreenerItemResponse(
                 score.getCScore(), score.getAScore(), score.getNScore(),
                 score.getSScore(), score.getLScore(), score.getIScore(), score.getMScore(),
                 pf[0], pf[3], pf[4], pf[5], pf[6], pf[1], pf[2], pf[8], pf[9], pf[10], pf[7],
-                inst.getSector(), scoreDelta, breakoutToday, baseDays
+                inst.getSector(), scoreDelta, breakoutToday, baseDays, statuses
         );
     }
 }

@@ -37,12 +37,13 @@ export default function RankingView({ items, loading, onStockClick, liveMap }: P
     .slice(0, 50)
   const maxScore = topItems[0]?.compositeScore ?? 100
 
-  // 장중 라이브 오버레이 — 등락률·특이사항(뱃지)만 병합.
+  // 장중 라이브 오버레이 — 등락률·특이사항(뱃지) 병합.
+  // 뱃지는 장중이면 실시간(q.statuses), 장외/미조회면 EOD 배치 스냅샷(item.statuses).
   const liveOf = (item: ScreenerItem) => {
     const q = liveMap?.[item.ticker]
     return {
       changeRate: q?.changeRate ?? item.changeRate,
-      statuses: q?.statuses ?? null,
+      statuses: q?.statuses ?? item.statuses ?? null,
     }
   }
 

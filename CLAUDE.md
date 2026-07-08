@@ -22,9 +22,9 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
   - MCP `mcp__github__actions_run_trigger`로 트리거, `get_job_logs`로 결과 확인.
 
 ### ETL 스케줄 (전부 서버·평일, 사용자 PC 무관)
-- **16:10 KST 크론** → `run_daily` (가격→수급→DART→정규화→파생→채점트리거). 가격·수급은 ~16:25 완료, DART 이후.
+- **20:05 KST 크론** → `run_daily` (가격→수급→KIS재무→정규화→파생→market_state→종목상태(뱃지)→채점트리거). 시간외 단일가 20:00 마감 후 확정 종가·상태로 채점. (과거 16:10 → 시간외 반영 위해 20:05로 이동.)
 - **18:30 KST** 백엔드 `@Scheduled ScoringJob` 재채점(안전망).
-- **매월 1~7일**: `_maybe_reset_dart_ingestion`이 DART 전량 재수집(수 시간) → 그동안 채점/재무 지연.
+- **매월 1~7일**: `_maybe_reset_financial_ingestion`이 KIS 재무 전량 재수집 → 새 분기 공시 반영. (**DART 미사용** — 재무는 KIS로 전환됨. DART 오펀 스케줄(watcher) 제거.)
 
 ### 실시간 vs 배치
 - **스코어(종합·C/A/N/S/L/I) = 일 1회 배치**(장중 고정). CANSLIM 특성상 정상.

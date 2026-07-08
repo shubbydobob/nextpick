@@ -10,12 +10,12 @@ KR 일별 ETL 진입점 — OS 스케줄러에서 호출
   5.  financial_normalizer (EPS/ROE → derived_metrics)
   6.  derived_metrics 가격 컬럼 계산 (rs_percentile, 52w_high 등)
   7.  market_state 갱신 (KOSPI/KOSDAQ 국면 판정)
+  7b. KIS 종목상태 수집 (거래정지·관리·경보·과열 → security_status_daily)
   8.  스코어링 트리거 (Spring Boot REST API)
   9.  SNS 카드 생성 + 게시
 
 EC2 cron (KST):
-  10 16 * * 1-5  run_daily    (장 마감 15:30 + 여유)
-  10 18 * * 1-5  after_hours_loader (시간외 단일가)
+  5 20 * * 1-5  run_daily   (시간외 단일가 20:00 마감 + 여유 → 확정 종가·상태로 채점)
 """
 import os
 import sys
@@ -151,6 +151,17 @@ def main():
         logger.info("[7/9] market_state 갱신 완료")
     except Exception as e:
         logger.warning("[7/9] market_state 갱신 실패 (비치명적): %s", e)
+
+    # ── 7b. 종목 특이사항(뱃지) 상태 수집 (KIS) ───────────────
+    # 거래정지/관리/시장경보/단기과열/정리매매 → security_status_daily 스냅샷.
+    # 가격·수급과 독립이며 채점에 영향 없음(뱃지 표시 전용). 비치명적.
+    logger.info("[7b/9] KIS 종목상태 수집 시작")
+    try:
+        from .kis_status_loader import load as load_status
+        load_status(target_date)
+        logger.info("[7b/9] KIS 종목상태 수집 완료")
+    except Exception as e:
+        logger.warning("[7b/9] KIS 종목상태 수집 실패 (비치명적): %s", e)
 
     # ── 8. 스코어링 트리거 ─────────────────────────────────────
     logger.info("[8/9] 스코어링 트리거")
