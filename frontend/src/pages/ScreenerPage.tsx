@@ -42,37 +42,27 @@ function isKrMarketHours(): boolean {
 
 function ScoreCell({ value }: { value: number | null }) {
   return (
-    <td style={{
-      padding: '0 5px', textAlign: 'center', fontFamily: 'var(--font-mono)',
-      background: scoreBg(value), color: scoreFg(value),
-      fontWeight: value !== null ? 600 : 400, fontSize: 12,
-      borderRight: '1px solid var(--score-sep)',
-    }}>
-      {value !== null ? Math.round(value) : <span style={{ color: 'var(--text-4)' }}>·</span>}
+    <td className={value !== null ? 'scr-score' : 'scr-score null'}
+      style={{ ['--sc-bg' as string]: scoreBg(value), ['--sc-fg' as string]: scoreFg(value) }}>
+      {value !== null ? Math.round(value) : <span className="scr-score-null">·</span>}
     </td>
   )
 }
 
-function SortTh({ label, sortKey: sk, current, dir, onSort, align = 'right', style = {}, tip }: {
+function SortTh({ label, sortKey: sk, current, dir, onSort, align = 'r', width, tip }: {
   label: string; sortKey?: SortKey; current: SortKey; dir: SortDir
-  onSort: (k: SortKey) => void; align?: React.CSSProperties['textAlign']; style?: React.CSSProperties
+  onSort: (k: SortKey) => void; align?: 'l' | 'c' | 'r'; width?: number
   tip?: string
 }) {
   const active = sk && current === sk
+  const cls = 'scr-th'
+    + (align === 'l' ? ' ta-l' : align === 'c' ? ' ta-c' : '')
+    + (sk ? ' sortable' : '') + (active ? ' active' : '')
   return (
-    <th
-      onClick={sk ? () => onSort(sk) : undefined}
-      title={tip}
-      style={{
-        padding: '7px 6px', textAlign: align, fontSize: 11, fontWeight: 600,
-        color: active ? 'var(--text-1)' : 'var(--text-3)', letterSpacing: '0.05em',
-        cursor: sk ? 'pointer' : 'default', userSelect: 'none',
-        whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-nav)', ...style,
-      }}
-    >
+    <th onClick={sk ? () => onSort(sk) : undefined} title={tip} className={cls}
+      style={width != null ? { ['--scr-w' as string]: `${width}px` } : undefined}>
       {label}
-      {sk && <span style={{ marginLeft: 2, opacity: active ? 1 : 0.3, fontSize: 11 }}>
+      {sk && <span className={active ? 'scr-th-arrow active' : 'scr-th-arrow'}>
         {active ? (dir === 'desc' ? '▼' : '▲') : '⇅'}
       </span>}
     </th>
@@ -437,10 +427,6 @@ export default function ScreenerPage() {
       borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
       marginBottom: -1,
     } as React.CSSProperties),
-    td: {
-      padding: '5px 6px', fontSize: 12, color: '#9ca3af',
-      borderBottom: '1px solid var(--bg-nav)',
-    } as React.CSSProperties,
   }
 
   // ── table header & row ──────────────────────────────────────
@@ -450,24 +436,23 @@ export default function ScreenerPage() {
 
     return (
       <tr>
-        <th style={{ ...S.td, width: 28, textAlign: 'center', color: 'var(--text-3)', fontSize: 11, borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)' }}>★</th>
-        <th style={{ ...S.td, width: 36, textAlign: 'center', color: 'var(--text-3)', fontSize: 11, borderBottom: '1px solid var(--border)', background: 'var(--bg-nav)' }}>#</th>
-        <Th label="티커" align="center" style={{ width: 66 }} />
-        <Th label="종목명" align="left" style={{ width: 118 }} />
-        <Th label="섹터" align="left" style={{ width: 46 }} />
-        <Th label="SCORE" sortKey="compositeScore" style={{ width: 70 }} tip="C·A·N·S·L·I 가중합산 종합점수 (0~100)" />
-        <Th label="Δ" style={{ width: 44, textAlign: 'center' }} tip="전일 대비 종합점수 변동" />
-        <Th label="실적" sortKey="cScore" align="center" style={{ width: 46 }} tip="분기실적: 당분기 EPS 전년대비 성장률" />
-        <Th label="성장" sortKey="aScore" align="center" style={{ width: 46 }} tip="연간성장: 3년 EPS 연평균 성장률 + ROE" />
-        <Th label="고가" sortKey="nScore" align="center" style={{ width: 46 }} tip="신고가: 52주 고점 근접도 + 돌파 여부" />
-        <Th label="수급" sortKey="sScore" align="center" style={{ width: 46 }} tip="수급: 시총 희소성 + 거래량 급증도" />
-        <Th label="선도" sortKey="lScore" align="center" style={{ width: 46 }} tip="선도성: 시장 내 상대강도 순위 (상위일수록 높음)" />
-        <Th label="기관" sortKey="iScore" align="center" style={{ width: 46 }} tip="기관투자: 외인+기관 10일 순매수 강도" />
-        <Th label="종가" sortKey="closePrice" style={{ width: 78 }} />
-        <Th label="등락률" sortKey="changeRate" style={{ width: 64 }} tip="전일 종가 대비 당일 등락률" />
-        <Th label="거래량" sortKey="volume" style={{ width: 64 }} tip="당일 누적 거래량 (만·천만주)" />
-        <Th label="거래대금" sortKey="turnover" style={{ width: 72 }} tip="당일 누적 거래대금 (억·천억원)" />
-        <Th label="시총" sortKey="marketCap" style={{ width: 68 }} />
+        <th className="scr-corner" style={{ ['--scr-w' as string]: '28px' }}>★</th>
+        <th className="scr-corner" style={{ ['--scr-w' as string]: '36px' }}>#</th>
+        <Th label="종목명" align="l" width={150} />
+        <Th label="섹터" align="l" width={46} />
+        <Th label="SCORE" sortKey="compositeScore" width={70} tip="7대 팩터 가중합산 종합점수 (0~100)" />
+        <Th label="Δ" align="c" width={44} tip="전일 대비 종합점수 변동" />
+        <Th label="실적" sortKey="cScore" align="c" width={46} tip="분기실적: 당분기 EPS 전년대비 성장률" />
+        <Th label="성장" sortKey="aScore" align="c" width={46} tip="연간성장: 3년 EPS 연평균 성장률 + ROE" />
+        <Th label="고가" sortKey="nScore" align="c" width={46} tip="신고가: 52주 고점 근접도 + 돌파 여부" />
+        <Th label="수급" sortKey="sScore" align="c" width={46} tip="수급: 시총 희소성 + 거래량 급증도" />
+        <Th label="선도" sortKey="lScore" align="c" width={46} tip="선도성: 시장 내 상대강도 순위 (상위일수록 높음)" />
+        <Th label="기관" sortKey="iScore" align="c" width={46} tip="기관투자: 외인+기관 10일 순매수 강도" />
+        <Th label="종가" sortKey="closePrice" width={78} />
+        <Th label="등락률" sortKey="changeRate" width={64} tip="전일 종가 대비 당일 등락률" />
+        <Th label="거래량" sortKey="volume" width={64} tip="당일 누적 거래량 (만·천만주)" />
+        <Th label="거래대금" sortKey="turnover" width={72} tip="당일 누적 거래대금 (억·천억원)" />
+        <Th label="시총" sortKey="marketCap" width={68} />
       </tr>
     )
   }
@@ -486,15 +471,12 @@ export default function ScreenerPage() {
   }
 
   const renderRow = (item: ScreenerItem, _idx: number) => {
-    const hovered = hoveredId === item.securityId
     const grade = scoreGrade(item.compositeScore)
     const isWatched = watchlist.has(item.securityId)
 
     const watchBtn = (
-      <td style={{ ...S.td, textAlign: 'center', padding: '0 2px' }}
-        onClick={e => toggleWatch(item.securityId, e)}>
-        <span style={{ fontSize: 14, cursor: 'pointer', color: isWatched ? '#facc15' : 'var(--text-4)',
-          lineHeight: 1, userSelect: 'none' }}>
+      <td className="scr-td scr-star" onClick={e => toggleWatch(item.securityId, e)}>
+        <span className={isWatched ? 'scr-star-icon on' : 'scr-star-icon'}>
           {isWatched ? '★' : '☆'}
         </span>
       </td>
@@ -502,19 +484,11 @@ export default function ScreenerPage() {
 
     const base = (
       <>
-        <td style={{ ...S.td, textAlign: 'center', color: 'var(--text-4)', fontSize: 11 }}>
-          {item.marketRank}
-        </td>
-        <td style={{ ...S.td, textAlign: 'center', fontWeight: 700, fontFamily: 'monospace',
-          fontSize: 13, color: hovered ? '#93c5fd' : '#3b82f6' }}>
-          {item.ticker}
-          {item.breakoutToday === true && (
-            <span style={{ fontSize: 10, background: '#16a34a', color: '#fff', borderRadius: 3, padding: '1px 3px', marginLeft: 3 }}>NEW</span>
-          )}
-        </td>
-        <td style={{ ...S.td, fontSize: 13, color: 'var(--text-1)', maxWidth: 200 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+        <td className="scr-td scr-rank">{item.marketRank}</td>
+        <td className="scr-td scr-name">
+          <div className="scr-name-inner">
+            <span className="scr-name-text">{item.name}</span>
+            {item.breakoutToday === true && <span className="scr-badge-new">NEW</span>}
             <StatusBadges statuses={liveMap[item.ticker]?.statuses ?? item.statuses} size="sm" />
           </div>
         </td>
@@ -522,36 +496,32 @@ export default function ScreenerPage() {
     )
 
     const scoreChip = (
-      <td style={{ ...S.td, textAlign: 'right', fontWeight: 700, fontSize: 14, color: grade.color }}>
+      <td className="scr-td scr-grade" style={{ ['--sc-grade' as string]: grade.color }}>
         {Math.round(item.compositeScore)}
-        <span style={{ fontSize: 11, marginLeft: 3, opacity: 0.7 }}>{grade.label}</span>
+        <span className="scr-grade-label">{grade.label}</span>
       </td>
     )
 
     const deltaCell = (() => {
       const d = item.scoreDelta
-      if (d === null || d === undefined) return (
-        <td style={{ ...S.td, textAlign: 'center', color: 'var(--text-4)' }}>-</td>
-      )
-      const abs = Math.abs(d)
-      const bold = abs >= 2
+      if (d === null || d === undefined) return <td className="scr-td scr-delta">-</td>
+      const bold = Math.abs(d) >= 2
       const color = d > 0 ? 'var(--up)' : d < 0 ? 'var(--down)' : 'var(--text-3)'
       const text = d > 0 ? `+${Math.round(d)}` : `${Math.round(d)}`
       return (
-        <td style={{ ...S.td, textAlign: 'center', color, fontWeight: bold ? 700 : 400, fontSize: 12 }}>
+        <td className={bold ? 'scr-td scr-delta bold' : 'scr-td scr-delta'}
+          style={{ ['--sc-delta' as string]: color }}>
           {text}
         </td>
       )
     })()
 
+    const flash = flashMap[item.ticker]
     return (
       <>
         {watchBtn}
         {base}
-        <td style={{ ...S.td, fontSize: 11, color: 'var(--accent-strong)', opacity: 0.9,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {item.sector ?? '·'}
-        </td>
+        <td className="scr-td scr-sector">{item.sector ?? '·'}</td>
         {scoreChip}
         {deltaCell}
         <ScoreCell value={item.cScore} />
@@ -560,23 +530,16 @@ export default function ScreenerPage() {
         <ScoreCell value={item.sScore} />
         <ScoreCell value={item.lScore} />
         <ScoreCell value={item.iScore} />
-        <td className={flashMap[item.ticker] ? `flash-${flashMap[item.ticker]}` : undefined}
-          style={{ ...S.td, textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-1)' }}>
+        <td className={'scr-td scr-num' + (flash ? ` flash-${flash}` : '')}>
           {fmtPrice(item.closePrice)}
         </td>
-        <td className={flashMap[item.ticker] ? `flash-${flashMap[item.ticker]}` : undefined}
-          style={{ ...S.td, textAlign: 'right', fontWeight: 600, color: changeColor(item.changeRate) }}>
+        <td className={'scr-td scr-rate' + (flash ? ` flash-${flash}` : '')}
+          style={{ ['--sc-rate' as string]: changeColor(item.changeRate) }}>
           {fmtRate(item.changeRate)}
         </td>
-        <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)', fontFamily: 'monospace' }}>
-          {fmtVolume(item.volume)}
-        </td>
-        <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
-          {fmtAmt(item.turnover)}
-        </td>
-        <td style={{ ...S.td, textAlign: 'right', color: 'var(--text-3)' }}>
-          {fmtMarketCap(item.marketCap)}
-        </td>
+        <td className="scr-td scr-muted mono">{fmtVolume(item.volume)}</td>
+        <td className="scr-td scr-muted">{fmtAmt(item.turnover)}</td>
+        <td className="scr-td scr-muted">{fmtMarketCap(item.marketCap)}</td>
       </>
     )
   }

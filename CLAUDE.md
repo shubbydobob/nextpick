@@ -1,10 +1,19 @@
 # NEXTPICK 스코어링 엔진 — 세션 진입점
 
 ## 프로젝트 개요
-한국 주식시장 CAN SLIM 방법론 기반 자동 스코어링 시스템.
+한국 주식시장 성장주 팩터 방법론 기반 자동 스코어링 시스템.
 ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React)
 
 **현재**: 운영 배포 중 (NEXTPICK · k-stock-score.vercel.app). 프론트=React 실서비스(mockData 아님).
+
+---
+
+## 🎨 프론트엔드 스타일 규칙 (필수 — 위반 금지)
+- **인라인 `style` 금지**. 모든 스타일은 `frontend/src/index.css`의 **공통 CSS 클래스**로 작성한다(퍼블리싱 방식). JSX엔 `className`만.
+- **동적 값(런타임 색·수치)만** CSS 변수로 전달: `style={{ ['--x' as string]: value }}` → CSS에서 `var(--x)` 소비. 정적 스타일을 style 속성에 넣지 않는다.
+- 라이트/다크는 `[data-theme='light']`/`prefers-color-scheme` + CSS 변수로 대응(하드코딩 색 지양, `var(--text-1)` 등 토큰 사용).
+- 반복되는 UI(셀 행·배지·카드 등)는 공통 클래스/컴포넌트로 추출해 재사용(예: `.metric-strip`/`.metric-cell`, `.badge*`, `.scr-*`).
+- **새 컴포넌트/수정 시에도 이 규칙을 지킨다.** 인라인을 새로 추가하지 말 것.
 
 ---
 
