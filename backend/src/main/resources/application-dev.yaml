@@ -4,5 +4,5 @@ spring:
 
 logging:
   level:
-    com.canslim: DEBUG
+    com.nextpick: DEBUG
     org.flywaydb: DEBUG

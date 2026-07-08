@@ -48,4 +48,4 @@ jobs:
             echo ""
 
             echo "===== 결과 확인 ====="
-            docker exec canslim-postgres psql -U canslim_user -d canslim -A -t -c "SELECT score_date, count(*) tot, round(avg(composite_score)::numeric,1) avg, count(*) FILTER (WHERE c_score IS NOT NULL) c_ok, count(*) FILTER (WHERE a_score IS NOT NULL) a_ok, count(*) FILTER (WHERE l_score IS NOT NULL) l_ok, count(*) FILTER (WHERE i_score IS NOT NULL) i_ok FROM canslim_scores WHERE score_date='$D' GROUP BY score_date;"
+            docker exec canslim-postgres psql -U canslim_user -d canslim -A -t -c "SELECT score_date, count(*) tot, round(avg(composite_score)::numeric,1) avg, count(*) FILTER (WHERE c_score IS NOT NULL) c_ok, count(*) FILTER (WHERE a_score IS NOT NULL) a_ok, count(*) FILTER (WHERE l_score IS NOT NULL) l_ok, count(*) FILTER (WHERE i_score IS NOT NULL) i_ok FROM nextpick_scores WHERE score_date='$D' GROUP BY score_date;"

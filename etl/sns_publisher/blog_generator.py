@@ -686,7 +686,7 @@ def run(n: int = 5, out_dir: str = "output/blog") -> dict:
     from etl.sns_publisher.card_generator import fetch
     stocks = fetch(n)
     if not stocks:
-        raise RuntimeError("DB 조회 실패 — canslim_scores 데이터를 확인하세요.")
+        raise RuntimeError("DB 조회 실패 — nextpick_scores 데이터를 확인하세요.")
 
     score_date = stocks[0]["score_date"]
     ts  = score_date.strftime("%Y%m%d") if hasattr(score_date, "strftime") else datetime.now().strftime("%Y%m%d")

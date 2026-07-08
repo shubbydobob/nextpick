@@ -88,8 +88,8 @@ def fetch(n=5):
                dm.market_cap_tril, dm.eps_qoq_yoy_pct, dm.eps_3yr_cagr,
                dm.rs_percentile, dm.inst_net_buy_10d, dm.foreign_net_buy_10d,
                dm.pct_from_52w_high, dm.eps_annual_consistency
-        FROM canslim_scores cs
-        JOIN (SELECT security_id,MAX(score_date) md FROM canslim_scores GROUP BY security_id) lat
+        FROM nextpick_scores cs
+        JOIN (SELECT security_id,MAX(score_date) md FROM nextpick_scores GROUP BY security_id) lat
           ON cs.security_id=lat.security_id AND cs.score_date=lat.md
         JOIN instruments i ON i.id=cs.security_id
         LEFT JOIN price_daily pd ON pd.security_id=cs.security_id AND pd.trade_date=cs.score_date

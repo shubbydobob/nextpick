@@ -30,12 +30,12 @@ jobs:
               psql -U canslim_user -d canslim < "${{ github.event.inputs.script }}"
             echo "===== Done ====="
 
-            echo "===== Verify: canslim_scores columns ====="
+            echo "===== Verify: nextpick_scores columns ====="
             docker exec canslim-postgres \
               psql -U canslim_user -d canslim -A -t -c \
-              "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='canslim_scores' AND column_name IN ('close_price','prev_close','change_rate','volume','turnover','market_cap') ORDER BY column_name;"
+              "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='nextpick_scores' AND column_name IN ('close_price','prev_close','change_rate','volume','turnover','market_cap') ORDER BY column_name;"
 
             echo "===== Verify: rows with price data ====="
             docker exec canslim-postgres \
               psql -U canslim_user -d canslim -A -t -c \
-              "SELECT count(*) AS total, count(*) FILTER (WHERE close_price IS NOT NULL) AS has_price FROM canslim_scores WHERE score_date=(SELECT max(score_date) FROM canslim_scores);"
+              "SELECT count(*) AS total, count(*) FILTER (WHERE close_price IS NOT NULL) AS has_price FROM nextpick_scores WHERE score_date=(SELECT max(score_date) FROM nextpick_scores);"

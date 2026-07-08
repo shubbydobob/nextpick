@@ -5,7 +5,7 @@ spring:
     password: ${DB_PASSWORD:1234}
     driver-class-name: org.postgresql.Driver
     hikari:
-      pool-name: CanslimPool
+      pool-name: NextpickPool
       maximum-pool-size: 10
       minimum-idle: 2
 
@@ -28,5 +28,5 @@ server:
 
 logging:
   level:
-    com.canslim: INFO
+    com.nextpick: INFO
     org.springframework: WARN
