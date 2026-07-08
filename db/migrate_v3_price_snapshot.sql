@@ -4,20 +4,20 @@
 -- ============================================================
 
 -- 1. 컬럼 추가 (IF NOT EXISTS로 멱등)
-ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS close_price NUMERIC(18,4);
-ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS prev_close  NUMERIC(18,4);
-ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS change_rate NUMERIC(8,4);
-ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS volume      BIGINT;
-ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS turnover    NUMERIC(22,4);
-ALTER TABLE canslim_scores ADD COLUMN IF NOT EXISTS market_cap  NUMERIC(22,4);
+ALTER TABLE nextpick_scores ADD COLUMN IF NOT EXISTS close_price NUMERIC(18,4);
+ALTER TABLE nextpick_scores ADD COLUMN IF NOT EXISTS prev_close  NUMERIC(18,4);
+ALTER TABLE nextpick_scores ADD COLUMN IF NOT EXISTS change_rate NUMERIC(8,4);
+ALTER TABLE nextpick_scores ADD COLUMN IF NOT EXISTS volume      BIGINT;
+ALTER TABLE nextpick_scores ADD COLUMN IF NOT EXISTS turnover    NUMERIC(22,4);
+ALTER TABLE nextpick_scores ADD COLUMN IF NOT EXISTS market_cap  NUMERIC(22,4);
 
 -- 2. 인덱스 (IF NOT EXISTS로 멱등)
-CREATE INDEX IF NOT EXISTS idx_canslim_scores_turnover
-    ON canslim_scores (score_date DESC, market, turnover DESC NULLS LAST);
-CREATE INDEX IF NOT EXISTS idx_canslim_scores_chg_rate
-    ON canslim_scores (score_date DESC, market, change_rate DESC NULLS LAST);
-CREATE INDEX IF NOT EXISTS idx_canslim_scores_mkt_cap
-    ON canslim_scores (score_date DESC, market, market_cap DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_nextpick_scores_turnover
+    ON nextpick_scores (score_date DESC, market, turnover DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_nextpick_scores_chg_rate
+    ON nextpick_scores (score_date DESC, market, change_rate DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_nextpick_scores_mkt_cap
+    ON nextpick_scores (score_date DESC, market, market_cap DESC NULLS LAST);
 
 -- 3. 백필: 최신 score_date에 가격 채우기
 WITH ranked AS (
@@ -31,7 +31,7 @@ cur AS (
     SELECT security_id, close_adj, prev_close, volume, turnover
     FROM ranked WHERE rn = 1
 )
-UPDATE canslim_scores cs SET
+UPDATE nextpick_scores cs SET
     close_price = cur.close_adj,
     prev_close  = cur.prev_close,
     change_rate = CASE WHEN cur.prev_close > 0
@@ -43,4 +43,4 @@ UPDATE canslim_scores cs SET
 FROM cur
 JOIN instruments i ON i.id = cur.security_id
 WHERE cs.security_id = cur.security_id
-  AND cs.score_date = (SELECT MAX(score_date) FROM canslim_scores);
+  AND cs.score_date = (SELECT MAX(score_date) FROM nextpick_scores);

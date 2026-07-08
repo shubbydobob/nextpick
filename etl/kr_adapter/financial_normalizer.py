@@ -127,7 +127,7 @@ def _compute_metrics(
     as_of_date: date,
     period_ends: dict[tuple, "date"] | None = None,
 ) -> dict:
-    """단독분기·연간 EPS로 CANSLIM C·A 지표 계산."""
+    """단독분기·연간 EPS로 팩터 C·A 지표 계산."""
     # 기준일 이전 단독분기만 사용 — period_end_date 기준(정확), 없으면 분기 종료일 근사
     def _is_valid(k):
         if period_ends and period_ends.get(k) is not None:

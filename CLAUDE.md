@@ -1,4 +1,4 @@
-# CANSLIM 스코어링 엔진 — 세션 진입점
+# NEXTPICK 스코어링 엔진 — 세션 진입점
 
 ## 프로젝트 개요
 한국 주식시장 CAN SLIM 방법론 기반 자동 스코어링 시스템.
@@ -11,7 +11,7 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 ## 🔴 운영/실시간 아키텍처 (2026-07 세션 정리 — 반드시 숙지)
 
 ### 배포·인프라
-- **운영 서버**: EC2 `13.209.47.193` (ubuntu, `/home/ubuntu/canslim`). Docker: `canslim-postgres` + `canslim-backend`(8080). 프론트=Vercel(자동배포).
+- **운영 서버**: EC2 `13.209.47.193` (ubuntu, `/home/ubuntu/nextpick`). Docker: `nextpick-postgres` + `nextpick-backend`(8080). 프론트=Vercel(자동배포).
 - **이 샌드박스는 EC2에 직접 접속 불가**(아웃바운드 allowlist). 서버 작업은 **GitHub Actions로만** 가능:
   - `.github/workflows/deploy.yml` — master의 `backend/**` 변경 시 SSH→`git pull`+`docker compose up --build backend`.
   - **운영 ops 워크플로우(workflow_dispatch, EC2_HOST/EC2_SSH_KEY 시크릿 사용)**:
@@ -27,7 +27,7 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 - **매월 1~7일**: `_maybe_reset_financial_ingestion`이 KIS 재무 전량 재수집 → 새 분기 공시 반영. (**DART 미사용** — 재무는 KIS로 전환됨. DART 오펀 스케줄(watcher) 제거.)
 
 ### 실시간 vs 배치 (2026-07-08 갱신)
-- **스코어(종합·C/A/N/S/L/I) = 일 1회 배치**(장중 고정). CANSLIM 특성상 정상.
+- **스코어(종합·C/A/N/S/L/I) = 일 1회 배치**(장중 고정). 팩터 특성상 정상.
 - **시세(현재가·등락률·거래량·거래대금·프로그램 당일순매수) = KIS 4초 폴링** (`/api/realtime/quotes`).
 - **수급(외인·기관 당일순매수) = KIS 15초 폴링** (`/api/realtime/investors`, 시세와 분리해 쿼터 절약).
   스크리너 리스트 외인·기관 컬럼은 장중=당일 실시간(잠정)/장외=10일 누적 배치.
@@ -55,23 +55,23 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 - **배치 20:05 이동**: 16:10 크론 → `5 20 * * 1-5`(시간외 마감 후). DART 스케줄(오펀 watcher) 제거. `deploy.yml` paths에 `etl/**` 추가(ETL 변경도 자동 git pull).
 - **실시간 수급**: 외인·기관·프로그램 당일 실시간화(위 실시간 섹션). 단위 버그(KIS `_tr_pbmn`는 백만원 → ×1e6 원) 정정. 리스트 거래량 컬럼 + '억'/'만주' 단위 표기.
 - **스크리너 등락률/수급 정렬**: 백엔드 배치 정렬 vs 프론트 실시간 표시 불일치 → `LIVE_SORT_KEYS` + `liveSortVal`(당일 우선)로 페이지 재정렬.
-- **정렬 앵커 정합성**: `screenByPriceSort` 표시가격을 `loadPriceAndFlow`(price_daily 최신 앵커)로 통일(정렬은 canslim_scores 인덱스 유지, coalesce 보존).
+- **정렬 앵커 정합성**: `screenByPriceSort` 표시가격을 `loadPriceAndFlow`(price_daily 최신 앵커)로 통일(정렬은 nextpick_scores 인덱스 유지, coalesce 보존).
 - **시간외 단일가**: `after_hours_loader` TR 정정(FHPST02300000/inquire-overtime-price, `ovtm_untp_prpr`/`ovtm_untp_prdy_ctrt`) + run_daily 7c 편입. 정규장 종가 불변, `after_hours_close`만 적재(COALESCE 오버레이).
 - **성능**: 코드 스플릿(App 라우트 lazy + StockDetailPanel/recharts lazy + vite manualChunks vendor-react/charts) → 945KB 단일청크 분할. `useMemo`(displayItems·sectorStats).
 - **진단**: `kis-probe.yml`(workflow_dispatch) — KIS TR 후보 실호출로 필드 확인(읽기 전용).
-- **채점 프리즈 근본 픽스 (canslim_scores가 07-07에 고정)**: `updatePriceSnapshot`의 `:scoreDate - INTERVAL '14 days'`에서 LocalDate가 JPA `@Query`에 `unknown` 타입으로 바인딩 → PG가 `unknown - interval`을 interval로 해석해 `operator does not exist: date >= interval` → 채점 트랜잭션 오염 → catch("비치명적")에도 커밋 시점에 **KR 전 종목 롤백**. `CAST(:scoreDate AS date)`로 파라미터 타입 명시해 해결. (`CanslimScoreRepository`. `ScreenerController`의 `? - INTERVAL`은 JdbcTemplate이 date로 바인딩해 정상 — JPA `@Query`만 문제였음.)
+- **채점 프리즈 근본 픽스 (nextpick_scores가 07-07에 고정)**: `updatePriceSnapshot`의 `:scoreDate - INTERVAL '14 days'`에서 LocalDate가 JPA `@Query`에 `unknown` 타입으로 바인딩 → PG가 `unknown - interval`을 interval로 해석해 `operator does not exist: date >= interval` → 채점 트랜잭션 오염 → catch("비치명적")에도 커밋 시점에 **KR 전 종목 롤백**. `CAST(:scoreDate AS date)`로 파라미터 타입 명시해 해결. (`NextpickScoreRepository`. `ScreenerController`의 `? - INTERVAL`은 JdbcTemplate이 date로 바인딩해 정상 — JPA `@Query`만 문제였음.)
 - **채점 마켓별 독립 트랜잭션 분리**: `scoreAll`이 `@Transactional` 하나로 KR+US를 묶어(그리고 `scoreMarket`의 `@Transactional`은 self-invocation이라 무시됨) 한 마켓 실패가 전체를 롤백시키던 구조 → `scoreAll`은 트랜잭션 제거(오케스트레이션만), `scoreMarket`을 `REQUIRES_NEW` + **ObjectProvider self-proxy 경유** 호출로 마켓별 독립 커밋. US 미활성 예외는 이제 US만 롤백(로그 "해당 마켓만 롤백"). 가격 스냅샷도 **점수 커밋 후 별도 `REQUIRES_NEW`**로 분리(같은 트랜잭션이면 스냅샷 실패가 그 마켓 점수까지 롤백 → 이제 진짜 비치명적). `DerivedMetricsTxHelper`의 기존 REQUIRES_NEW 분리 관례와 동일.
 
 ### 알려진 데이터 함정
 - **넥스트레이드(NXT) 통합 시세**: 2025 대체거래소 출범 후 실제 체결가는 KRX+NXT 통합. KIS 조회는 `fid_cond_mrkt_div_code` **"UN"(통합)** 우선 → 미지원/빈값 시 **"J"(KRX) 폴백**. `RealtimePriceController`의 `inquirePriceOutput`(시세)·`fetchInvestorRow`(투자자) 둘 다 적용. J만 쓰면 NXT 체결 누락돼 시세·등락률·거래량이 어긋남(진단 예: 삼성전자 UN -9.80% vs J -6.25%). 진단은 `kis-probe.yml`.
-- **거래정지 종목**: 정지 기간 종가 고정+거래량 0, 재개일 폭등. "상한가" 아님. 재개일 등락률을 정지 전 stale 종가로 계산하면 허위 폭등(예: 금호에이치티 214330 정지 2555→재개 9030 = **+253%**, KIS는 재산정 기준가 6950 대비 +29.93%). **픽스(2026-07-08)**: `ScreenerController`의 `loadPriceAndFlow`(리스트/상세 표시)·`/limit-up`·`/stats`(상승종목수·섹터 평균등락) 모두 **전일 거래량>0** 조건으로 정지 갭 배제 → 정지 종목은 등락률 null. 정상 상한가(전일 거래량>0)는 영향 없음. 장중엔 실시간 오버레이가 KIS 정확값 표시. (canslim_scores.change_rate 정렬 앵커엔 배치값 잔존 — 표시는 loadPriceAndFlow로 교정되나 정렬 순서는 재채점 전까지 stale 가능.)
-- **채점 지연**: 가격은 최신일인데 canslim_scores는 이전일일 수 있음. 헤더 "매일 갱신" 날짜 = 최신 채점일.
+- **거래정지 종목**: 정지 기간 종가 고정+거래량 0, 재개일 폭등. "상한가" 아님. 재개일 등락률을 정지 전 stale 종가로 계산하면 허위 폭등(예: 금호에이치티 214330 정지 2555→재개 9030 = **+253%**, KIS는 재산정 기준가 6950 대비 +29.93%). **픽스(2026-07-08)**: `ScreenerController`의 `loadPriceAndFlow`(리스트/상세 표시)·`/limit-up`·`/stats`(상승종목수·섹터 평균등락) 모두 **전일 거래량>0** 조건으로 정지 갭 배제 → 정지 종목은 등락률 null. 정상 상한가(전일 거래량>0)는 영향 없음. 장중엔 실시간 오버레이가 KIS 정확값 표시. (nextpick_scores.change_rate 정렬 앵커엔 배치값 잔존 — 표시는 loadPriceAndFlow로 교정되나 정렬 순서는 재채점 전까지 stale 가능.)
+- **채점 지연**: 가격은 최신일인데 nextpick_scores는 이전일일 수 있음. 헤더 "매일 갱신" 날짜 = 최신 채점일.
 - **프로그램 10일 누적 불가**: KIS에 "종목별" 프로그램매매 일별 API 없음(시장별 종합만). → 배치 `program_net_buy_10d`는 null, 장중 실시간(`pgtr_ntby_qty`)만 제공. 프론트도 이 전제로 표시.
 - **시간외 종가**: pykrx 종가는 정규장(15:30) 기준. 시간외 단일가는 `after_hours_loader`(20:05)가 별도 컬럼에 적재 → COALESCE 오버레이로만 표시(운영 첫 배치 후 `derived_metrics.after_hours_close` 확인 권장).
 
 ### 미해결/주의
 - **KIS 쿼터**: 레이트리밋(15/s)+병렬로 완화. 그래도 동시 접속 많으면 압박 → 시세 폴링 5초로 상향 여지. `/api/realtime/debug` 진단.
-- **정렬 앵커**: 표시는 통일했으나 정렬 '순서'는 여전히 canslim_scores 기준(채점 지연 시 stale). 프론트 재정렬이 장중 보정. 완전 통일은 성능 트레이드오프로 보류.
+- **정렬 앵커**: 표시는 통일했으나 정렬 '순서'는 여전히 nextpick_scores 기준(채점 지연 시 stale). 프론트 재정렬이 장중 보정. 완전 통일은 성능 트레이드오프로 보류.
 - **진짜 실시간 1초/WebSocket**: REST 폴링은 쿼터상 3~5초가 한계. 초단위는 KIS WebSocket(41종목 제한) 필요 — 별도 과제.
 
 ---
@@ -80,7 +80,7 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 
 ### ETL
 ```bash
-cd /c/Projects/canslim
+cd /c/Projects/nextpick
 PYTHONUTF8=1 python etl/kr_adapter/investor_flow_loader.py   # KIS 수급
 PYTHONUTF8=1 python etl/kr_adapter/dart_loader.py             # DART 재무
 PYTHONUTF8=1 python etl/kr_adapter/run_backfill_10yr.py       # 10년 백필
@@ -94,8 +94,8 @@ curl -s -X POST http://localhost:8080/api/admin/scoring/run   # 스코어링 실
 
 ### DB 확인
 ```bash
-psql -U canslim_user -d canslim -c "SELECT COUNT(*) FROM canslim_scores;"
-psql -U canslim_user -d canslim -c "SELECT ticker, composite_score FROM canslim_scores ORDER BY composite_score DESC LIMIT 10;"
+psql -U nextpick_user -d nextpick -c "SELECT COUNT(*) FROM nextpick_scores;"
+psql -U nextpick_user -d nextpick -c "SELECT ticker, composite_score FROM nextpick_scores ORDER BY composite_score DESC LIMIT 10;"
 ```
 
 ### 슬래시 커맨드
@@ -164,7 +164,7 @@ psql -U canslim_user -d canslim -c "SELECT ticker, composite_score FROM canslim_
 price_daily            (~2558 종목, 10년 일별 가격, 연도별 파티션)
 derived_metrics        (파생: EPS/ROE + rs_percentile/52w/수급/after_hours, security_id+as_of_date)
 financials             (KIS 재무 원본, DART 미사용)
-canslim_scores         (~2558 종목, CAN SLIM 종합 점수 + 가격 스냅샷)
+nextpick_scores         (~2558 종목, CAN SLIM 종합 점수 + 가격 스냅샷)
 security_status_daily  (V18, 특이사항 뱃지 스냅샷: statuses TEXT[], security_id+status_date)
 ```
 Flyway 마이그레이션: `backend/src/main/resources/db/migration/` (V1~V18). 백엔드 배포 시 자동 실행.

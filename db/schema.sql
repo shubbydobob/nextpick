@@ -1,5 +1,5 @@
 -- ============================================================
--- CANSLIM Screener — PostgreSQL DDL v3
+-- 팩터 Screener — PostgreSQL DDL v3
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -129,9 +129,9 @@ CREATE INDEX idx_derived_metrics_date     ON derived_metrics (as_of_date DESC);
 CREATE INDEX idx_derived_metrics_rs       ON derived_metrics (as_of_date DESC, rs_percentile DESC);
 
 -- ============================================================
--- 5. canslim_scores — 점수 + 가격 스냅샷 (정렬 인덱스용)
+-- 5. nextpick_scores — 점수 + 가격 스냅샷 (정렬 인덱스용)
 -- ============================================================
-CREATE TABLE canslim_scores (
+CREATE TABLE nextpick_scores (
     id                BIGSERIAL PRIMARY KEY,
     security_id       BIGINT      NOT NULL REFERENCES instruments(id),
     score_date        DATE        NOT NULL,
@@ -157,14 +157,14 @@ CREATE TABLE canslim_scores (
     market_cap        NUMERIC(22,4),
 
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_canslim_scores_sec_date UNIQUE (security_id, score_date)
+    CONSTRAINT uq_nextpick_scores_sec_date UNIQUE (security_id, score_date)
 );
-CREATE INDEX idx_canslim_scores_sec_date  ON canslim_scores (security_id, score_date DESC);
-CREATE INDEX idx_canslim_scores_date_rank ON canslim_scores (score_date DESC, market, market_rank);
-CREATE INDEX idx_canslim_scores_composite ON canslim_scores (score_date DESC, composite_score DESC);
-CREATE INDEX idx_canslim_scores_turnover  ON canslim_scores (score_date DESC, market, turnover DESC NULLS LAST);
-CREATE INDEX idx_canslim_scores_chg_rate  ON canslim_scores (score_date DESC, market, change_rate DESC NULLS LAST);
-CREATE INDEX idx_canslim_scores_mkt_cap   ON canslim_scores (score_date DESC, market, market_cap DESC NULLS LAST);
+CREATE INDEX idx_nextpick_scores_sec_date  ON nextpick_scores (security_id, score_date DESC);
+CREATE INDEX idx_nextpick_scores_date_rank ON nextpick_scores (score_date DESC, market, market_rank);
+CREATE INDEX idx_nextpick_scores_composite ON nextpick_scores (score_date DESC, composite_score DESC);
+CREATE INDEX idx_nextpick_scores_turnover  ON nextpick_scores (score_date DESC, market, turnover DESC NULLS LAST);
+CREATE INDEX idx_nextpick_scores_chg_rate  ON nextpick_scores (score_date DESC, market, change_rate DESC NULLS LAST);
+CREATE INDEX idx_nextpick_scores_mkt_cap   ON nextpick_scores (score_date DESC, market, market_cap DESC NULLS LAST);
 
 -- ============================================================
 -- 6. market_state (M 게이트 전이 지원)

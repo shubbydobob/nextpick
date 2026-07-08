@@ -88,7 +88,7 @@ def upload_shorts(
     if "#Shorts" not in title and "#Shorts" not in description:
         description = "#Shorts\n\n" + description
 
-    default_tags = ["CANSLIM", "성장주", "주식스크리너", "한국주식", "Shorts"]
+    default_tags = ["NEXTPICK", "성장주", "주식스크리너", "한국주식", "Shorts"]
     final_tags   = list(dict.fromkeys((tags or []) + default_tags))  # 중복 제거
 
     body = {
@@ -148,7 +148,7 @@ def post_to_youtube(video_path: Path, stocks: list[dict], score_date) -> str:
     desc_lines = [
         f"📊 {ds} CAN SLIM 성장주 TOP 5",
         "",
-        "윌리엄 오닐의 7대 기준으로 자동 선별한 오늘의 주도주입니다.",
+        "7대 성장주 기준으로 자동 선별한 오늘의 주도주입니다.",
         "",
     ]
     medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
@@ -162,12 +162,12 @@ def post_to_youtube(video_path: Path, stocks: list[dict], score_date) -> str:
         "",
         "⚠️ 투자 참고용. 손실 책임은 투자자 본인에게 있습니다.",
         "",
-        "#CANSLIM #성장주 #주식스크리너 #한국주식 #주식공부 #오닐투자법 #Shorts",
+        "#NEXTPICK #성장주 #주식스크리너 #한국주식 #주식공부 #성장주투자 #Shorts",
     ]
 
     tags = [s["name"] for s in stocks[:5]] + [
         s["ticker"] for s in stocks[:5]
-    ] + ["CANSLIM", "성장주", "한국주식", "주식공부", "오닐투자법"]
+    ] + ["NEXTPICK", "성장주", "한국주식", "주식공부", "성장주투자"]
 
     return upload_shorts(video_path, title, "\n".join(desc_lines), tags)
 

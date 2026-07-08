@@ -2,13 +2,13 @@
 # 과거 날짜별 financial_normalizer + scoring 백필 (일간, 백그라운드 실행용)
 # 실행: nohup bash backfill_scores.sh > backfill.log 2>&1 &
 
-LOG="$HOME/canslim/backfill.log"
-cd ~/canslim
+LOG="$HOME/nextpick/backfill.log"
+cd ~/nextpick
 
 echo "[$(date)] 백필 시작" | tee -a $LOG
 
 # price_daily에서 실제 거래일 목록 추출 (2020-01-01 ~ 2026-06-18)
-DATES=$(docker exec canslim-postgres psql -U canslim_user -d canslim -t -c \
+DATES=$(docker exec nextpick-postgres psql -U nextpick_user -d nextpick -t -c \
   "SELECT DISTINCT trade_date FROM price_daily WHERE trade_date BETWEEN '2020-01-01' AND '2026-06-18' AND is_trading_day=TRUE ORDER BY trade_date;")
 
 TOTAL=$(echo "$DATES" | grep -c '[0-9]' || true)

@@ -71,10 +71,45 @@ def buy(v):
     if a>=1_000:     return f"{s}{a//1_000}K"
     return f"{s}{a}"
 
+def roe_fmt(v):
+    return f"{float(v)*100:.1f}%" if v is not None else "—"
+
+def vol_fmt(v):
+    return f"{float(v)*100:.0f}%" if v is not None else "—"
+
+def inst_flag_txt(v):
+    if v is None: return "데이터 없음"
+    v = int(v)
+    if v >= 2:  return "기관 매집 강세 ↑↑"
+    if v == 1:  return "기관 매집 증가 ↑"
+    if v == 0:  return "기관 중립"
+    return "기관 매집 감소 ↓"
+
+def m_score_txt(v):
+    if v is None: return "—"
+    v = float(v)
+    if v >= 70: return "상승 국면"
+    if v >= 50: return "중립 국면"
+    if v >= 30: return "조정 중"
+    return "하락 경계"
+
+def hook_line(s):
+    parts = []
+    if s.get("yoy") is not None:
+        parts.append(f"EPS {pct(s['yoy'])}")
+    if s.get("roe") is not None:
+        parts.append(f"ROE {roe_fmt(s['roe'])}")
+    if s.get("inst_flag") is not None:
+        flag = int(s["inst_flag"])
+        parts.append("기관↑↑" if flag>=2 else "기관↑" if flag==1 else "기관→" if flag==0 else "기관↓")
+    if s.get("rs") is not None:
+        parts.append(f"RS {fmt(s['rs'])}위")
+    return "  ·  ".join(parts[:4])
+
 
 # ── DB ────────────────────────────────────────────────────────────
 def fetch(n=5):
-    conn = psycopg2.connect(dbname="canslim", user="canslim_user",
+    conn = psycopg2.connect(dbname="nextpick", user="nextpick_user",
                             password="1234", host="localhost")
     cur = conn.cursor()
     cur.execute("""
@@ -100,7 +135,8 @@ def fetch(n=5):
         LEFT JOIN LATERAL (
             SELECT market_cap_tril,eps_qoq_yoy_pct,eps_3yr_cagr,
                    rs_percentile,inst_net_buy_10d,foreign_net_buy_10d,
-                   pct_from_52w_high,eps_annual_consistency
+                   pct_from_52w_high,eps_annual_consistency,
+                   roe_latest,inst_trend_flag,volume_ratio_20d
             FROM derived_metrics
             WHERE security_id=cs.security_id AND as_of_date<=cs.score_date
             ORDER BY as_of_date DESC LIMIT 1) dm ON TRUE
@@ -108,7 +144,8 @@ def fetch(n=5):
         ORDER BY cs.composite_score DESC LIMIT %s
     """, (n,))
     cols = ["ticker","name","sector","market","composite","c","a","n","s","l","i","m",
-            "score_date","close","cr","cap","yoy","cagr","rs","inst","foreign","h52","consist"]
+            "score_date","close","cr","cap","yoy","cagr","rs","inst","foreign","h52","consist",
+            "roe","inst_flag","vol_ratio"]
     rows = [{k:v for k,v in zip(cols,r)} for r in cur.fetchall()]
     conn.close()
     return rows
@@ -195,11 +232,16 @@ def detail(s, rank, path):
     # 티커·마켓·섹터
     d.text((PAD, 112), f"{s['ticker']}  ·  {s['market']}  ·  {s.get('sector') or '—'}", font=F(24), fill=SEC)
 
+    # 훅 라인 (투자 포인트 요약)
+    hl = hook_line(s)
+    if hl:
+        d.text((PAD, 144), hl, font=F(19), fill=ACC)
+
     # ── 구분선 ──
-    d.line([(PAD,162),(SIZE-PAD,162)], fill=LINE, width=1)
+    d.line([(PAD,174),(SIZE-PAD,174)], fill=LINE, width=1)
 
     # ── 섹션 2: 주가 정보 ──
-    py = 180
+    py = 192
     if s["close"]:
         cr    = float(s["cr"]) if s["cr"] is not None else None
         ptxt  = price(s["close"])
@@ -215,21 +257,20 @@ def detail(s, rank, path):
     d.text((PAD, py+66), f"시총 {cap(s['cap'])}  ·  {ds}", font=F(24), fill=SEC)
 
     # ── 구분선 ──
-    d.line([(PAD,268),(SIZE-PAD,268)], fill=LINE, width=1)
+    d.line([(PAD,280),(SIZE-PAD,280)], fill=LINE, width=1)
 
     # ── 섹션 3: 팩터 7개 ──
-    # 2열 배치: 왼쪽 레이블, 오른쪽 점수+바
     FACTORS = [
         ("C", "분기 EPS 성장",  s["c"],  pct(s["yoy"])),
         ("A", "연간 성장성",     s["a"],  pct(s["cagr"],True)),
         ("N", "신고가 근접",     s["n"],  f"고점 대비 {pct(s['h52'])}"),
         ("S", "수급 강도",       s["s"],  f"기관 {buy(s['inst'])}  외인 {buy(s['foreign'])}"),
         ("L", "상대 강도",       s["l"],  f"RS {fmt(s['rs'])}위"),
-        ("I", "기관 참여",       s["i"],  "기관 트렌드"),
-        ("M", "시장 방향",       s["m"],  "시장 국면"),
+        ("I", "기관 참여",       s["i"],  inst_flag_txt(s.get("inst_flag"))),
+        ("M", "시장 방향",       s["m"],  m_score_txt(s["m"])),
     ]
 
-    FY   = 285
+    FY   = 297
     FH   = 80          # 팩터 행 높이
     BW   = 260         # 바 너비
     LX   = PAD         # 레이블 X
@@ -239,11 +280,9 @@ def detail(s, rank, path):
         fy  = FY + i * FH
         sc  = col(score)
 
-        # 왼쪽: 팩터 알파벳 + 레이블
-        d.text((LX, fy+4),  lbl, font=F(30,True), fill=sc)
-        lw = d.textlength(lbl, font=F(30,True))
-        d.text((LX+lw+14, fy+6),  sub, font=F(26,True), fill=PRI)
-        d.text((LX+lw+14, fy+40), detail_txt, font=F(20), fill=SEC)
+        # 왼쪽: 팩터 레이블
+        d.text((LX, fy+6),  sub, font=F(26,True), fill=PRI)
+        d.text((LX, fy+40), detail_txt, font=F(20), fill=SEC)
 
         # 오른쪽: 점수 숫자
         sv  = fmt(score)
@@ -262,32 +301,38 @@ def detail(s, rank, path):
         if i < 6:
             d.line([(PAD, fy+FH-2),(SIZE-PAD, fy+FH-2)], fill=LINE, width=1)
 
-    # ── 섹션 4: 핵심 수치 3개 ──
+    # ── 섹션 4: 핵심 수치 6개 (2행 × 3열) ──
     KY  = FY + 7*FH + 12
     d.line([(PAD,KY),(SIZE-PAD,KY)], fill=LINE, width=1)
-    KY += 18
+    KY += 14
 
     kpis = [
-        ("분기 EPS 성장률", pct(s["yoy"])),
+        ("분기 EPS 성장",  pct(s["yoy"])),
         ("3년 연평균 성장", pct(s["cagr"],True)),
         ("RS 백분위",      f"{fmt(s['rs'])}위"),
+        ("ROE",            roe_fmt(s.get("roe"))),
+        ("거래량 배율",     vol_fmt(s.get("vol_ratio"))),
+        ("기관 동향",       inst_flag_txt(s.get("inst_flag"))),
     ]
-    kw = (SIZE - PAD*2) // 3
+    kw  = (SIZE - PAD*2) // 3
+    ROW_H = 62
     for i,(k,v) in enumerate(kpis):
-        kx = PAD + i*kw
-        d.text((kx, KY), k, font=F(20), fill=SEC)
-        vc = SEC
+        row, col_i = divmod(i, 3)
+        kx = PAD + col_i * kw
+        ky = KY + row * ROW_H
+        d.text((kx, ky), k, font=F(18), fill=SEC)
+        vc = PRI
         try:
             num = float(v.replace("%","").replace("+","").replace("위",""))
             vc  = GREEN if num>0 else RED if num<0 else PRI
         except Exception:
             vc = PRI
-        d.text((kx, KY+28), v, font=F(32,True), fill=vc)
+        d.text((kx, ky+24), v, font=F(28,True), fill=vc)
 
     # 푸터
     d.line([(PAD,SIZE-46),(SIZE-PAD,SIZE-46)], fill=LINE, width=1)
     d.text((PAD, SIZE-34), "⚠ 투자 참고용  ·  손실 책임은 투자자에게 있습니다.", font=F(17), fill=DIM)
-    ht  = "#CANSLIM #성장주"
+    ht  = "#성장주 #주식스크리너"
     htw = d.textlength(ht, font=F(17))
     d.text((SIZE-PAD-htw, SIZE-34), ht, font=F(17), fill=DIM)
 
@@ -301,8 +346,8 @@ def caption(stocks):
     today = stocks[0]["score_date"]
     ds    = today.strftime("%Y년 %m월 %d일") if hasattr(today,"strftime") else str(today)
     medals = ["🥇","🥈","🥉","4️⃣","5️⃣"]
-    lines = [f"📊 {ds} CAN SLIM 성장주 TOP 5","",
-             "윌리엄 오닐의 7대 기준으로 선별한 오늘의 주도주입니다.",""]
+    lines = [f"📊 {ds} 성장주 TOP 5","",
+             "7대 성장 요소로 선별한 오늘의 주도주입니다.",""]
     for i,s in enumerate(stocks[:5]):
         comp = float(s["composite"] or 0)
         cr   = float(s["cr"]) if s["cr"] else None
@@ -313,7 +358,7 @@ def caption(stocks):
     lines += ["━━━━━━━━━━━━━━━━━━━━",
               "C 분기EPS  A 연간성장  N 신고가  S 수급  L 상대강도  I 기관  M 시장","",
               "⚠️ 투자 참고용. 손실 책임은 투자자 본인에게 있습니다.","",
-              "#CANSLIM #성장주 #주식스크리너 #한국주식 #주식공부 #종목추천아님 #오닐투자법"]
+              "#성장주 #주식스크리너 #한국주식 #주식공부 #종목추천아님"]
     return "\n".join(lines)
 
 

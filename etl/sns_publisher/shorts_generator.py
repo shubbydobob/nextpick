@@ -141,7 +141,7 @@ def _make_outro_frame() -> Image.Image:
     d.text((W // 2, cy - 80), "더 자세한 정보는",        font=_F(38),       fill=SEC, anchor="mm")
     d.text((W // 2, cy),      "성장주스크리너",           font=_F(72, True), fill=PRI, anchor="mm")
     d.text((W // 2, cy + 80), "k-stock-score.vercel.app", font=_F(30),      fill=ACC, anchor="mm")
-    d.text((W // 2, cy + 160), "#CANSLIM #성장주 #주식",  font=_F(28),      fill=DIM, anchor="mm")
+    d.text((W // 2, cy + 160), "#NEXTPICK #성장주 #주식",  font=_F(28),      fill=DIM, anchor="mm")
     d.rectangle([0, H - 8, W, H], fill=ACC)
     return img
 

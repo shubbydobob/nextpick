@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>팩터 DB Schema Overview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #0f1117; color: #e1e4e8; padding: 32px; }
+  h1 { font-size: 28px; margin-bottom: 8px; color: #fff; }
+  .subtitle { color: #8b949e; margin-bottom: 32px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 24px; }
+  .table-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+    overflow: hidden; transition: border-color 0.2s;
+  }
+  .table-card:hover { border-color: #58a6ff; }
+  .table-header {
+    padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid #30363d; background: #1c2129;
+  }
+  .table-num {
+    background: #58a6ff; color: #0d1117; font-weight: 700; font-size: 13px;
+    width: 28px; height: 28px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .table-name { font-size: 18px; font-weight: 700; color: #58a6ff; }
+  .table-desc { font-size: 12px; color: #8b949e; margin-left: auto; }
+  .badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .badge-partition { background: #1f3a2d; color: #3fb950; }
+  .badge-hot { background: #3d1f1f; color: #f85149; }
+  .badge-config { background: #2d2a1f; color: #d29922; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; padding: 8px 12px; color: #8b949e; font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid #30363d; background: #1c2129;
+  }
+  tbody td { padding: 6px 12px; border-bottom: 1px solid #21262d; }
+  tbody tr:hover { background: #1c2129; }
+  .col-name { color: #c9d1d9; font-family: 'Consolas', 'Fira Code', monospace; font-size: 12px; }
+  .col-type { color: #7ee787; font-family: monospace; font-size: 11px; }
+  .col-note { color: #8b949e; font-size: 11px; }
+  .pk { color: #d2a8ff; }
+  .fk { color: #f0883e; }
+  .idx { margin: 12px 16px 16px; }
+  .idx-title { font-size: 11px; color: #8b949e; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; }
+  .idx-item {
+    font-family: monospace; font-size: 11px; color: #79c0ff; padding: 3px 0;
+    border-left: 2px solid #30363d; padding-left: 8px; margin-bottom: 2px;
+  }
+  .summary { margin-top: 32px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .stat-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 16px 24px; min-width: 160px;
+  }
+  .stat-val { font-size: 28px; font-weight: 700; color: #58a6ff; }
+  .stat-label { font-size: 12px; color: #8b949e; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>팩터 DB Schema</h1>
+<p class="subtitle">PostgreSQL &mdash; 10 tables &bull; ETL(Python) &rarr; Scoring(Java/Spring Boot) &rarr; Screener(React)</p>
+
+<div class="summary">
+  <div class="stat-card"><div class="stat-val">10</div><div class="stat-label">Tables</div></div>
+  <div class="stat-card"><div class="stat-val">~2,558</div><div class="stat-label">Instruments (KR)</div></div>
+  <div class="stat-card"><div class="stat-val">8</div><div class="stat-label">Partitions (price_daily)</div></div>
+  <div class="stat-card"><div class="stat-val">24</div><div class="stat-label">Indexes</div></div>
+</div>
+
+<br><br>
+
+<div class="grid">
+
+<!-- 1. industry_groups -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">1</span>
+    <span class="table-name">industry_groups</span>
+    <span class="table-desc">업종 그룹</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK</td></tr>
+      <tr><td class="col-name">code</td><td class="col-type">VARCHAR(50)</td><td class="col-note">UNIQUE</td></tr>
+      <tr><td class="col-name">name</td><td class="col-type">VARCHAR(200)</td><td class="col-note">업종명</td></tr>
+      <tr><td class="col-name">market</td><td class="col-type">VARCHAR(10)</td><td class="col-note">KOSPI/KOSDAQ/...</td></tr>
+      <tr><td class="col-name">parent_sector</td><td class="col-type">VARCHAR(100)</td><td class="col-note">상위 섹터</td></tr>
+      <tr><td class="col-name">created_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note">DEFAULT NOW()</td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Indexes</div>
+    <div class="idx-item">idx_industry_groups_market (market)</div>
+  </div>
+</div>
+
+<!-- 2. instruments -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">2</span>
+    <span class="table-name">instruments</span>
+    <span class="table-desc">종목 마스터</span>
+    <span class="badge badge-hot">HOT</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK</td></tr>
+      <tr><td class="col-name">ticker</td><td class="col-type">VARCHAR(20)</td><td class="col-note">UNIQUE(ticker,market)</td></tr>
+      <tr><td class="col-name">market</td><td class="col-type">VARCHAR(10)</td><td class="col-note">KOSPI/KOSDAQ/NYSE/NASDAQ</td></tr>
+      <tr><td class="col-name">name</td><td class="col-type">VARCHAR(200)</td><td class="col-note">종목명</td></tr>
+      <tr><td class="col-name">listing_date</td><td class="col-type">DATE</td><td class="col-note">상장일</td></tr>
+      <tr><td class="col-name">float_shares</td><td class="col-type">BIGINT</td><td class="col-note">유통주식수</td></tr>
+      <tr><td class="col-name">total_shares</td><td class="col-type">BIGINT</td><td class="col-note">발행주식수 (시총 계산)</td></tr>
+      <tr><td class="col-name fk">industry_group_id</td><td class="col-type">BIGINT</td><td class="col-note">FK &rarr; industry_groups</td></tr>
+      <tr><td class="col-name">sector</td><td class="col-type">VARCHAR(100)</td><td class="col-note">섹터</td></tr>
+      <tr><td class="col-name">security_type</td><td class="col-type">VARCHAR(20)</td><td class="col-note">COMMON/PREFERRED/ETF/...</td></tr>
+      <tr><td class="col-name">currency</td><td class="col-type">VARCHAR(3)</td><td class="col-note">KRW (default)</td></tr>
+      <tr><td class="col-name">is_active</td><td class="col-type">BOOLEAN</td><td class="col-note">활성 여부</td></tr>
+      <tr><td class="col-name">created_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note"></td></tr>
+      <tr><td class="col-name">updated_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note"></td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Indexes</div>
+    <div class="idx-item">idx_instruments_market (market)</div>
+    <div class="idx-item">idx_instruments_industry_group (industry_group_id)</div>
+    <div class="idx-item">idx_instruments_active (is_active) WHERE is_active=TRUE</div>
+  </div>
+</div>
+
+<!-- 3. price_daily -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">3</span>
+    <span class="table-name">price_daily</span>
+    <span class="table-desc">일별 가격</span>
+    <span class="badge badge-partition">PARTITIONED</span>
+    <span class="badge badge-hot">HOT</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK (id, trade_date)</td></tr>
+      <tr><td class="col-name fk">security_id</td><td class="col-type">BIGINT</td><td class="col-note">FK &rarr; instruments</td></tr>
+      <tr><td class="col-name">trade_date</td><td class="col-type">DATE</td><td class="col-note">파티션 키 (연도별)</td></tr>
+      <tr><td class="col-name">open</td><td class="col-type">NUMERIC(18,4)</td><td class="col-note">시가</td></tr>
+      <tr><td class="col-name">high</td><td class="col-type">NUMERIC(18,4)</td><td class="col-note">고가</td></tr>
+      <tr><td class="col-name">low</td><td class="col-type">NUMERIC(18,4)</td><td class="col-note">저가</td></tr>
+      <tr><td class="col-name">close</td><td class="col-type">NUMERIC(18,4)</td><td class="col-note">종가 (원본)</td></tr>
+      <tr><td class="col-name">close_adj</td><td class="col-type">NUMERIC(18,4)</td><td class="col-note">수정종가</td></tr>
+      <tr><td class="col-name">volume</td><td class="col-type">BIGINT</td><td class="col-note">거래량</td></tr>
+      <tr><td class="col-name">turnover</td><td class="col-type">NUMERIC(22,4)</td><td class="col-note">거래대금</td></tr>
+      <tr><td class="col-name">is_trading_day</td><td class="col-type">BOOLEAN</td><td class="col-note">거래일 여부</td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Partitions (2020~2027)</div>
+    <div class="idx-item">price_daily_2020 ~ price_daily_2027 (RANGE by trade_date)</div>
+    <div class="idx-title" style="margin-top:8px">Indexes</div>
+    <div class="idx-item">idx_price_daily_sec_date (security_id, trade_date DESC)</div>
+    <div class="idx-item">idx_price_daily_date (trade_date DESC)</div>
+  </div>
+</div>
+
+<!-- 4. financials -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">4</span>
+    <span class="table-name">financials</span>
+    <span class="table-desc">재무제표 (KIS 원본)</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK</td></tr>
+      <tr><td class="col-name fk">security_id</td><td class="col-type">BIGINT</td><td class="col-note">FK &rarr; instruments</td></tr>
+      <tr><td class="col-name">period_type</td><td class="col-type">VARCHAR(10)</td><td class="col-note">QUARTER / ANNUAL</td></tr>
+      <tr><td class="col-name">fiscal_year</td><td class="col-type">SMALLINT</td><td class="col-note">회계연도</td></tr>
+      <tr><td class="col-name">fiscal_quarter</td><td class="col-type">SMALLINT</td><td class="col-note">분기 (1~4)</td></tr>
+      <tr><td class="col-name">period_end_date</td><td class="col-type">DATE</td><td class="col-note">기말일</td></tr>
+      <tr><td class="col-name">report_date</td><td class="col-type">DATE</td><td class="col-note">공시일</td></tr>
+      <tr><td class="col-name">revenue</td><td class="col-type">NUMERIC(22,4)</td><td class="col-note">매출</td></tr>
+      <tr><td class="col-name">operating_income</td><td class="col-type">NUMERIC(22,4)</td><td class="col-note">영업이익</td></tr>
+      <tr><td class="col-name">net_income</td><td class="col-type">NUMERIC(22,4)</td><td class="col-note">순이익</td></tr>
+      <tr><td class="col-name">eps</td><td class="col-type">NUMERIC(14,6)</td><td class="col-note">주당순이익</td></tr>
+      <tr><td class="col-name">shares_diluted</td><td class="col-type">BIGINT</td><td class="col-note">희석주식수</td></tr>
+      <tr><td class="col-name">roe</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">자기자본이익률</td></tr>
+      <tr><td class="col-name">is_cumulative</td><td class="col-type">BOOLEAN</td><td class="col-note">누적 여부</td></tr>
+      <tr><td class="col-name">is_consolidated</td><td class="col-type">BOOLEAN</td><td class="col-note">연결 여부</td></tr>
+      <tr><td class="col-name">currency</td><td class="col-type">VARCHAR(3)</td><td class="col-note">KRW</td></tr>
+      <tr><td class="col-name">data_source</td><td class="col-type">VARCHAR(50)</td><td class="col-note">KIS / DART</td></tr>
+      <tr><td class="col-name">created_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note"></td></tr>
+      <tr><td class="col-name">updated_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note"></td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Indexes</div>
+    <div class="idx-item">idx_financials_sec_period (security_id, period_type, fiscal_year, fiscal_quarter)</div>
+    <div class="idx-item">idx_financials_period_end (security_id, period_end_date DESC)</div>
+    <div class="idx-item">idx_financials_consolidated (security_id, is_consolidated DESC, period_end_date DESC)</div>
+  </div>
+</div>
+
+<!-- 5. derived_metrics -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">5</span>
+    <span class="table-name">derived_metrics</span>
+    <span class="table-desc">파생 지표 (재무+가격)</span>
+    <span class="badge badge-hot">HOT</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK</td></tr>
+      <tr><td class="col-name fk">security_id</td><td class="col-type">BIGINT</td><td class="col-note">FK &rarr; instruments</td></tr>
+      <tr><td class="col-name">as_of_date</td><td class="col-type">DATE</td><td class="col-note">기준일</td></tr>
+      <tr><td colspan="3" style="color:#58a6ff;font-size:11px;padding:8px 12px;background:#1c2129">Python ETL (재무)</td></tr>
+      <tr><td class="col-name">eps_standalone_latest</td><td class="col-type">NUMERIC(14,6)</td><td class="col-note">최신 단독분기 EPS</td></tr>
+      <tr><td class="col-name">eps_standalone_prev_yq</td><td class="col-type">NUMERIC(14,6)</td><td class="col-note">전년동기 EPS</td></tr>
+      <tr><td class="col-name">eps_qoq_yoy_pct</td><td class="col-type">NUMERIC(10,4)</td><td class="col-note">EPS 증가율 (%)</td></tr>
+      <tr><td class="col-name">eps_qoq_accel</td><td class="col-type">NUMERIC(10,4)</td><td class="col-note">EPS 가속도</td></tr>
+      <tr><td class="col-name">eps_3yr_cagr</td><td class="col-type">NUMERIC(10,4)</td><td class="col-note">3년 CAGR</td></tr>
+      <tr><td class="col-name">eps_annual_consistency</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">연간 일관성</td></tr>
+      <tr><td class="col-name">roe_latest</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">최신 ROE</td></tr>
+      <tr><td colspan="3" style="color:#7ee787;font-size:11px;padding:8px 12px;background:#1c2129">Java DerivedMetricsJob (가격)</td></tr>
+      <tr><td class="col-name">pct_from_52w_high</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">52주 고가 대비 %</td></tr>
+      <tr><td class="col-name">price_vs_base_breakout</td><td class="col-type">BOOLEAN</td><td class="col-note">베이스 돌파 여부</td></tr>
+      <tr><td class="col-name">volume_ratio_20d</td><td class="col-type">NUMERIC(10,4)</td><td class="col-note">20일 평균 거래량 비율</td></tr>
+      <tr><td class="col-name">buyback_flag</td><td class="col-type">BOOLEAN</td><td class="col-note">자사주 매입</td></tr>
+      <tr><td class="col-name">rs_percentile</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">상대강도 백분위</td></tr>
+      <tr><td class="col-name">industry_rs_rank</td><td class="col-type">INTEGER</td><td class="col-note">업종 RS 순위</td></tr>
+      <tr><td class="col-name">inst_net_buy_10d</td><td class="col-type">NUMERIC(22,4)</td><td class="col-note">기관 10일 순매수</td></tr>
+      <tr><td class="col-name">foreign_net_buy_10d</td><td class="col-type">NUMERIC(22,4)</td><td class="col-note">외인 10일 순매수</td></tr>
+      <tr><td class="col-name">program_net_buy_10d</td><td class="col-type">NUMERIC(22,4)</td><td class="col-note">프로그램 10일 순매수</td></tr>
+      <tr><td class="col-name">after_hours_close</td><td class="col-type">NUMERIC(14,2)</td><td class="col-note">시간외 종가</td></tr>
+      <tr><td class="col-name">after_hours_change_pct</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">시간외 등락률</td></tr>
+      <tr><td class="col-name">inst_trend_flag</td><td class="col-type">SMALLINT</td><td class="col-note">기관 추세 플래그</td></tr>
+      <tr><td class="col-name">created_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note"></td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Indexes</div>
+    <div class="idx-item">idx_derived_metrics_sec_date (security_id, as_of_date DESC)</div>
+    <div class="idx-item">idx_derived_metrics_date (as_of_date DESC)</div>
+    <div class="idx-item">idx_derived_metrics_rs (as_of_date DESC, rs_percentile DESC)</div>
+  </div>
+</div>
+
+<!-- 6. nextpick_scores -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">6</span>
+    <span class="table-name">nextpick_scores</span>
+    <span class="table-desc">CAN SLIM 종합 점수</span>
+    <span class="badge badge-hot">HOT</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK</td></tr>
+      <tr><td class="col-name fk">security_id</td><td class="col-type">BIGINT</td><td class="col-note">FK &rarr; instruments</td></tr>
+      <tr><td class="col-name">score_date</td><td class="col-type">DATE</td><td class="col-note">채점일</td></tr>
+      <tr><td class="col-name">market</td><td class="col-type">VARCHAR(10)</td><td class="col-note">KR</td></tr>
+      <tr><td class="col-name">c_score</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">Current quarterly EPS</td></tr>
+      <tr><td class="col-name">a_score</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">Annual earnings growth</td></tr>
+      <tr><td class="col-name">n_score</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">New highs / products</td></tr>
+      <tr><td class="col-name">s_score</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">Supply & demand</td></tr>
+      <tr><td class="col-name">l_score</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">Leader / laggard</td></tr>
+      <tr><td class="col-name">i_score</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">Institutional sponsorship</td></tr>
+      <tr><td class="col-name">composite_score</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">종합 점수 (가중합)</td></tr>
+      <tr><td class="col-name">market_rank</td><td class="col-type">INTEGER</td><td class="col-note">시장 내 순위</td></tr>
+      <tr><td class="col-name">market_percentile</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">시장 내 백분위</td></tr>
+      <tr><td class="col-name">config_version</td><td class="col-type">INTEGER</td><td class="col-note">설정 버전</td></tr>
+      <tr><td class="col-name">created_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note"></td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Indexes</div>
+    <div class="idx-item">idx_nextpick_scores_sec_date (security_id, score_date DESC)</div>
+    <div class="idx-item">idx_nextpick_scores_date_rank (score_date DESC, market, market_rank)</div>
+    <div class="idx-item">idx_nextpick_scores_composite (score_date DESC, composite_score DESC)</div>
+  </div>
+</div>
+
+<!-- 7. industry_scores -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">7</span>
+    <span class="table-name">industry_scores</span>
+    <span class="table-desc">업종별 점수 집계</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK</td></tr>
+      <tr><td class="col-name fk">industry_group_id</td><td class="col-type">BIGINT</td><td class="col-note">FK &rarr; industry_groups</td></tr>
+      <tr><td class="col-name">score_date</td><td class="col-type">DATE</td><td class="col-note">채점일</td></tr>
+      <tr><td class="col-name">avg_composite</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">평균 종합점수</td></tr>
+      <tr><td class="col-name">median_composite</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">중앙값</td></tr>
+      <tr><td class="col-name">avg_rs_percentile</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">평균 RS 백분위</td></tr>
+      <tr><td class="col-name">stock_count</td><td class="col-type">INTEGER</td><td class="col-note">종목 수</td></tr>
+      <tr><td class="col-name">industry_rank</td><td class="col-type">INTEGER</td><td class="col-note">업종 순위</td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Indexes</div>
+    <div class="idx-item">idx_industry_scores_date_rank (score_date DESC, industry_rank)</div>
+  </div>
+</div>
+
+<!-- 8. market_state -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">8</span>
+    <span class="table-name">market_state</span>
+    <span class="table-desc">시장 국면 (M 게이트)</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK</td></tr>
+      <tr><td class="col-name">market</td><td class="col-type">VARCHAR(10)</td><td class="col-note">KOSPI / KOSDAQ</td></tr>
+      <tr><td class="col-name">state_date</td><td class="col-type">DATE</td><td class="col-note">기준일</td></tr>
+      <tr><td class="col-name">index_close</td><td class="col-type">NUMERIC(14,4)</td><td class="col-note">지수 종가</td></tr>
+      <tr><td class="col-name">index_close_adj</td><td class="col-type">NUMERIC(14,4)</td><td class="col-note">지수 수정종가</td></tr>
+      <tr><td class="col-name">ma_50d</td><td class="col-type">NUMERIC(14,4)</td><td class="col-note">50일 이평</td></tr>
+      <tr><td class="col-name">ma_200d</td><td class="col-type">NUMERIC(14,4)</td><td class="col-note">200일 이평</td></tr>
+      <tr><td class="col-name">distribution_day_count</td><td class="col-type">SMALLINT</td><td class="col-note">분배일 수</td></tr>
+      <tr><td class="col-name">distribution_day_today</td><td class="col-type">BOOLEAN</td><td class="col-note">오늘 분배일?</td></tr>
+      <tr><td class="col-name">rally_day_count</td><td class="col-type">SMALLINT</td><td class="col-note">랠리일 수</td></tr>
+      <tr><td class="col-name">trend_direction</td><td class="col-type">VARCHAR(10)</td><td class="col-note">UP / DOWN / FLAT</td></tr>
+      <tr><td class="col-name">market_phase</td><td class="col-type">VARCHAR(20)</td><td class="col-note">BULL / BEAR / CORRECTION</td></tr>
+      <tr><td class="col-name">prev_phase</td><td class="col-type">VARCHAR(20)</td><td class="col-note">이전 국면</td></tr>
+      <tr><td class="col-name">notes</td><td class="col-type">TEXT</td><td class="col-note">비고</td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Indexes</div>
+    <div class="idx-item">idx_market_state_market_date (market, state_date DESC)</div>
+  </div>
+</div>
+
+<!-- 9. ingestion_meta -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">9</span>
+    <span class="table-name">ingestion_meta</span>
+    <span class="table-desc">ETL 수집 이력</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK</td></tr>
+      <tr><td class="col-name">source_name</td><td class="col-type">VARCHAR(100)</td><td class="col-note">KIS_FIN_KR_005930 등</td></tr>
+      <tr><td class="col-name">market</td><td class="col-type">VARCHAR(10)</td><td class="col-note"></td></tr>
+      <tr><td class="col-name">target_date</td><td class="col-type">DATE</td><td class="col-note">수집 대상일</td></tr>
+      <tr><td class="col-name">status</td><td class="col-type">VARCHAR(20)</td><td class="col-note">PENDING / SUCCESS / FAILED</td></tr>
+      <tr><td class="col-name">started_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note"></td></tr>
+      <tr><td class="col-name">completed_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note"></td></tr>
+      <tr><td class="col-name">rows_inserted</td><td class="col-type">INTEGER</td><td class="col-note">삽입 건수</td></tr>
+      <tr><td class="col-name">rows_updated</td><td class="col-type">INTEGER</td><td class="col-note">갱신 건수</td></tr>
+      <tr><td class="col-name">error_message</td><td class="col-type">TEXT</td><td class="col-note">에러 메시지</td></tr>
+      <tr><td class="col-name">run_id</td><td class="col-type">UUID</td><td class="col-note">실행 ID</td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Indexes</div>
+    <div class="idx-item">idx_ingestion_meta_source (source_name, target_date DESC)</div>
+    <div class="idx-item">idx_ingestion_meta_status (status) WHERE status IN ('PENDING','FAILED')</div>
+  </div>
+</div>
+
+<!-- 10. market_config -->
+<div class="table-card">
+  <div class="table-header">
+    <span class="table-num">10</span>
+    <span class="table-name">market_config</span>
+    <span class="table-desc">채점 설정 (가중치/임계값)</span>
+    <span class="badge badge-config">CONFIG</span>
+  </div>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="col-name pk">id</td><td class="col-type">BIGSERIAL</td><td class="col-note">PK</td></tr>
+      <tr><td class="col-name">market</td><td class="col-type">VARCHAR(10)</td><td class="col-note">UNIQUE(market, version)</td></tr>
+      <tr><td class="col-name">version</td><td class="col-type">INTEGER</td><td class="col-note">설정 버전</td></tr>
+      <tr><td class="col-name">is_active</td><td class="col-type">BOOLEAN</td><td class="col-note">활성 여부</td></tr>
+      <tr><td colspan="3" style="color:#d29922;font-size:11px;padding:8px 12px;background:#1c2129">C — Current Quarterly EPS</td></tr>
+      <tr><td class="col-name">c_eps_growth_threshold</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">0.25 (25%)</td></tr>
+      <tr><td class="col-name">c_use_percentile</td><td class="col-type">BOOLEAN</td><td class="col-note"></td></tr>
+      <tr><td class="col-name">c_percentile_min</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note"></td></tr>
+      <tr><td class="col-name">c_neg_growth_score_cap</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">20.0</td></tr>
+      <tr><td class="col-name">c_accel_max_bonus</td><td class="col-type">NUMERIC(6,2)</td><td class="col-note">20.0</td></tr>
+      <tr><td colspan="3" style="color:#d29922;font-size:11px;padding:8px 12px;background:#1c2129">A — Annual Earnings</td></tr>
+      <tr><td class="col-name">a_eps_cagr_threshold</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">0.25</td></tr>
+      <tr><td class="col-name">a_roe_min</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">0.17</td></tr>
+      <tr><td class="col-name">a_min_years</td><td class="col-type">SMALLINT</td><td class="col-note">3</td></tr>
+      <tr><td colspan="3" style="color:#d29922;font-size:11px;padding:8px 12px;background:#1c2129">N — New Highs</td></tr>
+      <tr><td class="col-name">n_max_pct_from_high</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">0.10</td></tr>
+      <tr><td class="col-name">n_breakout_vol_min</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">1.40</td></tr>
+      <tr><td colspan="3" style="color:#d29922;font-size:11px;padding:8px 12px;background:#1c2129">S — Supply & Demand</td></tr>
+      <tr><td class="col-name">s_float_max_billions</td><td class="col-type">NUMERIC(14,4)</td><td class="col-note"></td></tr>
+      <tr><td class="col-name">s_vol_surge_threshold</td><td class="col-type">NUMERIC(8,4)</td><td class="col-note">1.50</td></tr>
+      <tr><td colspan="3" style="color:#d29922;font-size:11px;padding:8px 12px;background:#1c2129">L — Leader / Laggard</td></tr>
+      <tr><td class="col-name">l_rs_min_percentile</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">80.0</td></tr>
+      <tr><td class="col-name">l_rs_window_days</td><td class="col-type">SMALLINT</td><td class="col-note">252</td></tr>
+      <tr><td colspan="3" style="color:#d29922;font-size:11px;padding:8px 12px;background:#1c2129">I — Institutional</td></tr>
+      <tr><td class="col-name">i_net_buy_window_days</td><td class="col-type">SMALLINT</td><td class="col-note">10</td></tr>
+      <tr><td class="col-name">i_net_buy_threshold</td><td class="col-type">NUMERIC(22,4)</td><td class="col-note"></td></tr>
+      <tr><td colspan="3" style="color:#d29922;font-size:11px;padding:8px 12px;background:#1c2129">M — Market Direction</td></tr>
+      <tr><td class="col-name">m_distribution_day_limit</td><td class="col-type">SMALLINT</td><td class="col-note">4</td></tr>
+      <tr><td class="col-name">m_gate_phases</td><td class="col-type">VARCHAR(50)</td><td class="col-note">BEAR</td></tr>
+      <tr><td colspan="3" style="color:#d29922;font-size:11px;padding:8px 12px;background:#1c2129">Weights (합 = 1.0, M 제외)</td></tr>
+      <tr><td class="col-name">weight_c</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">0.25</td></tr>
+      <tr><td class="col-name">weight_a</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">0.20</td></tr>
+      <tr><td class="col-name">weight_n</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">0.15</td></tr>
+      <tr><td class="col-name">weight_s</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">0.10</td></tr>
+      <tr><td class="col-name">weight_l</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">0.20</td></tr>
+      <tr><td class="col-name">weight_i</td><td class="col-type">NUMERIC(6,4)</td><td class="col-note">0.10</td></tr>
+      <tr><td class="col-name">effective_from</td><td class="col-type">DATE</td><td class="col-note">적용 시작일</td></tr>
+      <tr><td class="col-name">effective_to</td><td class="col-type">DATE</td><td class="col-note">적용 종료일</td></tr>
+      <tr><td class="col-name">created_at</td><td class="col-type">TIMESTAMPTZ</td><td class="col-note"></td></tr>
+    </tbody>
+  </table>
+  <div class="idx">
+    <div class="idx-title">Indexes</div>
+    <div class="idx-item">idx_market_config_active (market, is_active) WHERE is_active=TRUE</div>
+    <div class="idx-title" style="margin-top:8px">Constraints</div>
+    <div class="idx-item">chk_weights_sum: |weight_c+a+n+s+l+i - 1.0| &lt; 0.001</div>
+  </div>
+</div>
+
+</div><!-- grid -->
+
+</body>
+</html>
