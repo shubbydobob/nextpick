@@ -13,7 +13,7 @@ import RankingView from './RankingView'
 import StatusBadges from '../components/StatusBadges'
 import { useIsMobile } from '../hooks/useIsMobile'
 import type { ScreenerItem } from '../types'
-import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt, fmtVolume } from '../utils/format'
+import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt, fmtVolume, isKrMarketHours } from '../utils/format'
 import { scoreBg, scoreFg, scoreGrade, changeColor } from '../utils/factors'
 
 
@@ -29,15 +29,6 @@ type SortKey = keyof Pick<ScreenerItem,
 
 // 평일 08:00~20:00 KST(실시간 오버레이 창, 넥스트레이드 프리~애프터마켓) 여부.
 // 브라우저 로컬 타임존과 무관하게 UTC→KST 환산. 백엔드 isKrMarketOpen과 동일 창.
-function isKrMarketHours(): boolean {
-  const now = new Date()
-  const kst = new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000)
-  const day = kst.getDay()
-  if (day === 0 || day === 6) return false
-  const mins = kst.getHours() * 60 + kst.getMinutes()
-  return mins >= 480 && mins <= 1200   // 08:00 ~ 20:00
-}
-
 // ── sub-components ─────────────────────────────────────────────
 
 function ScoreCell({ value }: { value: number | null }) {
@@ -457,7 +448,7 @@ export default function ScreenerPage() {
           <div className="scr-name-inner">
             <span className="scr-name-text">{item.name}</span>
             {item.breakoutToday === true && <span className="scr-badge-new">NEW</span>}
-            <StatusBadges statuses={liveMap[item.ticker]?.statuses ?? item.statuses} size="sm" />
+            <StatusBadges statuses={pending ? null : (liveMap[item.ticker]?.statuses ?? item.statuses)} size="sm" />
           </div>
         </td>
       </>
@@ -532,7 +523,7 @@ export default function ScreenerPage() {
               <span className="scard-rank">#{item.marketRank}</span>
               <span className="scard-name">{item.name}</span>
               {item.breakoutToday === true && <span className="scard-badge-new">NEW</span>}
-              <StatusBadges statuses={liveMap[item.ticker]?.statuses ?? item.statuses} size="xs" />
+              <StatusBadges statuses={pending ? null : (liveMap[item.ticker]?.statuses ?? item.statuses)} size="xs" />
             </div>
             <div className="scard-sub">
               <span className="scard-ticker">{item.ticker}</span>
@@ -789,6 +780,7 @@ export default function ScreenerPage() {
           items={items}
           loading={loading}
           liveMap={liveMap}
+          liveLoaded={liveLoaded}
           onStockClick={(id) => { setSelectedStockId(id); setMainTab('screener'); setViewTab('detail') }}
         />
       )}
@@ -798,6 +790,7 @@ export default function ScreenerPage() {
           items={items.filter(i => watchlist.has(i.securityId))}
           loading={loading}
           liveMap={liveMap}
+          liveLoaded={liveLoaded}
           onStockClick={(id) => { setSelectedStockId(id); setMainTab('screener'); setViewTab('detail') }}
         />
       )}

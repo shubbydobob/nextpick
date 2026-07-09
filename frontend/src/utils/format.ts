@@ -2,6 +2,17 @@ export function fmtPrice(v: number | null): string {
   return v === null ? '—' : v.toLocaleString('ko-KR', { maximumFractionDigits: 0 })
 }
 
+/** 한국 실시간 오버레이 창(평일 08:00~20:00 KST). 이 창에선 배치 시세가 전일 종가 기준이라
+ *  실시간이 붙기 전 전일 등락률·상한가·상태뱃지를 노출하지 않도록 게이트에 쓴다. (백엔드 isKrMarketOpen과 동일 창) */
+export function isKrMarketHours(): boolean {
+  const now = new Date()
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000)
+  const day = kst.getDay()
+  if (day === 0 || day === 6) return false
+  const mins = kst.getHours() * 60 + kst.getMinutes()
+  return mins >= 480 && mins <= 1200   // 08:00 ~ 20:00
+}
+
 export function fmtRate(v: number | null): string {
   return v === null ? '—' : (v > 0 ? '+' : '') + v.toFixed(2) + '%'
 }

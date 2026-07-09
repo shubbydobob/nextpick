@@ -4,17 +4,7 @@ import { fetchScreenerStats, fetchLimitUp, fetchLiveQuotes, fetchSectorIndices }
 import type { ScreenerStats, LimitUpStock, LiveQuote, SectorIndex } from '../api/client'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { scoreFg, changeColor } from '../utils/factors'
-
-// 장중(평일 08:00~20:00 KST) 여부 — ScreenerPage와 동일 창. 장중엔 배치 시세가
-// '전일 종가 기준'이라 실시간이 붙기 전 전일 등락률·상한가를 노출하지 않기 위함.
-function isKrMarketHours(): boolean {
-  const now = new Date()
-  const kst = new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000)
-  const day = kst.getDay()
-  if (day === 0 || day === 6) return false
-  const mins = kst.getHours() * 60 + kst.getMinutes()
-  return mins >= 480 && mins <= 1200
-}
+import { isKrMarketHours } from '../utils/format'
 
 interface Props {
   items: ScreenerItem[]

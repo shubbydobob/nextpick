@@ -4,16 +4,17 @@ import type { LiveQuote } from '../api/client'
 import { useIsMobile } from '../hooks/useIsMobile'
 import StatusBadges from '../components/StatusBadges'
 import { scoreFg, changeColor } from '../utils/factors'
-import { fmtRate } from '../utils/format'
+import { fmtRate, isKrMarketHours } from '../utils/format'
 
 interface Props {
   items: ScreenerItem[]
   loading: boolean
   onStockClick: (id: number) => void
   liveMap?: Record<string, LiveQuote>
+  liveLoaded?: boolean
 }
 
-export default function RankingView({ items, loading, onStockClick, liveMap }: Props) {
+export default function RankingView({ items, loading, onStockClick, liveMap, liveLoaded }: Props) {
   const isMobile = useIsMobile()
 
   const topItems = [...items]
@@ -21,12 +22,15 @@ export default function RankingView({ items, loading, onStockClick, liveMap }: P
     .slice(0, 50)
   const maxScore = topItems[0]?.compositeScore ?? 100
 
+  // 장중 첫 실시간 폴링 전엔 배치(전일) 상태뱃지를 노출하지 않음 → 정지 해제 종목의 전일 '거래정지' 플래시 방지.
+  const badgesPending = isKrMarketHours() && !liveLoaded
+
   // 장중 라이브 오버레이 — 등락률·특이사항(뱃지) 병합.
   const liveOf = (item: ScreenerItem) => {
     const q = liveMap?.[item.ticker]
     return {
       changeRate: q?.changeRate ?? item.changeRate,
-      statuses: q?.statuses ?? item.statuses ?? null,
+      statuses: badgesPending ? null : (q?.statuses ?? item.statuses ?? null),
     }
   }
 
