@@ -71,6 +71,33 @@ jobs:
                         print(f"=== {label} mkt={mkt} ERROR {e}")
                 one("현재가", "FHKST01010100", "/uapi/domestic-stock/v1/quotations/inquire-price",
                     {"fid_cond_mrkt_div_code": mkt, "fid_input_iscd": ticker})
+
+            # ── 외인/기관 장중 추정 순매수(잠정치) TR 확인 ──────────────
+            # (A) 종목별 외국인/기관 추정가집계 — 키움 '잠정 1·2·3차'에 해당하는 장중 추정치.
+            #     TR=HHPTJ04160200, path=/investor-trend-estimate. output2 배열(차수별).
+            def raw(label, tr, path, p):
+                h = {"content-type":"application/json; charset=utf-8",
+                     "authorization": f"Bearer {token}", "appkey": cfg["app_key"],
+                     "appsecret": cfg["app_secret"], "tr_id": tr, "custtype": "P"}
+                try:
+                    r = requests.get(_BASE_URL + path, headers=h, params=p, timeout=10)
+                    j = r.json()
+                    print(f"\n=== {label} TR={tr} HTTP={r.status_code} rt_cd={j.get('rt_cd')} msg={j.get('msg1')}")
+                    for k in ("output", "output1", "output2"):
+                        v = j.get(k)
+                        if v:
+                            if isinstance(v, list): v = v[:4]
+                            print(f"  [{k}] {json.dumps(v, ensure_ascii=False)[:1800]}")
+                except Exception as e:
+                    print(f"\n=== {label} TR={tr} ERROR {e}")
+
+            raw("추정가집계(잠정)", "HHPTJ04160200",
+                "/uapi/domestic-stock/v1/quotations/investor-trend-estimate",
+                {"MKSC_SHRN_ISCD": ticker})
+            # (B) 확정 투자자매매동향(현행 백엔드가 쓰는 것) — 장중 당일행이 stale/0인지 비교.
+            raw("투자자매매동향(확정)", "FHKST01010900",
+                "/uapi/domestic-stock/v1/quotations/inquire-investor",
+                {"fid_cond_mrkt_div_code": "J", "fid_input_iscd": ticker})
             PY
 
             echo ""
