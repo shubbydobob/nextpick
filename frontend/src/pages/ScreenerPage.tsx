@@ -85,70 +85,41 @@ const FACTORS = [
 function GuidePopup({ onClose }: { onClose: (hide24h: boolean) => void }) {
   const [hide24h, setHide24h] = useState(false)
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.75)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center',
-    }} onClick={() => onClose(hide24h)}>
-      <div style={{
-        background: 'var(--bg-nav)', border: '1px solid var(--border)', borderRadius: 10,
-        width: '90%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto',
-        padding: '28px 28px 20px', boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
-      }} onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={() => onClose(hide24h)}>
+      <div className="modal-card guide-card" onClick={e => e.stopPropagation()}>
         {/* 헤더 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <div className="guide-head">
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, letterSpacing: '0.5px' }}>NEXT<span style={{ color: 'var(--accent)' }}>PICK</span></span> · 7대 핵심 스코어
+            <div className="guide-title">
+              <span className="brand-mono">NEXT<span className="brand-pick">PICK</span></span> · 7대 핵심 스코어
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+            <div className="guide-sub">
               각 지표는 0~100점으로 환산되며 가중 합산하여 종합점수를 산출합니다
             </div>
           </div>
-          <button onClick={() => onClose(hide24h)} style={{
-            background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer',
-            fontSize: 18, padding: '0 0 0 12px', lineHeight: 1,
-          }}>✕</button>
+          <button onClick={() => onClose(hide24h)} className="guide-close">✕</button>
         </div>
 
         {/* 지표 목록 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="guide-list">
           {FACTORS.map(f => (
-            <div key={f.num} style={{
-              display: 'flex', gap: 12, alignItems: 'flex-start',
-              padding: '10px 12px', borderRadius: 6,
-              background: 'var(--bg-surface)', border: '1px solid var(--border)',
-            }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-                background: 'var(--accent)22', border: '1px solid var(--accent)55',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14, fontWeight: 800, color: '#58a6ff',
-              }}>{f.num}</div>
+            <div key={f.num} className="guide-item">
+              <div className="guide-num">{f.num}</div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', marginBottom: 3 }}>
-                  {f.name}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6 }}>
-                  {f.desc}
-                </div>
+                <div className="guide-item-name">{f.name}</div>
+                <div className="guide-item-desc">{f.desc}</div>
               </div>
             </div>
           ))}
         </div>
 
         {/* 하단 */}
-        <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, color: 'var(--text-3)' }}>
-            <input type="checkbox" checked={hide24h} onChange={e => setHide24h(e.target.checked)}
-              style={{ width: 13, height: 13, accentColor: 'var(--accent)', cursor: 'pointer' }} />
+        <div className="guide-foot">
+          <label className="guide-check">
+            <input type="checkbox" checked={hide24h} onChange={e => setHide24h(e.target.checked)} />
             24시간 보지 않기
           </label>
-          <button onClick={() => onClose(hide24h)} style={{
-            background: 'var(--accent)', border: 'none', borderRadius: 6,
-            color: '#fff', fontSize: 13, fontWeight: 600,
-            padding: '7px 20px', cursor: 'pointer',
-          }}>확인</button>
+          <button onClick={() => onClose(hide24h)} className="btn-fill guide-confirm">확인</button>
         </div>
       </div>
     </div>
@@ -170,7 +141,6 @@ export default function ScreenerPage() {
   const reqSeqRef = useRef(0)   // 검색 응답 레이스 가드
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(30)
-  const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('compositeScore')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [sector, setSector] = useState('')
@@ -403,32 +373,6 @@ export default function ScreenerPage() {
   }
 
   // ── styles ──────────────────────────────────────────────────
-  const S = {
-    filterSelect: {
-      background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 4,
-      color: '#9ca3af', padding: '4px 8px', fontSize: 12, outline: 'none',
-      cursor: 'pointer',
-    } as React.CSSProperties,
-    filterInput: {
-      background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 4,
-      color: 'var(--text-1)', padding: '4px 10px', fontSize: 13, outline: 'none', width: 200,
-    } as React.CSSProperties,
-    capBtn: (active: boolean) => ({
-      padding: '4px 9px', fontSize: 11, fontWeight: 600,
-      background: active ? '#1f3a5f' : 'transparent',
-      color: active ? '#58a6ff' : 'var(--text-3)',
-      border: 'none', cursor: 'pointer',
-      borderRight: '1px solid var(--border)',
-    } as React.CSSProperties),
-    tab: (active: boolean) => ({
-      padding: '8px 16px', fontSize: 13, fontWeight: active ? 600 : 400,
-      color: active ? 'var(--text-1)' : 'var(--text-3)',
-      background: 'none', border: 'none', cursor: 'pointer',
-      borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-      marginBottom: -1,
-    } as React.CSSProperties),
-  }
-
   // ── table header & row ──────────────────────────────────────
   const renderHead = () => {
     const Th = (props: Omit<React.ComponentProps<typeof SortTh>, 'current' | 'dir' | 'onSort'>) =>
@@ -614,8 +558,7 @@ export default function ScreenerPage() {
   })()
 
   if (error) return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center',
-      height: '100vh', color: '#f87171' }}>{error}</div>
+    <div className="screener-error">{error}</div>
   )
 
   // 실시간 오버레이가 덮어쓰는 필드로 정렬할 땐, 백엔드 정렬(배치 채점일 기준)과
@@ -680,41 +623,29 @@ export default function ScreenerPage() {
   }
 
   return (
-    <div style={{ height: '100dvh', background: 'var(--bg-base)', color: 'var(--text-1)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="screener-page">
       {showGuide && <GuidePopup onClose={closeGuide} />}
 
       {/* 프리미엄 게이팅 모달 */}
       {showPremiumModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 2000,
-          background: 'rgba(0,0,0,0.75)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }} onClick={() => setShowPremiumModal(null)}>
-          <div style={{
-            background: 'var(--bg-surface)', border: '1px solid var(--border-sub)', borderRadius: 10,
-            padding: '28px 32px', maxWidth: 400, width: '90%',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 20, marginBottom: 8 }}>✦</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>
+        <div className="modal-overlay z-top" onClick={() => setShowPremiumModal(null)}>
+          <div className="modal-card premium-card" onClick={e => e.stopPropagation()}>
+            <div className="premium-icon">✦</div>
+            <div className="premium-title">
               {showPremiumModal === 'watchlist'
                 ? '관심종목은 프리미엄에서 무제한으로'
                 : 'PDF 리포트는 프리미엄 전용'}
             </div>
-            <div style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.7, marginBottom: 20 }}>
+            <div className="premium-desc">
               {showPremiumModal === 'watchlist'
                 ? `무료 플랜은 관심종목을 최대 ${FREE_WATCHLIST_LIMIT}개까지 등록할 수 있습니다.\n프리미엄으로 업그레이드하면 무제한으로 이용하실 수 있습니다.`
                 : '종목 상세 PDF 리포트는 프리미엄 전용 기능입니다.'}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setShowPremiumModal(null)}
-                style={{ flex: 1, padding: '8px 0', fontSize: 13, background: 'none',
-                  border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-3)', cursor: 'pointer' }}>
+            <div className="premium-actions">
+              <button onClick={() => setShowPremiumModal(null)} className="btn-ghost">
                 닫기
               </button>
-              <button onClick={() => { setShowPremiumModal(null); navigate('/premium') }}
-                style={{ flex: 1, padding: '8px 0', fontSize: 13, fontWeight: 700,
-                  background: 'var(--accent)', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }}>
+              <button onClick={() => { setShowPremiumModal(null); navigate('/premium') }} className="btn-fill">
                 프리미엄 알아보기
               </button>
             </div>
@@ -726,151 +657,67 @@ export default function ScreenerPage() {
       <MacroTicker />
 
       {/* ══ New Header ══════════════════════════════════════════ */}
-      <header className="nav-bar" style={{
-        background: 'var(--bg-nav)',
-        borderBottom: '1px solid var(--border)',
-        padding: '0 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: 48,
-        flexShrink: 0,
-        gap: 16,
-      }}>
+      <header className="nav-bar">
         {/* Left: Logo + tagline */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 16,
-              fontWeight: 800,
-              letterSpacing: '1px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              whiteSpace: 'nowrap',
-            }}
-            onClick={() => setShowGuide(true)}
-          >
-            <span style={{
-              width: 8, height: 8,
-              background: 'var(--accent)',
-              borderRadius: 2,
-              display: 'inline-block',
-              boxShadow: '0 0 6px var(--accent)',
-            }} />
-            NEXT<span style={{ color: 'var(--accent)' }}>PICK</span>
+        <div className="nav-left">
+          <span className="nav-brand" onClick={() => setShowGuide(true)}>
+            <span className="nav-brand-dot" />
+            NEXT<span className="brand-pick">PICK</span>
           </span>
-          <span style={{
-            fontSize: 11,
-            color: 'var(--text-4)',
-            borderLeft: '1px solid var(--border)',
-            paddingLeft: 10,
-            whiteSpace: 'nowrap',
-          }}>
-            주도주 스코어
-          </span>
+          <span className="nav-tagline">주도주 스코어</span>
         </div>
 
         {/* Center: Search */}
-        <div style={{ flex: 1, maxWidth: 360, position: 'relative' }}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"
-            style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none' }}>
+        <div className="nav-search">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="nav-search-icon">
             <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/>
             <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
           <input
+            className="nav-search-input"
             placeholder="종목명 · 코드 · 섹터 검색"
             value={query}
             onChange={e => handleQuery(e.target.value)}
-            style={{
-              width: '100%',
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              color: 'var(--text-1)',
-              padding: '7px 12px 7px 32px',
-              fontSize: 13,
-              outline: 'none',
-            }}
-            onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)' }}
-            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
           />
         </div>
 
         {/* Right: date, theme toggle, gacha, visitor */}
-        <div className="nav-right" style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+        <div className="nav-right">
           {items[0] && (
-            <span style={{ fontSize: 11, color: 'var(--text-4)', whiteSpace: 'nowrap' }}>
-              매일 갱신 · {items[0].scoreDate}
-            </span>
+            <span className="nav-meta">매일 갱신 · {items[0].scoreDate}</span>
           )}
 
           {/* Gacha */}
-          <button onClick={() => setShowGacha(true)} style={{
-            background: 'linear-gradient(135deg, #1f6feb, #7c3aed)',
-            border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer',
-            color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
-            display: 'flex', alignItems: 'center', gap: 4,
-            boxShadow: '0 2px 8px rgba(31,111,235,0.3)',
-            transition: 'transform 0.15s, box-shadow 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(31,111,235,0.5)' }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(31,111,235,0.3)' }}>
-            PICK
-          </button>
+          <button onClick={() => setShowGacha(true)} className="nav-gacha">PICK</button>
 
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
-            style={{
-              width: 32, height: 18, borderRadius: 9, border: '1px solid var(--border-sub)',
-              background: theme === 'light' ? '#e2e8f0' : 'var(--bg-elevated)',
-              padding: 0, position: 'relative', flexShrink: 0,
-              display: 'flex', alignItems: 'center', transition: 'background 0.2s',
-            }}
+            className="theme-toggle"
           >
-            <span style={{
-              position: 'absolute', width: 12, height: 12, borderRadius: '50%',
-              background: theme === 'light' ? '#fabd44' : '#58a6ff',
-              top: 2, left: theme === 'light' ? 16 : 2,
-              transition: 'left 0.2s, background 0.2s',
-            }} />
+            <span className="theme-knob" />
           </button>
 
           {/* Visitor count */}
           {visitCount !== null && (
-            <span style={{ fontSize: 11, color: 'var(--text-4)', whiteSpace: 'nowrap' }}>
-              👥 {visitCount.toLocaleString()}
-            </span>
+            <span className="nav-meta">👥 {visitCount.toLocaleString()}</span>
           )}
 
           {/* Planner link */}
-          <button onClick={() => navigate('/calc')} style={{
-            fontSize: 12, color: 'var(--text-3)', background: 'none', border: '1px solid var(--border)',
-            borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
-          }}>
-            플래너
-          </button>
+          <button onClick={() => navigate('/calc')} className="nav-planner">플래너</button>
         </div>
 
         {/* Mobile right */}
-        <div className="nav-right-mobile" style={{ display: 'none', alignItems: 'center', gap: 12 }}>
-          <button onClick={toggleTheme}
-            style={{ width: 32, height: 18, borderRadius: 9, border: '1px solid var(--border-sub)',
-              background: theme === 'light' ? '#e2e8f0' : 'var(--bg-elevated)',
-              padding: 0, position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-            <span style={{ position: 'absolute', width: 12, height: 12, borderRadius: '50%',
-              background: theme === 'light' ? '#fabd44' : '#58a6ff',
-              top: 2, left: theme === 'light' ? 16 : 2, transition: 'left 0.2s' }} />
+        <div className="nav-right-mobile">
+          <button onClick={toggleTheme} className="theme-toggle">
+            <span className="theme-knob" />
           </button>
         </div>
       </header>
 
       {/* ══ Body: sidebar + main content ═══════════════════════ */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div className="screener-body">
 
         {/* Sidebar */}
         <AppSidebar
@@ -885,8 +732,7 @@ export default function ScreenerPage() {
         />
 
         {/* Main content area */}
-        <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden',
-          paddingBottom: isMobile ? 64 : 0 }}>
+        <main className={isMobile ? 'screener-main mobile-pad' : 'screener-main'}>
 
       {/* ══ 시장 탭 (legacy — now accessible via sector/market logic) ═════ */}
       {mainTab === 'dashboard' && (
@@ -928,59 +774,41 @@ export default function ScreenerPage() {
           : { bg: 'rgba(248,113,113,0.08)', border: '#f87171', label: '약세 구간 — 신규 매수 자제', desc: '하락 압력 우세' }
         const dot = avgM >= 60 ? '🟢' : avgM >= 40 ? '🟡' : '🔴'
         return (
-          <div className="m-banner" style={{
-            margin: '0 20px', marginTop: 8, marginBottom: 4,
-            background: bg, border: `1px solid ${border}`,
-            borderRadius: 6, padding: '5px 14px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            flexWrap: 'wrap', gap: 4,
-          }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)' }}>
+          <div className="m-banner" style={{ ['--mb-bg' as string]: bg, ['--mb-bd' as string]: border }}>
+            <span className="m-banner-title">
               {dot} 시장 M 지수: {Math.round(avgM)} · {label}
             </span>
-            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{desc}</span>
+            <span className="m-banner-desc">{desc}</span>
           </div>
         )
       })()}
 
       {mainTab === 'screener' && <>
       {/* ══ Section 2: 필터 패널 ════════════════════════════════ */}
-      <div className="screener-filter-wrap" style={{ background: 'var(--bg-nav)', borderBottom: '2px solid var(--border)', padding: '12px 20px' }}>
-        <div style={{
-          border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-base)',
-          overflow: 'hidden',
-        }}>
+      <div className="screener-filter-wrap">
+        <div className="filter-panel">
           {/* 패널 헤더 */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '6px 12px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)',
-          }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.08em' }}>
+          <div className="filter-panel-head">
+            <span className="filter-panel-title">
               스크리너 필터
               {activeFilterCount > 0 && (
-                <span style={{
-                  marginLeft: 8, background: '#1f3a5f', color: '#58a6ff',
-                  borderRadius: 10, padding: '1px 7px', fontSize: 11,
-                }}>{activeFilterCount}개 적용중</span>
+                <span className="filter-count-badge">{activeFilterCount}개 적용중</span>
               )}
             </span>
             {hasActiveFilter && (
               <button onClick={() => { setSector(''); setCapRange('all'); setQuery(''); setMinScore(0); setShowWatchOnly(false); setShowBreakoutOnly(false); setPage(0) }}
-                style={{ fontSize: 11, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                className="filter-reset">
                 초기화
               </button>
             )}
           </div>
 
           {/* 필터 그리드 */}
-          <div className="filter-grid" style={{
-            display: 'grid', gridTemplateColumns: 'auto 1fr auto 1fr',
-            gap: '1px', background: 'var(--border)',
-          }}>
+          <div className="filter-grid">
             {/* 섹터 */}
             <FilterCell label="섹터">
               <select value={sector} onChange={e => { setSector(e.target.value); setPage(0) }}
-                style={S.filterSelect}>
+                className="filter-select">
                 <option value="">전체</option>
                 {sectors.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -1000,7 +828,7 @@ export default function ScreenerPage() {
             <FilterCell label="종목검색">
               <input placeholder="종목명 / 티커" value={query}
                 onChange={e => handleQuery(e.target.value)}
-                style={{ ...S.filterInput, width: 180 }} />
+                className="filter-input" />
             </FilterCell>
 
             {/* SCORE 최소 */}
@@ -1047,28 +875,15 @@ export default function ScreenerPage() {
           .slice(0, 5)
         if (risers.length === 0) return null
         return (
-          <div className="rising-wrap" style={{ padding: '6px 20px 0' }}>
-            <div style={{
-              background: 'var(--bg-nav)', border: '1px solid var(--border)',
-              borderRadius: 6, padding: '8px 12px',
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.06em', flexShrink: 0 }}>
-                이번주 상승
-              </span>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="rising-wrap">
+            <div className="rising-inner">
+              <span className="rising-label">이번주 상승</span>
+              <div className="rising-chips">
                 {risers.map(item => (
-                  <div key={item.securityId}
-                    onClick={() => { setSelectedStockId(item.securityId); setViewTab('detail') }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 5,
-                      background: 'rgba(232,51,63,0.08)', border: '1px solid rgba(232,51,63,0.25)',
-                      borderRadius: 4, padding: '2px 8px', cursor: 'pointer',
-                    }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-1)', fontWeight: 600 }}>{item.name}</span>
-                    <span style={{ fontSize: 12, color: 'var(--up)', fontWeight: 700 }}>
-                      +{Math.round(item.scoreDelta ?? 0)}
-                    </span>
+                  <div key={item.securityId} className="rising-chip"
+                    onClick={() => { setSelectedStockId(item.securityId); setViewTab('detail') }}>
+                    <span className="rising-chip-name">{item.name}</span>
+                    <span className="rising-chip-delta">+{Math.round(item.scoreDelta ?? 0)}</span>
                   </div>
                 ))}
               </div>
@@ -1078,75 +893,50 @@ export default function ScreenerPage() {
       })()}
 
       {/* ══ Section 3: 결과바 + 뷰탭 (sticky) ══════════════════ */}
-      <div className="result-bar" style={{
-        position: 'sticky', top: 0, zIndex: 20,
-        background: 'var(--bg-nav)', borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 20px',
-      }}>
+      <div className="result-bar">
         {/* 뷰 탭 */}
-        <div style={{ display: 'flex' }}>
-          <button onClick={() => setViewTab('table')} style={S.tab(viewTab === 'table')}>
+        <div className="view-tabs">
+          <button onClick={() => setViewTab('table')} className={viewTab === 'table' ? 'view-tab on' : 'view-tab'}>
             스크리너
           </button>
-          <div style={{ position: 'relative' }}
-            onMouseEnter={e => {
-              if (!selectedStockId) {
-                const tip = e.currentTarget.querySelector('[data-tip]') as HTMLElement
-                if (tip) tip.style.display = 'block'
-              }
-            }}
-            onMouseLeave={e => {
-              const tip = e.currentTarget.querySelector('[data-tip]') as HTMLElement
-              if (tip) tip.style.display = 'none'
-            }}>
+          <div className="view-tab-tip-wrap">
             <button
               onClick={() => { if (selectedStockId) setViewTab('detail') }}
-              style={{
-                ...S.tab(viewTab === 'detail'),
-                color: viewTab === 'detail' ? '#58a6ff' : selectedStockId ? 'var(--text-3)' : 'var(--text-4)',
-                cursor: selectedStockId ? 'pointer' : 'default',
-              }}>
+              className={'view-tab detail'
+                + (viewTab === 'detail' ? ' on' : '')
+                + (selectedStockId ? '' : ' disabled')}>
               종목 상세
             </button>
-            <div data-tip style={{
-              display: 'none', position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-              background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6,
-              padding: '6px 12px', fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap',
-              zIndex: 30, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', marginTop: 4,
-            }}>
-              종목을 선택해주세요
-            </div>
+            {!selectedStockId && (
+              <div className="view-tab-tip">종목을 선택해주세요</div>
+            )}
           </div>
         </div>
 
         {/* 결과 카운트 + 행수 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="result-meta">
           {/* 라이브 상태 배지 — 실시간 / 지연(장중 오류) / 종가(장외) 3-상태 */}
           {(() => {
             const live = Object.keys(liveMap).length > 0
             const state = live ? 'live' : (isKrMarketHours() ? 'delayed' : 'batch')
             const c = state === 'live'
-              ? { bg: 'rgba(34,197,94,0.15)', color: '#22c55e', text: '● 실시간', tip: '장중 실시간 시세 반영 중' }
+              ? { text: '● 실시간', tip: '장중 실시간 시세 반영 중' }
               : state === 'delayed'
-              ? { bg: 'rgba(234,179,8,0.15)', color: '#eab308', text: '● 지연', tip: '장중이나 실시간 시세 지연/오류 — 종가 기준 표시 중 (KIS 쿼터·네트워크 확인)' }
-              : { bg: 'var(--bg-elevated)', color: 'var(--text-4)', text: '종가', tip: '장 마감/장외 — 종가(EOD) 기준' }
+              ? { text: '● 지연', tip: '장중이나 실시간 시세 지연/오류 — 종가 기준 표시 중 (KIS 쿼터·네트워크 확인)' }
+              : { text: '종가', tip: '장 마감/장외 — 종가(EOD) 기준' }
             return (
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
-                background: c.bg, color: c.color, whiteSpace: 'nowrap' }} title={c.tip}>
-                {c.text}
-              </span>
+              <span className={`live-badge ${state}`} title={c.tip}>{c.text}</span>
             )
           })()}
           {!loading && (
-            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-              <span style={{ color: 'var(--text-3)', fontWeight: 600 }}>{total.toLocaleString()}</span>
+            <span className="result-count">
+              <span className="result-count-num">{total.toLocaleString()}</span>
               {' '}종목
-              {hasActiveFilter && <span style={{ color: 'var(--accent-strong)' }}> (필터 적용)</span>}
+              {hasActiveFilter && <span className="result-count-filter"> (필터 적용)</span>}
             </span>
           )}
           <select value={size} onChange={e => handleSize(Number(e.target.value))}
-            style={{ ...S.filterSelect, fontSize: 11 }}>
+            className="filter-select sm">
             {[30, 50, 100].map(n => <option key={n} value={n}>{n}행</option>)}
           </select>
         </div>
@@ -1164,38 +954,22 @@ export default function ScreenerPage() {
         if (showBreakoutOnly) chips.push({ label: '⤊ 오늘 돌파', clear: () => setShowBreakoutOnly(false) })
         const clearAll = () => { setSector(''); setCapRange('all'); setQuery(''); setMinScore(0); setShowWatchOnly(false); setShowBreakoutOnly(false); setPage(0) }
         return (
-          <div className="filter-chips" style={{
-            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6,
-            padding: '8px 20px', background: 'var(--bg-base)', borderBottom: '1px solid var(--border)',
-          }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.04em', marginRight: 2 }}>필터</span>
+          <div className="filter-chips">
+            <span className="filter-chips-label">필터</span>
             {chips.map((c, i) => (
-              <button key={i} onClick={c.clear} title="제거" style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                fontSize: 11, fontWeight: 600, padding: '3px 6px 3px 10px', borderRadius: 999,
-                background: 'var(--accent-soft)', color: 'var(--accent-strong)',
-                border: '1px solid var(--accent)', cursor: 'pointer',
-              }}>
+              <button key={i} onClick={c.clear} title="제거" className="filter-chip">
                 {c.label}
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 14, height: 14, borderRadius: '50%', fontSize: 11, lineHeight: 1,
-                  background: 'var(--accent)', color: 'var(--accent-contrast)',
-                }}>×</span>
+                <span className="filter-chip-x">×</span>
               </button>
             ))}
-            <button onClick={clearAll} style={{
-              fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999,
-              background: 'transparent', color: 'var(--text-3)',
-              border: '1px solid var(--border-sub)', cursor: 'pointer', marginLeft: 2,
-            }}>전체 해제</button>
+            <button onClick={clearAll} className="filter-chip-clear">전체 해제</button>
           </div>
         )
       })()}
 
       {/* ── Detail panel (inline) ───────────────────────────── */}
       {viewTab === 'detail' && selectedStockId && (
-        <Suspense fallback={<div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}><span className="spinner" /> 상세 로딩 중...</div>}>
+        <Suspense fallback={<div className="detail-fallback"><span className="spinner" /> 상세 로딩 중...</div>}>
           <StockDetailPanel
             securityId={selectedStockId}
             onSelectStock={(id) => setSelectedStockId(id)}
@@ -1205,9 +979,8 @@ export default function ScreenerPage() {
       )}
 
       {/* ── Table area ───────────────────────────────────────── */}
-      {viewTab !== 'detail' && <><div className="table-wrap" style={{ padding: '0 20px' }}>
-        <div ref={scrollRef} onScroll={onTableScroll} className="hide-scrollbar"
-          style={{ overflowX: 'auto' }}>
+      {viewTab !== 'detail' && <><div className="table-wrap">
+        <div ref={scrollRef} onScroll={onTableScroll} className="hide-scrollbar scr-scroll">
           {loading ? (
             <div className="loading-box">
               <span className="spinner" />
@@ -1215,27 +988,16 @@ export default function ScreenerPage() {
             </div>
           ) : isMobile ? (
             /* 모바일/앱: 카드 리스트 (가로 스크롤 없는 세로 레이아웃) */
-            <div style={{ padding: '2px 0' }}>
+            <div className="scr-cards">
               {displayItems.map((item, idx) => renderCard(mergeLive(item), idx))}
             </div>
           ) : (
-            <table style={{
-              width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed',
-              minWidth: 900,
-            }}>
+            <table className="scr-table">
               <thead>{renderHead()}</thead>
               <tbody>
                 {displayItems.map((item, idx) => (
                   <tr key={item.securityId}
-                    onClick={() => { setSelectedStockId(item.securityId); setViewTab('detail') }}
-                    onMouseEnter={() => setHoveredId(item.securityId)}
-                    onMouseLeave={() => setHoveredId(null)}
-                    style={{
-                      cursor: 'pointer',
-                      background: hoveredId === item.securityId ? 'var(--bg-surface)'
-                        : idx % 2 === 0 ? 'var(--bg-base)' : 'var(--bg-nav)',
-                      transition: 'background 0.08s',
-                    }}>
+                    onClick={() => { setSelectedStockId(item.securityId); setViewTab('detail') }}>
                     {renderRow(mergeLive(item), idx)}
                   </tr>
                 ))}
@@ -1244,37 +1006,26 @@ export default function ScreenerPage() {
           )}
 
           {!loading && items.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-4)', fontSize: 14 }}>
-              검색 결과 없음
-            </div>
+            <div className="scr-empty">검색 결과 없음</div>
           )}
         </div>
 
         {/* 하단 고정 가로 스크롤바 — 세로 스크롤 중에도 뷰포트 하단에 붙어 항상 조작 가능
             (넓은 테이블 전용 — 모바일 카드 뷰에선 숨김) */}
         {!isMobile && (
-          <div ref={mirrorRef} onScroll={onMirrorScroll} className="sticky-hscroll" style={{
-            position: 'sticky', bottom: 0, overflowX: 'auto', overflowY: 'hidden',
-            zIndex: 6, background: 'var(--bg-nav)', borderTop: '1px solid var(--border)',
-            boxShadow: '0 -4px 12px rgba(0,0,0,0.12)',
-          }}>
-            <div style={{
-              minWidth: 900, height: 1,
-            }} />
+          <div ref={mirrorRef} onScroll={onMirrorScroll} className="sticky-hscroll hscroll-mirror">
+            <div className="hscroll-mirror-inner" />
           </div>
         )}
       </div>
 
       {/* ── Pagination ───────────────────────────────────────── */}
       {!loading && totalPages > 1 && (
-        <div className="pagination" style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '12px 20px 32px', borderTop: '1px solid var(--bg-surface)',
-        }}>
-          <span style={{ fontSize: 12, color: 'var(--text-4)' }}>
+        <div className="pagination">
+          <span className="pagination-info">
             {total.toLocaleString()}종목 · {page + 1}/{totalPages}페이지
           </span>
-          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div className="pagination-nums">
             <PgBtn label="«" onClick={() => setPage(0)} disabled={page === 0} />
             <PgBtn label="‹" onClick={() => setPage(p => p - 1)} disabled={page === 0} />
             {pageNums.map(p => (
@@ -1283,7 +1034,7 @@ export default function ScreenerPage() {
             <PgBtn label="›" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1} />
             <PgBtn label="»" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1} />
           </div>
-          <div className="pg-spacer" style={{ width: 120 }} />
+          <div className="pg-spacer" />
         </div>
       )}
       </>}
