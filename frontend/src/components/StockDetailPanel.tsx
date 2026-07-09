@@ -346,42 +346,6 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
         })}
       </div>
 
-      {/* ── 당일 수급 (실시간, KIS) ── */}
-      {(() => {
-        const px = live?.price ?? stock.closePrice ?? 0
-        const progWon = (live?.programNetVol != null && px) ? live.programNetVol * px : null
-        const isLive = live != null || investor != null
-        const eok = (won: number | null) => won == null ? null : Math.round(won / 1e8)
-        const flowColor = (v: number | null) => v == null ? 'var(--text-3)' : v > 0 ? 'var(--up)' : v < 0 ? 'var(--down)' : 'var(--text-3)'
-        const cell = (label: string, won: number | null, tag: string) => {
-          const e = eok(won)
-          return (
-            <div className="metric-cell" key={label}>
-              <div className="metric-cell-label">
-                {label} <span className={'det-cell-sub' + (tag === '실시간' ? ' live' : '')}>{tag}</span>
-              </div>
-              <div className="metric-cell-value mono" style={{ ['--mc' as string]: flowColor(e) }}>
-                {e == null ? '—' : (e > 0 ? '+' : '') + e + '억'}
-              </div>
-            </div>
-          )
-        }
-        return (
-          <div className="metric-block">
-            <div className="det-sec-head">
-              <span className="det-sec-title">당일 수급</span>
-              <span className={'det-live-pill' + (isLive ? ' on' : '')}>
-                {isLive ? '● 장중 (외인·기관 잠정 / 프로그램 실시간)' : '장마감 · 종가 기준'}
-              </span>
-            </div>
-            <div className="metric-strip">
-              {cell('외국인', investor?.foreignNetBuy ?? null, '잠정')}
-              {cell('기관', investor?.instNetBuy ?? null, '잠정')}
-              {cell('프로그램', progWon, '실시간')}
-            </div>
-          </div>
-        )
-      })()}
 
       {/* ── 투자지표 (PER·PBR·ROE·EPS, 최근 연간 기준) ── */}
       {(() => {
