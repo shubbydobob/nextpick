@@ -121,6 +121,12 @@ CREATE TABLE derived_metrics (
     after_hours_change_pct  NUMERIC(8,4),
     inst_trend_flag         SMALLINT,
 
+    -- KIS inquire-price 밸류에이션 스냅샷(EOD 폴백; 장중엔 실시간 오버레이)
+    per                     NUMERIC(12,4),
+    pbr                     NUMERIC(12,4),
+    eps                     NUMERIC(16,4),
+    bps                     NUMERIC(16,4),
+
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_derived_metrics_sec_date UNIQUE (security_id, as_of_date)
 );

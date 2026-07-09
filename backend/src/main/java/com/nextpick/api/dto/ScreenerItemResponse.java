@@ -41,9 +41,13 @@ public record ScreenerItemResponse(
         BigDecimal scoreDelta,
         boolean breakoutToday,
         Integer baseDays,
-        String[] statuses    // 거래정지·주의·경고·위험·과열·관리·정리매매 (없으면 null)
+        String[] statuses,   // 거래정지·주의·경고·위험·과열·관리·정리매매 (없으면 null)
+        BigDecimal per,      // KIS EOD 밸류에이션 스냅샷 (장외 폴백; 장중엔 실시간 오버레이)
+        BigDecimal pbr,
+        BigDecimal eps,
+        BigDecimal bps
 ) {
-    /** idx: [0]=close [1]=inst [2]=foreign [3]=changeRate [4]=52wHigh [5]=volume [6]=turnover [7]=marketCap [8]=program [9]=ahClose [10]=ahChg */
+    /** idx: [0]=close [1]=inst [2]=foreign [3]=changeRate [4]=52wHigh [5]=volume [6]=turnover [7]=marketCap [8]=program [9]=ahClose [10]=ahChg [11]=per [12]=pbr [13]=eps [14]=bps */
     public static ScreenerItemResponse of(NextpickScore score, Instrument inst, BigDecimal[] pf, String[] statuses) {
         return new ScreenerItemResponse(
                 inst.getId(), inst.getTicker(), inst.getName(),
@@ -53,7 +57,8 @@ public record ScreenerItemResponse(
                 score.getCScore(), score.getAScore(), score.getNScore(),
                 score.getSScore(), score.getLScore(), score.getIScore(), score.getMScore(),
                 pf[0], pf[3], pf[4], pf[5], pf[6], pf[1], pf[2], pf[8], pf[9], pf[10], pf[7],
-                inst.getSector(), null, false, null, statuses
+                inst.getSector(), null, false, null, statuses,
+                pf[11], pf[12], pf[13], pf[14]
         );
     }
 
@@ -66,7 +71,8 @@ public record ScreenerItemResponse(
                 score.getCScore(), score.getAScore(), score.getNScore(),
                 score.getSScore(), score.getLScore(), score.getIScore(), score.getMScore(),
                 pf[0], pf[3], pf[4], pf[5], pf[6], pf[1], pf[2], pf[8], pf[9], pf[10], pf[7],
-                inst.getSector(), scoreDelta, false, null, statuses
+                inst.getSector(), scoreDelta, false, null, statuses,
+                pf[11], pf[12], pf[13], pf[14]
         );
     }
 
@@ -81,7 +87,8 @@ public record ScreenerItemResponse(
                 score.getCScore(), score.getAScore(), score.getNScore(),
                 score.getSScore(), score.getLScore(), score.getIScore(), score.getMScore(),
                 pf[0], pf[3], pf[4], pf[5], pf[6], pf[1], pf[2], pf[8], pf[9], pf[10], pf[7],
-                inst.getSector(), scoreDelta, breakoutToday, baseDays, statuses
+                inst.getSector(), scoreDelta, breakoutToday, baseDays, statuses,
+                pf[11], pf[12], pf[13], pf[14]
         );
     }
 }

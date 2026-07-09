@@ -143,7 +143,7 @@ public class ScreenerController {
             List<ScreenerItemResponse> allResult = filtered.stream()
                     .map(s -> {
                         Instrument inst = allInst.get(s.getSecurityId());
-                        BigDecimal[] data = pf.getOrDefault(s.getSecurityId(), new BigDecimal[8]);
+                        BigDecimal[] data = pf.getOrDefault(s.getSecurityId(), new BigDecimal[15]);
                         BigDecimal delta = deltaMap.get(s.getSecurityId());
                         boolean breakout = breakouts.contains(s.getSecurityId());
                         return ScreenerItemResponse.of(s, inst, data, delta, breakout, null, statusMap.get(s.getSecurityId()));
@@ -197,7 +197,7 @@ public class ScreenerController {
                 .filter(s -> instMap.containsKey(s.getSecurityId()))
                 .map(s -> {
                     Instrument inst = instMap.get(s.getSecurityId());
-                    BigDecimal[] data = priceFlow.getOrDefault(s.getSecurityId(), new BigDecimal[8]);
+                    BigDecimal[] data = priceFlow.getOrDefault(s.getSecurityId(), new BigDecimal[15]);
                     BigDecimal delta = deltaMap.get(s.getSecurityId());
                     return ScreenerItemResponse.of(s, inst, data, delta, false, null, statusMap.get(s.getSecurityId()));
                 })
@@ -386,7 +386,7 @@ public class ScreenerController {
         if (score.isEmpty()) return ResponseEntity.notFound().build();
 
         Map<Long, BigDecimal[]> pf = loadPriceAndFlow(List.of(securityId), scoreDate);
-        BigDecimal[] data = pf.getOrDefault(securityId, new BigDecimal[7]);
+        BigDecimal[] data = pf.getOrDefault(securityId, new BigDecimal[15]);
         String[] statuses = loadStatuses(List.of(securityId)).get(securityId);
         return ResponseEntity.ok(ScreenerItemResponse.of(score.get(), inst, data, statuses));
     }
@@ -624,12 +624,13 @@ public class ScreenerController {
      * [0]=closePrice [1]=instNetBuy10d [2]=foreignNetBuy10d
      * [3]=changeRate(%) [4]=52wHigh [5]=volume [6]=turnover [7]=marketCap(원)
      * [8]=programNetBuy10d [9]=afterHoursClose [10]=afterHoursChangePct
+     * [11]=per [12]=pbr [13]=eps [14]=bps (KIS EOD 밸류에이션 스냅샷)
      */
     private Map<Long, BigDecimal[]> loadPriceAndFlow(List<Long> ids, LocalDate scoreDate) {
         if (ids.isEmpty()) return Map.of();
 
         Map<Long, BigDecimal[]> result = new HashMap<>();
-        for (Long id : ids) result.put(id, new BigDecimal[11]);
+        for (Long id : ids) result.put(id, new BigDecimal[15]);
 
         Long[] idArr = ids.toArray(new Long[0]);
 
@@ -644,7 +645,7 @@ public class ScreenerController {
             ),
             flow AS (
                 SELECT security_id, inst_net_buy_10d, foreign_net_buy_10d, program_net_buy_10d,
-                       after_hours_close, after_hours_change_pct
+                       after_hours_close, after_hours_change_pct, per, pbr, eps, bps
                 FROM derived_metrics
                 WHERE as_of_date = (SELECT MAX(as_of_date) FROM derived_metrics WHERE inst_net_buy_10d IS NOT NULL)
             )
@@ -659,7 +660,8 @@ public class ScreenerController {
                    END AS change_rate,
                    COALESCE(f.after_hours_close, r.close_adj) * i.total_shares AS market_cap,
                    f.inst_net_buy_10d, f.foreign_net_buy_10d, f.program_net_buy_10d,
-                   f.after_hours_close, f.after_hours_change_pct
+                   f.after_hours_close, f.after_hours_change_pct,
+                   f.per, f.pbr, f.eps, f.bps
             FROM ranked r
             JOIN instruments i ON i.id = r.security_id
             LEFT JOIN flow f ON f.security_id = r.security_id
@@ -684,6 +686,10 @@ public class ScreenerController {
                 row[8] = rs.getBigDecimal("program_net_buy_10d");
                 row[9] = rs.getBigDecimal("after_hours_close");
                 row[10] = rs.getBigDecimal("after_hours_change_pct");
+                row[11] = rs.getBigDecimal("per");
+                row[12] = rs.getBigDecimal("pbr");
+                row[13] = rs.getBigDecimal("eps");
+                row[14] = rs.getBigDecimal("bps");
             });
         } catch (Exception e) {
             log.warn("price+flow 조회 실패: {}", e.getMessage());
@@ -799,7 +805,8 @@ public class ScreenerController {
                 rs.getString("sector"),
                 null,
                 false, null,
-                arrToStrings(rs.getArray("statuses"))
+                arrToStrings(rs.getArray("statuses")),
+                null, null, null, null   // per/pbr/eps/bps — 아래 withPriceFlow가 loadPriceAndFlow 값으로 오버레이
             );
         }, dataParams.toArray());
 
@@ -824,7 +831,7 @@ public class ScreenerController {
 
     /** 가격/수급 필드만 loadPriceAndFlow 값(price_daily 최신 앵커)으로 교체(널이면 기존값 유지). */
     private static ScreenerItemResponse withPriceFlow(ScreenerItemResponse it, BigDecimal[] d) {
-        // d 인덱스: [0]close [1]inst [2]foreign [3]changeRate [4]52wHigh [5]vol [6]turnover [7]cap [8]program [9]ahClose [10]ahChg
+        // d 인덱스: [0]close [1]inst [2]foreign [3]changeRate [4]52wHigh [5]vol [6]turnover [7]cap [8]program [9]ahClose [10]ahChg [11]per [12]pbr [13]eps [14]bps
         return new ScreenerItemResponse(
                 it.securityId(), it.ticker(), it.name(), it.market(), it.scoreDate(),
                 it.marketRank(), it.marketPercentile(), it.compositeScore(),
@@ -840,7 +847,9 @@ public class ScreenerController {
                 coalesce(d[9], it.afterHoursPrice()),
                 coalesce(d[10], it.afterHoursChangeRate()),
                 coalesce(d[7], it.marketCap()),
-                it.sector(), it.scoreDelta(), it.breakoutToday(), it.baseDays(), it.statuses()
+                it.sector(), it.scoreDelta(), it.breakoutToday(), it.baseDays(), it.statuses(),
+                coalesce(d[11], it.per()), coalesce(d[12], it.pbr()),
+                coalesce(d[13], it.eps()), coalesce(d[14], it.bps())
         );
     }
 

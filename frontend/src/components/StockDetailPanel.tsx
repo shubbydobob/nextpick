@@ -389,11 +389,12 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
         const roeFrac = latestAnnual?.roe ?? null                 // 분수 (0.15 = 15%)
         const px = live?.price ?? stock.closePrice
         const posv = (v?: number | null) => (v != null && v > 0) ? v : null
-        // KIS inquire-price 실측 우선(장중), 없으면 최근 연간 재무 기반 근사(장외 폴백)
-        const eps = posv(live?.eps) ?? latestAnnual?.eps ?? null
-        const per = posv(live?.per) ?? ((eps != null && eps > 0 && px != null) ? px / eps : null)
-        const pbr = posv(live?.pbr) ?? ((per != null && roeFrac != null) ? per * roeFrac : null)
+        // 우선순위: KIS 실시간(장중) → KIS EOD 배치(장외, stock.per/pbr) → 재무 기반 근사
+        const eps = posv(live?.eps) ?? posv(stock.eps) ?? latestAnnual?.eps ?? null
+        const per = posv(live?.per) ?? posv(stock.per) ?? ((eps != null && eps > 0 && px != null) ? px / eps : null)
+        const pbr = posv(live?.pbr) ?? posv(stock.pbr) ?? ((per != null && roeFrac != null) ? per * roeFrac : null)
         const kisLive = posv(live?.per) != null || posv(live?.pbr) != null
+        const kisBatch = !kisLive && (posv(stock.per) != null || posv(stock.pbr) != null)
         const cells: { label: string; value: string; pos?: boolean; mono?: boolean }[] = [
           { label: 'PER', value: per != null ? `${per.toFixed(1)}배` : '—' },
           { label: 'PBR', value: pbr != null ? `${pbr.toFixed(2)}배` : '—' },
@@ -405,7 +406,7 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
           <div className="metric-block">
             <div className="metric-section-head">
               <span className="metric-section-title">투자지표</span>
-              <span className="metric-section-sub">{kisLive ? 'KIS 실시간' : '최근 연간 · 근사'}</span>
+              <span className="metric-section-sub">{kisLive ? 'KIS 실시간' : kisBatch ? 'KIS 종가' : '최근 연간 · 근사'}</span>
             </div>
             <div className="metric-strip">
               {cells.map(({ label, value, pos, mono }) => (

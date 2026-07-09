@@ -32,7 +32,7 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
   - MCP `mcp__github__actions_run_trigger`로 트리거, `get_job_logs`로 결과 확인.
 
 ### ETL 스케줄 (전부 서버·평일, 사용자 PC 무관)
-- **20:05 KST 크론** → `run_daily` (가격→수급→KIS재무→정규화→파생→market_state→종목상태(뱃지)→채점트리거). 시간외 단일가 20:00 마감 후 확정 종가·상태로 채점. (과거 16:10 → 시간외 반영 위해 20:05로 이동.)
+- **20:05 KST 크론** → `run_daily` (가격→수급→KIS재무→정규화→파생→market_state→종목상태(뱃지 7b)→시간외단일가(7c)→밸류에이션 PER/PBR/EPS/BPS(7d)→채점트리거). 시간외 단일가 20:00 마감 후 확정 종가·상태로 채점. (과거 16:10 → 시간외 반영 위해 20:05로 이동.)
 - **21:30 KST** 백엔드 `@Scheduled ScoringJob` 재채점(안전망). run_daily(20:05) 완료 후 채점 트리거 실패 대비. (과거 16:40 KST → ETL 20:05 이동에 맞춰 뒤로 조정. `zone="Asia/Seoul"` 명시.)
 - **매월 1~7일**: `_maybe_reset_financial_ingestion`이 KIS 재무 전량 재수집 → 새 분기 공시 반영. (**DART 미사용** — 재무는 KIS로 전환됨. DART 오펀 스케줄(watcher) 제거.)
 
@@ -172,12 +172,12 @@ psql -U nextpick_user -d nextpick -c "SELECT ticker, composite_score FROM nextpi
 ## DB 스키마 요약
 ```
 price_daily            (~2558 종목, 10년 일별 가격, 연도별 파티션)
-derived_metrics        (파생: EPS/ROE + rs_percentile/52w/수급/after_hours, security_id+as_of_date)
+derived_metrics        (파생: EPS/ROE + rs_percentile/52w/수급/after_hours + per/pbr/eps/bps(V20 KIS밸류에이션 EOD), security_id+as_of_date)
 financials             (KIS 재무 원본, DART 미사용)
 nextpick_scores         (~2558 종목, CAN SLIM 종합 점수 + 가격 스냅샷)
 security_status_daily  (V18, 특이사항 뱃지 스냅샷: statuses TEXT[], security_id+status_date)
 ```
-Flyway 마이그레이션: `backend/src/main/resources/db/migration/` (V1~V18). 백엔드 배포 시 자동 실행.
+Flyway 마이그레이션: `backend/src/main/resources/db/migration/` (V1~V20). 백엔드 배포 시 자동 실행. (V19=nextpick 리네이밍, V20=derived_metrics per/pbr/eps/bps.)
 
 ## 알려진 데이터 현황
 - 최고 점수: 미래에셋생명(085620) C=95.8, I=100

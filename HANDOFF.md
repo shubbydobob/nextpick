@@ -32,12 +32,13 @@ cd ../backend && ./gradlew compileJava
 - 부수효과 정리: `hoveredId` state 제거(→CSS `nth-child`/`:hover`), 테마토글 JS인라인 제거(→`[data-theme]`), `Card`는 `style` prop→`className`.
 - **다른 파일 수정 시에도 이 규칙 유지**. 컨테이너 중 `detail-hero`/`detail-price-bar`/`detail-factors`/`detail-radar-flow`/`nav-bar`/`filter-grid` 등은 `@media(max-width:768px)` 반응형 규칙 있으니 클래스명 유지하고 base만 추가.
 
-## 3. 남은 일 — KIS 재무 EOD 스냅샷 (선택, "필요하면 DB")
-현재 KIS per/pbr는 **장중(09:00~18:00)만** 실측(realtime 엔드포인트가 장외엔 `[]`). 장외에도 항상 실측을 원하면:
-- V20 마이그레이션: `derived_metrics`에 `per,pbr,eps,bps` 컬럼 추가.
-- ETL `kis_valuation_loader.py`: inquire-price로 전종목 per/pbr/eps/bps 수집 → `derived_metrics`(as_of_date=오늘) upsert. `run_daily` 편입(~2558콜, 15분).
-- 백엔드: `/screener/{id}` 응답(ScreenerItemResponse)에 4필드 추가(derived_metrics 조인). `ScreenerController.getScore` + `ScreenerItemResponse.of`.
-- 프론트: `types.ts ScreenerItem` +per/pbr/eps/bps, 상세 카드 `stock.per ?? live.per ?? 근사`.
+## 3. KIS 재무 EOD 스냅샷 — ✅ 완료 (2026-07-09)
+장외에도 종목 상세 '투자지표'가 실측 PER·PBR 표시하도록 EOD 스냅샷 구현:
+- **V20 마이그레이션**: `derived_metrics`에 `per,pbr,eps,bps` 추가(ADD COLUMN IF NOT EXISTS) + `db/schema.sql` 갱신.
+- **ETL `kis_valuation_loader.py`**: inquire-price(FHKST01010100, UN우선→J폴백)로 전종목 per/pbr/eps/bps 수집 → `derived_metrics`(as_of_date=오늘) UPDATE. `run_daily` **7d 단계** 편입(파생 6단계 이후, 비치명적, ~2558콜).
+- **백엔드**: `loadPriceAndFlow`가 밸류에이션 조인(pf[11~14]) → `ScreenerItemResponse` +per/pbr/eps/bps(레코드+3 factory+withPriceFlow+직접생성 null). 배열 크기 11→15.
+- **프론트**: `types.ts ScreenerItem` +per/pbr/eps/bps, 상세 카드 우선순위 `live → stock(EOD배치) → 재무근사`, 배지 라벨 `KIS 실시간 / KIS 종가 / 근사`.
+- ⚠️ **운영 첫 배치 검증 권장**: 20:05 run_daily 7d 실행 후 `derived_metrics.per` 채워졌는지 db-status로 확인. KIS 쿼터 압박 시 순서 조정 여지.
 
 ## 4. 남은 일 — 로컬 폴더 rename (사용자 수동, OS 잠금)
 `C:\Projects\canslim` → `nextpick`: 실행중 프로세스가 폴더를 잡아 세션 내 불가. 세션 종료 후 스크래치패드의 `rename_local_folder.ps1`(폴더 rename + `.claude/settings.json` 훅경로 갱신) 실행. 새 클론이면 무관.

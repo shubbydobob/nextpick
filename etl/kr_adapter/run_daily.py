@@ -174,6 +174,17 @@ def main():
     except Exception as e:
         logger.warning("[7c/9] 시간외 단일가 수집 실패 (비치명적): %s", e)
 
+    # ── 7d. KIS 밸류에이션(PER/PBR/EPS/BPS) EOD 스냅샷 ─────────
+    # 장외/주말에도 종목 상세 '투자지표'가 실측 PER·PBR을 표시하도록 배치 적재.
+    # 파생(6단계) 이후여야 UPDATE가 당일 행에 매칭됨. 채점 무관·비치명적.
+    logger.info("[7d/9] KIS 밸류에이션 수집 시작")
+    try:
+        from .kis_valuation_loader import load_valuation
+        load_valuation(target_date)
+        logger.info("[7d/9] KIS 밸류에이션 수집 완료")
+    except Exception as e:
+        logger.warning("[7d/9] KIS 밸류에이션 수집 실패 (비치명적): %s", e)
+
     # ── 8. 스코어링 트리거 ─────────────────────────────────────
     logger.info("[8/9] 스코어링 트리거")
     ok = trigger_scoring()
