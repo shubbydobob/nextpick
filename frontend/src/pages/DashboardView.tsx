@@ -39,27 +39,6 @@ function computeMarketLabel(marketStates: Props['marketStates'], items: Screener
   return { label: '선별적 접근', color: '#fabd44', bg: 'rgba(250,189,68,0.12)' }
 }
 
-function HorizontalBar({ value, max, color }: { value: number; max: number; color: string }) {
-  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0
-  return (
-    <div style={{
-      height: 6,
-      background: 'var(--track)',
-      borderRadius: 3,
-      overflow: 'hidden',
-      flex: 1,
-    }}>
-      <div style={{
-        height: '100%',
-        width: `${pct}%`,
-        background: color,
-        borderRadius: 3,
-        transition: 'width 0.4s ease',
-      }} />
-    </div>
-  )
-}
-
 export default function DashboardView({
   items,
   loading,
@@ -68,7 +47,6 @@ export default function DashboardView({
   onSectorClick,
   onStockClick,
 }: Props) {
-  const [hoveredRankId, setHoveredRankId] = useState<number | null>(null)
   const [stats, setStats] = useState<ScreenerStats | null>(null)
   const [limitUp, setLimitUp] = useState<LimitUpStock[]>([])
   const [liveMap, setLiveMap] = useState<Record<string, LiveQuote>>({})
@@ -133,109 +111,42 @@ export default function DashboardView({
   const maxScore = topItems[0]?.compositeScore ?? 100
 
   return (
-    <div style={{ padding: isMobile ? '16px 16px 24px' : '24px 28px', maxWidth: 1200 }}>
+    <div className={isMobile ? 'dash mobile' : 'dash'}>
 
       {/* ── Stat cards ──────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr) 1fr',
-        gap: isMobile ? 10 : 12,
-        marginBottom: isMobile ? 14 : 24,
-      }}>
+      <div className="dash-stats">
+        <StatCard label="강세 종목 (70점+)" value={bullCount.toLocaleString()} unit="종목"
+          subtext={total > 0 ? `전체 ${total.toLocaleString()}종목 중` : ''} accent="var(--accent)" />
+        <StatCard label="평균 종합 스코어" value={String(avgScore)} unit="점"
+          subtext="7팩터 가중 합산" accent="var(--accent)" valueColor="var(--accent)" />
+        <StatCard label="상승 종목" value={upCount.toLocaleString()} unit={`/ ${total.toLocaleString()}`}
+          subtext={total > 0 ? `${Math.round((upCount / total) * 100)}% 상승` : ''} accent="var(--up)" valueColor="var(--up)" />
 
-        {/* Card 1: 강세 종목 */}
-        <StatCard
-          label="강세 종목 (70점+)"
-          value={bullCount.toLocaleString()}
-          unit="종목"
-          subtext={total > 0 ? `전체 ${total.toLocaleString()}종목 중` : ''}
-          accent="var(--accent)"
-        />
-
-        {/* Card 2: 평균 종합 스코어 */}
-        <StatCard
-          label="평균 종합 스코어"
-          value={String(avgScore)}
-          unit="점"
-          subtext="7팩터 가중 합산"
-          accent="var(--accent)"
-          valueColor="var(--accent)"
-        />
-
-        {/* Card 3: 상승 종목 */}
-        <StatCard
-          label="상승 종목"
-          value={upCount.toLocaleString()}
-          unit={`/ ${total.toLocaleString()}`}
-          subtext={total > 0 ? `${Math.round((upCount / total) * 100)}% 상승` : ''}
-          accent="var(--up)"
-          valueColor="var(--up)"
-        />
-
-        {/* Card 4: 시장 상태 (accent bg) */}
-        <div style={{
-          background: marketLabel.bg,
-          border: `1px solid ${marketLabel.color}44`,
-          borderRadius: 12,
-          padding: '16px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          gap: 8,
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: marketLabel.color, textTransform: 'uppercase' }}>
-            시장 상태
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: marketLabel.color, lineHeight: 1.2 }}>
-            {marketLabel.label}
-          </div>
-          <div style={{ fontSize: 11, color: marketLabel.color, opacity: 0.75 }}>
-            {marketStates.find(m => m.market === 'KOSPI')?.stateDate ?? '—'}
-          </div>
+        {/* 시장 상태 */}
+        <div className="stat-card market" style={{ ['--mk-bg' as string]: marketLabel.bg, ['--mk-color' as string]: marketLabel.color }}>
+          <div className="stat-market-label">시장 상태</div>
+          <div className="stat-market-val">{marketLabel.label}</div>
+          <div className="stat-market-date">{marketStates.find(m => m.market === 'KOSPI')?.stateDate ?? '—'}</div>
         </div>
       </div>
 
       {/* ── 상한가·급등 섹션 (당일 +29%↑) ──────────────────────── */}
-      <div style={{
-        background: 'var(--bg-surface)', border: '1px solid var(--border)',
-        borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        marginBottom: isMobile ? 14 : 24, overflow: 'hidden',
-      }}>
-        <div style={{
-          padding: '14px 18px 12px', borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>🚀 상한가·급등</span>
-          <span style={{ fontSize: 11, color: 'var(--text-4)' }}>실시간 +29% 이상</span>
-          {limitUpLive.length > 0 && (
-            <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: 'var(--up)', fontFamily: 'var(--font-mono)' }}>
-              {limitUpLive.length}종목
-            </span>
-          )}
+      <div className="dash-panel">
+        <div className="dash-panel-head">
+          <span className="dash-panel-title">🚀 상한가·급등</span>
+          <span className="dash-panel-sub">실시간 +29% 이상</span>
+          {limitUpLive.length > 0 && <span className="dash-panel-count">{limitUpLive.length}종목</span>}
         </div>
         {limitUpLive.length === 0 ? (
-          <div style={{ padding: '22px', textAlign: 'center', color: 'var(--text-4)', fontSize: 12 }}>
-            오늘 상한가·급등 종목 없음
-          </div>
+          <div className="dash-empty">오늘 상한가·급등 종목 없음</div>
         ) : (
-          <div className="hide-scrollbar" style={{ display: 'flex', gap: 8, padding: 12, overflowX: 'auto' }}>
+          <div className="hide-scrollbar limitup-row">
             {limitUpLive.map(s => (
-              <button
-                key={s.securityId}
-                onClick={() => onStockClick(s.securityId)}
-                style={{
-                  flexShrink: 0, minWidth: 124, textAlign: 'left', cursor: 'pointer',
-                  background: 'rgba(232,51,63,0.08)', border: '1px solid rgba(232,51,63,0.28)',
-                  borderRadius: 12, padding: '10px 12px',
-                }}
-              >
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
-                <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 700, marginTop: 2 }}>{s.ticker}</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--up)', fontFamily: 'var(--font-mono)', marginTop: 5 }}>
-                  +{s.effChange.toFixed(2)}%
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginTop: 1 }}>
+              <button key={s.securityId} onClick={() => onStockClick(s.securityId)} className="limitup-card">
+                <div className="limitup-name">{s.name}</div>
+                <div className="limitup-ticker">{s.ticker}</div>
+                <div className="limitup-chg">+{s.effChange.toFixed(2)}%</div>
+                <div className="limitup-meta">
                   {Math.round(s.closePrice).toLocaleString()}원{s.compositeScore != null ? ` · ${Math.round(s.compositeScore)}점` : ''}
                 </div>
               </button>
@@ -244,141 +155,38 @@ export default function DashboardView({
         )}
       </div>
 
-      {/* ── Bottom: Ranking + Sector Heatmap (모바일은 세로 스택) ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-        gap: isMobile ? 12 : 16,
-        alignItems: 'start',
-      }}>
+      {/* ── Bottom: Ranking + Sector Heatmap ── */}
+      <div className="dash-grid">
 
         {/* LEFT: TOP Ranking */}
-        <div style={{
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 16,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          overflow: 'hidden',
-        }}>
-          {/* Panel header */}
-          <div style={{
-            padding: '14px 18px 12px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
-              스코어 TOP 랭킹
-            </span>
-            <button
-              onClick={onViewRanking}
-              style={{
-                fontSize: 11,
-                color: 'var(--accent)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 3,
-              }}
-            >
-              전체보기 →
-            </button>
+        <div className="dash-panel">
+          <div className="dash-panel-head">
+            <span className="dash-panel-title">스코어 TOP 랭킹</span>
+            <button onClick={onViewRanking} className="dash-link">전체보기 →</button>
           </div>
 
-          {/* Ranking list */}
-          <div style={{ padding: '8px 0' }}>
+          <div className="dash-rank-list">
             {loading && Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px' }}>
-                <div style={{ width: 18, height: 10, borderRadius: 3, background: 'var(--bg-elevated)' }} />
-                <div style={{ flex: '0 0 90px', height: 10, borderRadius: 3, background: 'var(--bg-elevated)' }} />
-                <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--bg-elevated)' }} />
-                <div style={{ width: 28, height: 10, borderRadius: 3, background: 'var(--bg-elevated)' }} />
+              <div key={i} className="dash-skel-row">
+                <div className="dash-skel w18" /><div className="dash-skel w90" /><div className="dash-skel bar" /><div className="dash-skel w28" />
               </div>
             ))}
             {!loading && topItems.map((item, idx) => {
-              const hovered = hoveredRankId === item.securityId
               const sc = scoreFg(item.compositeScore)
               const liveCh = liveMap[item.ticker]?.changeRate
               const dispChange = liveCh != null ? liveCh : item.changeRate
+              const barPct = maxScore > 0 ? Math.min(100, (item.compositeScore / maxScore) * 100) : 0
               return (
-                <div
-                  key={item.securityId}
-                  onClick={() => onStockClick(item.securityId)}
-                  onMouseEnter={() => setHoveredRankId(item.securityId)}
-                  onMouseLeave={() => setHoveredRankId(null)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '7px 18px',
-                    cursor: 'pointer',
-                    background: hovered ? 'var(--bg-elevated)' : 'transparent',
-                    transition: 'background 0.1s',
-                  }}
-                >
-                  <span style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: idx < 3 ? 'var(--accent)' : 'var(--text-4)',
-                    width: 18,
-                    textAlign: 'right',
-                    fontFamily: 'var(--font-mono)',
-                    flexShrink: 0,
-                  }}>
-                    {idx + 1}
-                  </span>
-
-                  <div style={{ flex: '0 0 90px', overflow: 'hidden' }}>
-                    <div style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: 'var(--text-1)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {item.name}
-                    </div>
-                    <div style={{
-                      fontSize: 10,
-                      color: 'var(--accent)',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                    }}>
-                      {item.ticker}
-                    </div>
+                <div key={item.securityId} className="dash-rank-row" onClick={() => onStockClick(item.securityId)}>
+                  <span className={idx < 3 ? 'dash-rank-no top' : 'dash-rank-no'}>{idx + 1}</span>
+                  <div className="dash-rank-id">
+                    <div className="dash-rank-name">{item.name}</div>
+                    <div className="dash-rank-ticker">{item.ticker}</div>
                   </div>
-
-                  <HorizontalBar value={item.compositeScore} max={maxScore} color={sc} />
-
-                  <span style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color: sc,
-                    fontFamily: 'var(--font-mono)',
-                    width: 28,
-                    textAlign: 'right',
-                    flexShrink: 0,
-                  }}>
-                    {Math.round(item.compositeScore)}
-                  </span>
-
-                  <span style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: changeColor(dispChange),
-                    fontFamily: 'var(--font-mono)',
-                    width: 44,
-                    textAlign: 'right',
-                    flexShrink: 0,
-                  }}>
-                    {dispChange !== null
-                      ? (dispChange >= 0 ? '+' : '') + dispChange.toFixed(2) + '%'
-                      : '—'}
+                  <div className="dash-hbar"><div className="dash-hbar-fill" style={{ ['--hb' as string]: `${barPct}%`, ['--hbc' as string]: sc }} /></div>
+                  <span className="dash-rank-score" style={{ ['--rc' as string]: sc }}>{Math.round(item.compositeScore)}</span>
+                  <span className="dash-rank-chg" style={{ ['--sc-rate' as string]: changeColor(dispChange) }}>
+                    {dispChange !== null ? (dispChange >= 0 ? '+' : '') + dispChange.toFixed(2) + '%' : '—'}
                   </span>
                 </div>
               )
@@ -387,70 +195,27 @@ export default function DashboardView({
         </div>
 
         {/* RIGHT: Sector Heatmap */}
-        <div style={{
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 16,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          overflow: 'hidden',
-        }}>
-          {/* Panel header */}
-          <div style={{
-            padding: '14px 18px 12px',
-            borderBottom: '1px solid var(--border)',
-          }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>
-              업종 히트맵
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--text-4)', marginLeft: 8 }}>KRX 업종지수 · 실시간</span>
+        <div className="dash-panel">
+          <div className="dash-panel-head">
+            <span className="dash-panel-title">업종 히트맵</span>
+            <span className="dash-panel-sub">KRX 업종지수 · 실시간</span>
           </div>
 
-          {/* 업종 지수 grid (KIS 실시간 등락률) */}
-          <div style={{
-            padding: '12px',
-            display: 'grid',
-            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
-            gap: isMobile ? 8 : 6,
-          }}>
+          <div className="heatmap">
             {sectorIdx.length === 0 ? (
-              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '32px 0', color: 'var(--text-4)', fontSize: 12 }}>
-                업종 데이터 없음 (장중에만 실시간)
-              </div>
+              <div className="dash-empty big">업종 데이터 없음 (장중에만 실시간)</div>
             ) : (
               [...sectorIdx]
                 .sort((a, b) => Math.abs(b.changePct ?? 0) - Math.abs(a.changePct ?? 0))
                 .map(sec => {
                   const ch = sec.changePct ?? 0
-                  const isUp = ch >= 0
-                  const bgColor = isUp
-                    ? `rgba(232, 51, 63, ${Math.min(0.20, Math.abs(ch) * 0.10)})`
-                    : `rgba(47, 115, 224, ${Math.min(0.20, Math.abs(ch) * 0.10)})`
-                  const borderColor = isUp
-                    ? `rgba(232, 51, 63, ${Math.min(0.38, Math.abs(ch) * 0.18)})`
-                    : `rgba(47, 115, 224, ${Math.min(0.38, Math.abs(ch) * 0.18)})`
-                  const textClr = isUp ? 'var(--up)' : 'var(--down)'
-
+                  const hc = ch >= 0 ? 'var(--up)' : 'var(--down)'
+                  const hi = Math.min(20, Math.abs(ch) * 10)
                   return (
-                    <button
-                      key={sec.name}
-                      onClick={() => onSectorClick(sec.name)}
-                      style={{
-                        background: bgColor,
-                        border: `1px solid ${borderColor}`,
-                        borderRadius: 8,
-                        padding: '10px 10px 8px',
-                        textAlign: 'left', cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{
-                        fontSize: 11, fontWeight: 700, color: 'var(--text-1)',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4,
-                      }}>
-                        {sec.name}
-                      </div>
-                      <div style={{
-                        fontSize: 14, fontWeight: 800, color: textClr, fontFamily: 'var(--font-mono)',
-                      }}>
+                    <button key={sec.name} onClick={() => onSectorClick(sec.name)} className="heat-cell"
+                      style={{ ['--hc' as string]: hc, ['--hi' as string]: hi }}>
+                      <div className="heat-name">{sec.name}</div>
+                      <div className="heat-chg">
                         {sec.changePct == null ? '—' : (ch >= 0 ? '+' : '') + ch.toFixed(2) + '%'}
                       </div>
                     </button>
@@ -465,74 +230,18 @@ export default function DashboardView({
 }
 
 // ── StatCard helper ────────────────────────────────────────────
-function StatCard({
-  label,
-  value,
-  unit,
-  subtext,
-  accent,
-  valueColor,
-}: {
-  label: string
-  value: string
-  unit?: string
-  subtext?: string
-  accent: string
-  valueColor?: string
+function StatCard({ label, value, unit, subtext, accent, valueColor }: {
+  label: string; value: string; unit?: string; subtext?: string; accent: string; valueColor?: string
 }) {
   return (
-    <div style={{
-      background: 'var(--bg-surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 16,
-      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-      padding: '16px 18px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 8,
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
-      {/* Top accent line */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 2,
-        background: accent,
-        opacity: 0.6,
-      }} />
-      <div style={{
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: '0.06em',
-        color: 'var(--text-3)',
-      }}>
-        {label}
+    <div className="stat-card" style={valueColor ? { ['--sa' as string]: accent, ['--sv' as string]: valueColor } : { ['--sa' as string]: accent }}>
+      <div className="stat-accent" />
+      <div className="stat-label">{label}</div>
+      <div className="stat-value-row">
+        <span className="stat-value">{value}</span>
+        {unit && <span className="stat-unit">{unit}</span>}
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span style={{
-          fontSize: 26,
-          fontWeight: 800,
-          color: valueColor ?? 'var(--text-1)',
-          fontFamily: 'var(--font-mono)',
-          lineHeight: 1,
-          letterSpacing: '-0.02em',
-        }}>
-          {value}
-        </span>
-        {unit && (
-          <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 500 }}>
-            {unit}
-          </span>
-        )}
-      </div>
-      {subtext && (
-        <div style={{ fontSize: 11, color: 'var(--text-4)' }}>
-          {subtext}
-        </div>
-      )}
+      {subtext && <div className="stat-sub">{subtext}</div>}
     </div>
   )
 }
