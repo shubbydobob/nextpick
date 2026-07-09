@@ -153,9 +153,22 @@ export default function DashboardView({
         <div className="dash-panel-head">
           <span className="dash-panel-title">🚀 상한가·급등</span>
           <span className="dash-panel-sub">실시간 +29% 이상</span>
-          {limitUpLive.length > 0 && <span className="dash-panel-count">{limitUpLive.length}종목</span>}
+          {liveLoaded && limitUpLive.length > 0 && <span className="dash-panel-count">{limitUpLive.length}종목</span>}
         </div>
-        {limitUpLive.length === 0 ? (
+        {!liveLoaded ? (
+          /* 첫 실시간 폴링 완료 전엔 배치(전일) 상한가로 리스트를 확정하지 않음 → 스켈레톤 보류
+             (전일 상한가 6종목이 떴다가 실시간 확인분으로 줄어드는 플래시 방지) */
+          <div className="hide-scrollbar limitup-row">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="limitup-card skel">
+                <span className="cell-skel sk-name" />
+                <span className="cell-skel sk-tick" />
+                <span className="cell-skel sk-chg" />
+                <span className="cell-skel sk-meta" />
+              </div>
+            ))}
+          </div>
+        ) : limitUpLive.length === 0 ? (
           <div className="dash-empty">오늘 상한가·급등 종목 없음</div>
         ) : (
           <div className="hide-scrollbar limitup-row">

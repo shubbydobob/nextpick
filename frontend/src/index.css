@@ -686,6 +686,13 @@ button {
 .limitup-ticker { font-size: 10px; color: var(--accent); font-family: var(--font-mono); font-weight: 700; margin-top: 2px; }
 .limitup-chg { font-family: var(--font-num); font-size: 16px; font-weight: 800; color: var(--up); margin-top: 5px; }
 .limitup-meta { font-size: 10px; color: var(--text-3); font-family: var(--font-num); margin-top: 1px; }
+/* 상한가 로딩 보류 스켈레톤 카드 (전일 상한가 플래시 방지) */
+.limitup-card.skel { background: var(--bg-elevated); border-color: var(--border); cursor: default; }
+.limitup-card.skel .cell-skel { display: block; }
+.limitup-card.skel .sk-name { width: 70px; height: 12px; }
+.limitup-card.skel .sk-tick { width: 40px; height: 9px; margin-top: 4px; }
+.limitup-card.skel .sk-chg  { width: 58px; height: 16px; margin-top: 6px; }
+.limitup-card.skel .sk-meta { width: 82px; height: 9px; margin-top: 3px; }
 .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 .dash.mobile .dash-grid { grid-template-columns: 1fr; gap: 12px; }
 .dash-grid .dash-panel { margin-bottom: 0; }
