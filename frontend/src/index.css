@@ -557,6 +557,51 @@ button {
 .detail-radar-flow { display: flex; gap: 14px; margin-bottom: 20px; }
 .detail-block { margin-bottom: 20px; }
 
+/* ── 스코어 랭킹 (RankingView) — 토스/증권사 무드 ─────────────── */
+.rank-page { padding: 24px 28px; }
+.rank-head { margin-bottom: 20px; }
+.rank-title { font-size: 22px; font-weight: 800; color: var(--text-1); letter-spacing: -0.02em; margin-bottom: 4px; }
+.rank-sub { font-size: 13px; color: var(--text-3); }
+.rank-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 80px 0; color: var(--text-3); font-size: 13px; }
+.rank-medal { font-family: var(--font-num); font-weight: 800; color: var(--medal, var(--text-4)); text-align: center; flex-shrink: 0; }
+.rank-name { font-weight: 700; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-ticker { color: var(--accent); font-weight: 700; font-family: var(--font-mono); }
+.rank-sector { color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-bar { height: 4px; background: var(--track); border-radius: 2px; overflow: hidden; }
+.rank-bar-fill { height: 100%; width: var(--bar-pct, 0%); background: var(--bar-color, var(--accent)); border-radius: 2px; transition: width 0.4s; }
+.rank-rate { font-family: var(--font-num); font-weight: 700; font-size: 12px; padding: 3px 8px; border-radius: 8px; white-space: nowrap;
+  color: var(--sc-rate, var(--text-3)); background: color-mix(in srgb, var(--sc-rate, var(--text-4)) 13%, transparent); }
+.rank-badge-new { font-size: 9px; background: var(--good); color: #fff; border-radius: 4px; padding: 1.5px 5px; flex-shrink: 0; }
+/* 모바일 카드 */
+.rank-mobile { padding: 16px 12px; }
+.rank-list { display: flex; flex-direction: column; gap: 10px; }
+.rank-card { display: flex; align-items: center; gap: 12px; background: var(--bg-nav); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; cursor: pointer; box-shadow: var(--shadow-sm); transition: transform 0.12s ease; }
+.rank-card:active { transform: scale(0.99); }
+.rank-card .rank-medal { font-size: 15px; min-width: 22px; }
+.rank-card-id { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.rank-name-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rank-card .rank-name { font-size: 15px; max-width: 100%; }
+.rank-sub-line { display: flex; align-items: center; gap: 6px; }
+.rank-card .rank-ticker { font-size: 11px; }
+.rank-card .rank-sector { font-size: 11px; }
+.rank-card-right { display: flex; align-items: center; gap: 13px; flex-shrink: 0; }
+.rank-card-metrics { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+/* 데스크톱 그리드 */
+.rank-table { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.rank-grid { display: grid; grid-template-columns: 46px 104px 1fr 56px 78px 62px; gap: 14px; padding: 11px 20px; align-items: center; }
+.rank-thead { background: var(--bg-elevated); border-bottom: 1px solid var(--border); }
+.rank-thead > div { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--text-4); text-transform: uppercase; }
+.rank-row { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+.rank-row:last-child { border-bottom: none; }
+.rank-row:hover { background: var(--bg-elevated); }
+.rank-ta-r { text-align: right; } .rank-ta-c { text-align: center; }
+.rank-namecol { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.rank-grid .rank-ticker { font-size: 12px; }
+.rank-grid .rank-name { font-size: 13px; }
+.rank-grid .rank-sector { font-size: 10px; }
+.rank-grid .rank-bar { max-width: 200px; }
+.rank-ticker .rank-badge-new { margin-left: 5px; }
+
 /* ── Mobile responsive ─────────────────────────────────── */
 @media (max-width: 768px) {
   /* Navbar: stack brand + nav, hide stats */

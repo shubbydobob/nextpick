@@ -14,7 +14,7 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 - 라이트/다크는 `[data-theme='light']`/`prefers-color-scheme` + CSS 변수로 대응(하드코딩 색 지양, `var(--text-1)` 등 토큰 사용).
 - 반복되는 UI(셀 행·배지·카드 등)는 공통 클래스/컴포넌트로 추출해 재사용(예: `.metric-strip`/`.metric-cell`, `.badge*`, `.scr-*`).
 - **새 컴포넌트/수정 시에도 이 규칙을 지킨다.** 인라인을 새로 추가하지 말 것.
-- **디자인 톤(2026-07 리스타일 · 토스/증권사 앱 무드)**: 숫자=`var(--font-num)`(tabular 산세리프), 티커/코드만 `var(--font-mono)`. 카드=`--r-card`(16px)+`--shadow`/`--shadow-sm`(하드보더 대신 부드러운 그림자). 등락률=부호색 틴트 칩(`color-mix(--sc-rate 13%)`). 종합점수=`.score-ring`(conic-gradient 게이지, `--v`/`--gc`/`--sr`/`--ring-bg`) — 상세 히어로·모바일 카드 적용(스크리너 표는 밀도 위해 컬러셀 유지). 등락색 한국식(상승 빨강/하락 파랑) 유지, 다크 기본+라이트 대응. **미적용: RankingView(스코어 랭킹)은 레거시 인라인 잔존 — 변환+리스타일 필요.**
+- **디자인 톤(2026-07 리스타일 · 토스/증권사 앱 무드)**: 숫자=`var(--font-num)`(tabular 산세리프), 티커/코드만 `var(--font-mono)`. 카드=`--r-card`(16px)+`--shadow`/`--shadow-sm`(하드보더 대신 부드러운 그림자). 등락률=부호색 틴트 칩(`color-mix(--sc-rate 13%)`). 종합점수=`.score-ring`(conic-gradient 게이지, `--v`/`--gc`/`--sr`/`--ring-bg`) — 상세 히어로·모바일 카드·랭킹 적용(스크리너 표는 밀도 위해 컬러셀 유지). 등락색 한국식(상승 빨강/하락 파랑) 유지, 다크 기본+라이트 대응. RankingView는 인라인 전량 제거하고 `.rank-*` 클래스로 재작성(링 게이지+틴트칩).
 
 ---
 
