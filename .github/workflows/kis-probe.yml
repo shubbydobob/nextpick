@@ -108,6 +108,9 @@ jobs:
             echo "===== 상한가 목록에 금호에이치티(214330) 잔존 여부 (수정 후 없어야 정상) ====="
             curl -s "http://localhost:8080/api/screener/limit-up?market=KR" | python3 -c "import sys,json; d=json.load(sys.stdin); m=[x for x in d if x.get('ticker')=='214330']; print('금호에이치티 상한가 잔존:', m if m else '없음(정상)')" 2>/dev/null || echo "(파싱 실패)"
             echo ""
+            echo "===== 백엔드 투자자 응답 (외인/기관 장중 잠정 반영 확인) ====="
+            curl -s "http://localhost:8080/api/realtime/investor?ticker=${{ inputs.ticker }}" | head -c 600
+            echo ""
             echo "===== 운영 백엔드 실제 응답 (localhost:8080/api/realtime/quotes) ====="
             curl -s "http://localhost:8080/api/realtime/quotes?tickers=214330" | head -c 1000
             echo ""
