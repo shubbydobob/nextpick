@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchStocks, fetchRealtimePrice } from '../api/client'
 import type { ScreenerItem } from '../types'
@@ -6,82 +6,6 @@ import type { ScreenerItem } from '../types'
 interface BuyRow {
   price: string
   qty: string
-}
-
-const S = {
-  page: {
-    minHeight: '100vh',
-    background: 'var(--bg-base)',
-    color: 'var(--text-1)',
-    fontFamily: 'inherit',
-  } as React.CSSProperties,
-  nav: {
-    background: 'var(--bg-nav)',
-    borderBottom: '1px solid var(--border)',
-    padding: '0 20px',
-    display: 'flex',
-    alignItems: 'center',
-    height: 40,
-    gap: 24,
-  } as React.CSSProperties,
-  brand: {
-    fontFamily: 'var(--font-mono)',
-    fontSize: 16,
-    fontWeight: 800,
-    letterSpacing: '1px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    cursor: 'pointer',
-  } as React.CSSProperties,
-  navLink: (active: boolean): React.CSSProperties => ({
-    padding: '0 12px',
-    fontSize: 13,
-    color: active ? 'var(--text-1)' : 'var(--text-3)',
-    fontWeight: active ? 600 : 400,
-    cursor: 'pointer',
-    lineHeight: '40px',
-    borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-  }),
-  body: {
-    padding: '24px 20px',
-    display: 'grid',
-    gridTemplateColumns: '1fr 300px',
-    gap: 20,
-    maxWidth: 900,
-  } as React.CSSProperties,
-  card: {
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    padding: 20,
-  } as React.CSSProperties,
-  label: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: 'var(--text-3)',
-    letterSpacing: '0.06em',
-    marginBottom: 4,
-    display: 'block',
-  } as React.CSSProperties,
-  input: {
-    background: 'var(--bg-nav)',
-    border: '1px solid var(--border)',
-    borderRadius: 4,
-    color: 'var(--text-1)',
-    padding: '5px 10px',
-    fontSize: 13,
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box',
-  } as React.CSSProperties,
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 700,
-    color: 'var(--text-3)',
-    letterSpacing: '0.08em',
-    marginBottom: 12,
-  } as React.CSSProperties,
 }
 
 function numOrNull(s: string): number | null {
@@ -190,35 +114,37 @@ export default function TradingCalcPage() {
     return b.toFixed(2) + '억'
   }
 
+  // 손익률 색: 한국식(상승 빨강 / 하락 파랑)
+  const pnlColor = currentPnl == null ? undefined
+    : currentPnl > 0 ? 'var(--up)' : currentPnl < 0 ? 'var(--down)' : 'var(--text-3)'
+
   return (
-    <div style={S.page}>
+    <div className="calc-page">
       {/* nav */}
-      <div className="calc-nav nav-bar" style={S.nav}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={S.brand} onClick={() => navigate('/')}>
-            <span style={{ width: 7, height: 7, background: 'var(--accent)', borderRadius: 1.5, display: 'inline-block' }} />
-            NEXT<span style={{ color: 'var(--accent)' }}>PICK</span>
-          </span>
-        </div>
-        <nav style={{ display: 'flex', gap: 0 }}>
-          <span style={S.navLink(false)} onClick={() => navigate('/')}>스크리너</span>
-          <span style={S.navLink(false)}>시장</span>
-          <span style={S.navLink(true)}>포지션 플래너</span>
+      <div className="calc-nav nav-bar">
+        <span className="calc-brand" onClick={() => navigate('/')}>
+          <span className="calc-brand-dot" />
+          NEXT<em>PICK</em>
+        </span>
+        <nav className="calc-navlinks">
+          <button className="calc-navlink" onClick={() => navigate('/')}>스크리너</button>
+          <button className="calc-navlink">시장</button>
+          <button className="calc-navlink on">포지션 플래너</button>
         </nav>
       </div>
 
-      <div className="calc-body" style={S.body}>
+      <div className="calc-body">
         {/* ── 입력 패널 ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="calc-col">
           {/* 종목 + 현재가 */}
-          <div style={S.card}>
-            <div style={S.sectionTitle}>종목 정보</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="calc-card">
+            <div className="calc-title">종목 정보</div>
+            <div className="calc-grid-2">
               {/* 자동완성 */}
-              <div ref={wrapRef} style={{ position: 'relative' }}>
-                <span style={S.label}>종목명 / 티커</span>
+              <div ref={wrapRef} className="calc-ac">
+                <span className="calc-label">종목명 / 티커</span>
                 <input
-                  style={S.input}
+                  className="calc-input"
                   placeholder="종목명 또는 티커 검색"
                   value={query}
                   onChange={e => handleQueryChange(e.target.value)}
@@ -226,30 +152,18 @@ export default function TradingCalcPage() {
                   autoComplete="off"
                 />
                 {showDrop && (
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                    background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 4,
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.5)', marginTop: 2,
-                  }}>
+                  <div className="calc-drop">
                     {suggestions.map(s => (
-                      <div key={s.securityId}
-                        onMouseDown={() => handleSelect(s)}
-                        style={{
-                          padding: '7px 12px', cursor: 'pointer', display: 'flex',
-                          alignItems: 'center', justifyContent: 'space-between',
-                          borderBottom: '1px solid var(--bg-nav)',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#1f2937')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
+                      <div key={s.securityId} className="calc-drop-item"
+                        onMouseDown={() => handleSelect(s)}>
                         <div>
-                          <span style={{ fontSize: 13, color: 'var(--text-1)', fontWeight: 600 }}>{s.name}</span>
-                          <span style={{ fontSize: 11, color: 'var(--text-3)', marginLeft: 6 }}>{s.sector ?? ''}</span>
+                          <span className="calc-drop-name">{s.name}</span>
+                          <span className="calc-drop-sector">{s.sector ?? ''}</span>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: 12, color: '#3b82f6', fontFamily: 'monospace', fontWeight: 700 }}>{s.ticker}</span>
+                        <div>
+                          <span className="calc-drop-ticker">{s.ticker}</span>
                           {s.closePrice != null && (
-                            <div style={{ fontSize: 11, color: '#6b7280' }}>
+                            <div className="calc-drop-price">
                               {s.closePrice.toLocaleString('ko-KR')}원
                             </div>
                           )}
@@ -259,7 +173,7 @@ export default function TradingCalcPage() {
                   </div>
                 )}
                 {selectedStock && (
-                  <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
+                  <div className="calc-meta">
                     SCORE {selectedStock.compositeScore.toFixed(1)} · RS {(selectedStock.marketPercentile * 100).toFixed(0)}%
                   </div>
                 )}
@@ -267,12 +181,12 @@ export default function TradingCalcPage() {
 
               {/* 현재가 */}
               <div>
-                <span style={S.label}>
+                <span className="calc-label">
                   현재가 (원)
-                  {loadingPrice && <span style={{ color: 'var(--text-3)', fontWeight: 400 }}> 조회중...</span>}
+                  {loadingPrice && <small> 조회중...</small>}
                 </span>
                 <input
-                  style={S.input}
+                  className="calc-input"
                   placeholder="종목 선택 시 자동 입력"
                   value={currentPrice}
                   onChange={e => setCurrentPrice(e.target.value)}
@@ -282,63 +196,61 @@ export default function TradingCalcPage() {
           </div>
 
           {/* 매수 행 */}
-          <div style={S.card}>
-            <div style={S.sectionTitle}>매수 계획</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 80px', gap: '6px 10px', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ ...S.label, marginBottom: 0 }}></span>
-              <span style={{ ...S.label, marginBottom: 0, textAlign: 'right' }}>매수가 (원)</span>
-              <span style={{ ...S.label, marginBottom: 0, textAlign: 'right' }}>수량 (주)</span>
-              <span style={{ ...S.label, marginBottom: 0, textAlign: 'right' }}>소계</span>
+          <div className="calc-card">
+            <div className="calc-title">매수 계획</div>
+            <div className="calc-buy-grid calc-buy-head">
+              <span className="calc-label" />
+              <span className="calc-label">매수가 (원)</span>
+              <span className="calc-label">수량 (주)</span>
+              <span className="calc-label">소계</span>
             </div>
             {rows.map((r, i) => {
               const p = numOrNull(r.price)
               const q = numOrNull(r.qty)
               const sub = p != null && q != null ? p * q : null
               return (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 80px', gap: '6px 10px', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 700 }}>
+                <div key={i} className="calc-buy-grid">
+                  <span className="calc-stage">
                     {i === 0 ? '1차' : i === 1 ? '2차' : '3차'}
                   </span>
                   <input
-                    style={{ ...S.input, textAlign: 'right' }}
+                    className="calc-input r"
                     placeholder="0"
                     value={r.price}
                     onChange={e => updateRow(i, 'price', e.target.value)}
                   />
                   <input
-                    style={{ ...S.input, textAlign: 'right' }}
+                    className="calc-input r"
                     placeholder="0"
                     value={r.qty}
                     onChange={e => updateRow(i, 'qty', e.target.value)}
                   />
-                  <span style={{ fontSize: 12, color: '#6b7280', textAlign: 'right', fontFamily: 'monospace' }}>
-                    {sub != null ? fmtM(sub) : '-'}
-                  </span>
+                  <span className="calc-sub">{sub != null ? fmtM(sub) : '-'}</span>
                 </div>
               )
             })}
           </div>
 
           {/* 물타기 섹션 */}
-          <div style={S.card}>
-            <div style={S.sectionTitle}>물타기 시나리오</div>
-            <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 10 }}>
+          <div className="calc-card">
+            <div className="calc-title">물타기 시나리오</div>
+            <div className="calc-hint">
               현재 보유 포지션에 추가 매수 시 새 평단가 계산
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="calc-grid-2 mb">
               <div>
-                <span style={S.label}>추가 매수가 (원)</span>
+                <span className="calc-label">추가 매수가 (원)</span>
                 <input
-                  style={{ ...S.input, textAlign: 'right' }}
+                  className="calc-input r"
                   placeholder="0"
                   value={addPrice}
                   onChange={e => setAddPrice(e.target.value)}
                 />
               </div>
               <div>
-                <span style={S.label}>추가 수량 (주)</span>
+                <span className="calc-label">추가 수량 (주)</span>
                 <input
-                  style={{ ...S.input, textAlign: 'right' }}
+                  className="calc-input r"
                   placeholder="0"
                   value={addQty}
                   onChange={e => setAddQty(e.target.value)}
@@ -346,15 +258,13 @@ export default function TradingCalcPage() {
               </div>
             </div>
             {avgAfterAdd != null && (
-              <div style={{ background: 'var(--bg-nav)', borderRadius: 6, padding: '10px 14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: '#6b7280' }}>추가 후 평단가</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: '#fabd44', fontFamily: 'monospace' }}>
-                    {fmt(avgAfterAdd)}원
-                  </span>
+              <div className="calc-avg-box">
+                <div className="calc-avg-row">
+                  <span className="calc-avg-cap">추가 후 평단가</span>
+                  <span className="calc-avg-val">{fmt(avgAfterAdd)}원</span>
                 </div>
                 {addP != null && (
-                  <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
+                  <div className="calc-avg-note">
                     기존 평단 {avgPrice != null ? fmt(avgPrice) : '-'}원 →
                     {avgAfterAdd < (avgPrice ?? Infinity) ? ' ▼ 평단 낮아짐' : ' ▲ 평단 높아짐'}
                   </div>
@@ -362,59 +272,46 @@ export default function TradingCalcPage() {
               </div>
             )}
             {avgAfterAdd == null && avgPrice == null && (
-              <div style={{ fontSize: 12, color: '#374151', textAlign: 'center', padding: '8px 0' }}>
-                위 매수 계획을 먼저 입력하세요
-              </div>
+              <div className="calc-empty">위 매수 계획을 먼저 입력하세요</div>
             )}
           </div>
         </div>
 
         {/* ── 결과 패널 ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={S.card}>
-            <div style={S.sectionTitle}>포지션 요약</div>
+        <div className="calc-col res">
+          <div className="calc-card">
+            <div className="calc-title">포지션 요약</div>
 
             <ResultRow label="총 매수금액" value={totalAmt > 0 ? fmtM(totalAmt) : '-'} />
             <ResultRow label="총 수량" value={totalQty > 0 ? `${totalQty.toLocaleString()}주` : '-'} />
 
-            <div style={{ height: 1, background: 'var(--border)', margin: '10px 0' }} />
+            <div className="calc-divider" />
 
-            <div style={{ marginBottom: 8 }}>
-              <span style={{ ...S.label, marginBottom: 2 }}>평균 매수가</span>
-              <div style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color: avgPrice != null ? 'var(--text-1)' : '#374151',
-                fontFamily: 'monospace',
-                letterSpacing: '-0.5px',
-              }}>
+            <div className="calc-avg-block">
+              <span className="calc-label">평균 매수가</span>
+              <div className={`calc-avg-big${avgPrice != null ? '' : ' empty'}`}>
                 {avgPrice != null ? fmt(avgPrice) + '원' : '-'}
               </div>
             </div>
 
-            <div style={{ height: 1, background: 'var(--border)', margin: '10px 0' }} />
+            <div className="calc-divider" />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <PriceTarget label="손절가 (−8%)" value={stopLoss} fmt={fmt} color="#f87171" />
-              <PriceTarget label="1차 익절 (+20%)" value={target1} fmt={fmt} color="#4ade80" />
-              <PriceTarget label="2차 익절 (+25%)" value={target2} fmt={fmt} color="#16a34a" />
+            <div className="calc-targets">
+              <PriceTarget label="손절가 (−8%)" value={stopLoss} fmt={fmt} color="var(--down)" />
+              <PriceTarget label="1차 익절 (+20%)" value={target1} fmt={fmt} color="var(--up)" />
+              <PriceTarget label="2차 익절 (+25%)" value={target2} fmt={fmt} color="var(--up)" />
             </div>
 
             {currentPnl != null && (
               <>
-                <div style={{ height: 1, background: 'var(--border)', margin: '10px 0' }} />
+                <div className="calc-divider" />
                 <div>
-                  <span style={S.label}>현재 손익률</span>
-                  <div style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: currentPnl > 0 ? '#4ade80' : currentPnl < 0 ? '#f87171' : '#6b7280',
-                    fontFamily: 'monospace',
-                  }}>
+                  <span className="calc-label">현재 손익률</span>
+                  <div className="calc-pnl" style={{ ['--pc' as string]: pnlColor }}>
                     {currentPnl > 0 ? '+' : ''}{currentPnl.toFixed(2)}%
                   </div>
                   {cp != null && avgPrice != null && (
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+                    <div className="calc-pnl-note">
                       현재가 {fmt(cp)}원 / 평단 {fmt(avgPrice)}원
                     </div>
                   )}
@@ -423,12 +320,12 @@ export default function TradingCalcPage() {
             )}
           </div>
 
-          <div style={{ ...S.card, fontSize: 11, color: '#374151', lineHeight: 1.6 }}>
-            <div style={{ fontWeight: 700, color: 'var(--text-3)', marginBottom: 6 }}>성장주 매수 원칙</div>
+          <div className="calc-card calc-principles">
+            <b>성장주 매수 원칙</b>
             <div>• 1차: 계획 물량의 50%</div>
             <div>• 2차: 상승 확인 후 30%</div>
             <div>• 3차: 추세 강화 시 20%</div>
-            <div style={{ marginTop: 6 }}>• 손절 기준: −8% (원칙 준수)</div>
+            <div className="gap">• 손절 기준: −8% (원칙 준수)</div>
             <div>• 1차 익절: +20%</div>
           </div>
         </div>
@@ -439,18 +336,18 @@ export default function TradingCalcPage() {
 
 function ResultRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-      <span style={{ fontSize: 12, color: '#6b7280' }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 600, color: '#9ca3af', fontFamily: 'monospace' }}>{value}</span>
+    <div className="calc-rrow">
+      <span className="calc-rrow-label">{label}</span>
+      <span className="calc-rrow-val">{value}</span>
     </div>
   )
 }
 
 function PriceTarget({ label, value, fmt, color }: { label: string; value: number | null; fmt: (v: number) => string; color: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{label}</span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: value != null ? color : 'var(--border)', fontFamily: 'monospace' }}>
+    <div className="calc-target">
+      <span className="calc-target-label">{label}</span>
+      <span className="calc-target-val" style={value != null ? { ['--tc' as string]: color } : undefined}>
         {value != null ? fmt(value) + '원' : '-'}
       </span>
     </div>

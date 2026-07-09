@@ -36,11 +36,12 @@ cd ../backend && ./gradlew compileJava
 사용자 요청: "토스·핀비즈·증권사 앱처럼, 가독성·정보성·진입성 강화". 시안 승인 후 실코드 적용 중.
 **디자인 시스템(index.css 상단 토큰)**: 숫자=`var(--font-num)`(tabular 산세리프), 티커/코드만 `var(--font-mono)`. 카드=`--r-card`(16px)+`--shadow`/`--shadow-sm`(하드보더 대신 부드러운 그림자). 등락률=부호색 틴트 칩(`color-mix(--sc-rate 13%)`). 종합점수=`.score-ring`(conic-gradient 게이지, `--v`/`--gc`/`--sr`/`--ring-bg`). 등락색 한국식(상승 빨강/하락 파랑) 유지, 다크 기본+라이트(토스 톤) 대응.
 - **✅ 완료(master 반영)**: 토큰 전면 갱신, ScreenerPage(등락칩), 모바일 카드(링 게이지), StockDetailPanel(히어로 링·카드), RankingView(전량 재작성 `.rank-*`), AppSidebar(`.sb-*`), DashboardView(`.dash-*`/`.stat-*`/`.heat-*`, 히트맵 up/down 토큰화). MacroTicker·AdminPage는 이미 OK.
-- **⬜ 남은 페이지(다음 세션)**: 세컨더리 페이지 인라인 전량 잔존 → 새 톤으로 변환 필요.
-  - `pages/TradingCalcPage.tsx` (~55 인라인) — 매매 플래너
-  - `pages/PremiumPage.tsx` (~39 인라인) — 프리미엄 소개
-  - `pages/AuthPage.tsx` (~20 인라인) — 로그인
-  작업법: 각 파일 인라인 → index.css 공통 클래스로 이관 + 위 디자인시스템 토큰/패턴 적용(카드 `--r-card`+`--shadow`, 숫자 `--font-num`, 버튼 `.btn-fill/.btn-ghost`, 등락칩 `color-mix`). 하드코딩 색(#58a6ff, #1f6feb, rgba(232,51,63) 등)은 토큰으로 교체.
+- **✅ 완료(master 반영, 2026-07-09)**: 세컨더리 페이지 3종 인라인 전량 제거 + 새 톤 적용.
+  - `pages/TradingCalcPage.tsx` → `.calc-*` (S 스타일객체 삭제, 2컬럼 유지, 손익률 한국식 상승 빨강/하락 파랑 `--pc`, 손절 `--down`/익절 `--up` `--tc`).
+  - `pages/PremiumPage.tsx` → `.prem-*` (플랜비교표·CTA 카드 `--r-card`+`--shadow`, 프리미엄 골드 `--premium`).
+  - `pages/AuthPage.tsx` → `.auth-*` (탭 pill, 카드 `--r-card`+`--shadow`, 알림 `--danger-soft`/`--good-soft`).
+  - 신규 토큰: `--danger`/`--danger-soft`(오류·손절), `--premium`/`--premium-soft`(골드). 다크+라이트 대응.
+  - 남은 인라인은 동적 CSS var 할당(`--pc`/`--tc`)뿐(규칙 허용). tsc·build 통과, 프리뷰로 다크/라이트 양쪽 토큰값 검증.
 
 ## 3. KIS 재무 EOD 스냅샷 — ✅ 완료 (2026-07-09)
 장외에도 종목 상세 '투자지표'가 실측 PER·PBR 표시하도록 EOD 스냅샷 구현:

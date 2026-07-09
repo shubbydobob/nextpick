@@ -28,6 +28,11 @@
   /* 매수 신호 등 semantic (accent와 분리) */
   --good:      #2dd4a7;
   --good-soft: rgba(45,212,167,0.14);
+  /* 위험(오류·손절) · 프리미엄(골드) */
+  --danger:      #ff6b78;
+  --danger-soft: rgba(255,107,120,0.14);
+  --premium:      #f5b544;
+  --premium-soft: rgba(245,181,68,0.14);
   /* 부드러운 그림자(하드보더 대체) · 라운드 */
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
   --shadow:    0 1px 2px rgba(0,0,0,0.28), 0 8px 26px rgba(0,0,0,0.40);
@@ -65,6 +70,10 @@
   --down-soft: rgba(49,130,246,0.10);
   --good:      #12b886;
   --good-soft: rgba(18,184,134,0.12);
+  --danger:      #f04452;
+  --danger-soft: rgba(240,68,82,0.10);
+  --premium:      #e09b1f;
+  --premium-soft: rgba(224,155,31,0.12);
   --shadow-sm: 0 1px 2px rgba(15,21,32,0.05);
   --shadow:    0 1px 2px rgba(15,21,32,0.04), 0 6px 22px rgba(15,21,32,0.07);
 }
@@ -693,6 +702,134 @@ button {
 .dash-skel { border-radius: 3px; background: var(--bg-elevated); height: 10px; }
 .dash-skel.bar { height: 6px; flex: 1; }
 .dash-skel.w18 { width: 18px; } .dash-skel.w90 { flex: 0 0 90px; } .dash-skel.w28 { width: 28px; }
+
+/* ── 인증 페이지 (AuthPage) ───────────────────────────────── */
+.auth-page { min-height: 100vh; background: var(--bg-base); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.auth-card { width: 100%; max-width: 400px; background: var(--bg-nav); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow); padding: 36px 32px; }
+.auth-logo { text-align: center; margin-bottom: 28px; }
+.auth-brand { font-family: var(--font-mono); font-size: 26px; font-weight: 800; letter-spacing: 1.5px; display: inline-flex; align-items: center; gap: 8px; color: var(--text-1); }
+.auth-brand-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 3px; display: inline-block; box-shadow: 0 0 8px var(--accent); }
+.auth-brand em { color: var(--accent); font-style: normal; }
+.auth-tagline { font-size: 12px; color: var(--text-3); margin-top: 6px; letter-spacing: 0.04em; }
+.auth-tabs { display: flex; margin-bottom: 24px; background: var(--bg-elevated); border-radius: var(--r-chip); padding: 3px; gap: 3px; }
+.auth-tab { flex: 1; padding: 8px 0; font-size: 14px; font-weight: 650; border: none; border-radius: 8px; cursor: pointer; background: transparent; color: var(--text-3); transition: background 0.15s, color 0.15s; }
+.auth-tab.on { background: var(--accent); color: var(--accent-contrast); }
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.auth-label { font-size: 12px; color: var(--text-2); font-weight: 650; display: block; margin-bottom: 5px; }
+.auth-label small { color: var(--text-3); font-weight: 400; }
+.auth-input { width: 100%; padding: 10px 12px; font-size: 14px; background: var(--bg-base); border: 1px solid var(--border-sub); border-radius: var(--r-chip); color: var(--text-1); outline: none; transition: border-color 0.15s; }
+.auth-input:focus { border-color: var(--accent); }
+.auth-alert { border-radius: var(--r-chip); padding: 9px 12px; font-size: 13px; font-weight: 600; }
+.auth-alert.err { background: var(--danger-soft); color: var(--danger); }
+.auth-alert.ok  { background: var(--good-soft); color: var(--good); }
+.auth-submit { margin-top: 4px; padding: 11px 0; font-size: 14px; }
+.auth-submit:disabled { background: var(--border-sub); color: var(--text-3); cursor: not-allowed; }
+.auth-back-wrap { margin-top: 20px; text-align: center; }
+.auth-back { font-size: 12px; color: var(--text-3); background: none; border: none; cursor: pointer; }
+.auth-back:hover { color: var(--text-2); }
+
+/* ── 프리미엄 페이지 (PremiumPage) ─────────────────────────── */
+.prem-page { min-height: 100vh; background: var(--bg-base); color: var(--text-1); }
+.prem-loading { display: flex; justify-content: center; align-items: center; height: 100vh; color: var(--text-3); background: var(--bg-base); }
+.prem-header { border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-nav); }
+.prem-back { color: var(--text-2); font-size: 14px; cursor: pointer; background: none; border: none; font-family: var(--font-mono); letter-spacing: 0.5px; }
+.prem-back em { color: var(--accent); font-style: normal; }
+.prem-user { display: flex; align-items: center; gap: 12px; }
+.prem-email { font-size: 13px; color: var(--text-3); }
+.prem-logout { font-size: 12px; color: var(--text-3); background: none; border: 1px solid var(--border); border-radius: var(--r-chip); padding: 4px 11px; cursor: pointer; }
+.prem-logout:hover { color: var(--text-2); border-color: var(--border-sub); }
+.prem-body { max-width: 700px; margin: 0 auto; padding: 40px 28px 80px; }
+.prem-plan { background: var(--bg-nav); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-sm); padding: 28px; margin-bottom: 32px; }
+.prem-plan-cap { font-size: 12px; color: var(--text-3); font-weight: 650; margin-bottom: 6px; }
+.prem-plan-row { display: flex; align-items: center; gap: 12px; }
+.prem-plan-name { font-size: 26px; font-weight: 800; color: var(--text-1); }
+.prem-plan-name.gold { color: var(--premium); }
+.prem-plan-exp { font-size: 12px; color: var(--text-3); }
+.prem-plan-email { font-size: 13px; color: var(--text-3); margin-top: 6px; }
+.prem-login-title { font-size: 16px; font-weight: 700; color: var(--text-1); margin-bottom: 12px; }
+.prem-sec-title { font-size: 12px; font-weight: 650; color: var(--text-3); letter-spacing: 0.08em; margin-bottom: 14px; }
+.prem-table { background: var(--bg-nav); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 32px; }
+.prem-trow { display: grid; grid-template-columns: 1.4fr 1fr 1.3fr; padding: 12px 16px; align-items: center; border-bottom: 1px solid var(--border); }
+.prem-trow:last-child { border-bottom: none; }
+.prem-thead { background: var(--bg-elevated); }
+.prem-th { font-size: 12px; color: var(--text-3); font-weight: 650; }
+.prem-th.c { text-align: center; }
+.prem-th.gold { color: var(--premium); font-weight: 700; }
+.prem-feat { display: flex; align-items: center; gap: 8px; }
+.prem-feat-icon { font-size: 15px; }
+.prem-feat-name { font-size: 13px; color: var(--text-2); font-weight: 600; }
+.prem-free { font-size: 12px; color: var(--text-3); text-align: center; }
+.prem-free .x { color: var(--text-4); }
+.prem-prem { font-size: 12px; color: var(--good); text-align: center; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.prem-cta { background: linear-gradient(135deg, var(--accent-soft) 0%, var(--premium-soft) 100%); border: 1px solid var(--accent-soft); border-radius: var(--r-card); padding: 28px; text-align: center; }
+.prem-cta-title { font-size: 18px; font-weight: 800; color: var(--text-1); margin-bottom: 8px; }
+.prem-cta-desc { font-size: 14px; color: var(--text-3); margin-bottom: 20px; line-height: 1.7; }
+.prem-cta-btn { display: inline-block; padding: 12px 32px; background: var(--accent); border: none; border-radius: 12px; color: var(--accent-contrast); font-size: 14px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.prem-cta-note { font-size: 11px; color: var(--text-4); margin-top: 12px; }
+.prem-member { background: var(--good-soft); border: 1px solid var(--good-soft); border-radius: var(--r-card); padding: 20px 24px; text-align: center; }
+.prem-member-title { font-size: 16px; font-weight: 700; color: var(--good); margin-bottom: 6px; }
+.prem-member-desc { font-size: 13px; color: var(--text-3); }
+
+/* ── 포지션 플래너 (TradingCalcPage) ──────────────────────── */
+.calc-page { min-height: 100vh; background: var(--bg-base); color: var(--text-1); }
+.calc-nav { justify-content: flex-start !important; gap: 24px; height: 48px; }
+.calc-brand { font-family: var(--font-mono); font-size: 16px; font-weight: 800; letter-spacing: 1px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-1); }
+.calc-brand-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 2px; display: inline-block; box-shadow: 0 0 6px var(--accent); }
+.calc-brand em { color: var(--accent); font-style: normal; }
+.calc-navlinks { display: flex; gap: 0; }
+.calc-navlink { padding: 0 12px; font-size: 13px; color: var(--text-3); font-weight: 400; cursor: pointer; line-height: 48px; border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; }
+.calc-navlink.on { color: var(--text-1); font-weight: 650; border-bottom-color: var(--accent); }
+.calc-body { padding: 24px 20px; display: grid; grid-template-columns: 1fr 300px; gap: 20px; max-width: 900px; margin: 0 auto; }
+.calc-col { display: flex; flex-direction: column; gap: 16px; }
+.calc-col.res { gap: 12px; }
+.calc-card { background: var(--bg-nav); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-sm); padding: 20px; }
+.calc-title { font-size: 12px; font-weight: 700; color: var(--text-3); letter-spacing: 0.08em; margin-bottom: 12px; }
+.calc-label { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: 0.06em; margin-bottom: 4px; display: block; }
+.calc-label small { color: var(--text-3); font-weight: 400; }
+.calc-input { background: var(--bg-base); border: 1px solid var(--border-sub); border-radius: var(--r-chip); color: var(--text-1); padding: 8px 10px; font-size: 13px; outline: none; width: 100%; transition: border-color 0.15s; }
+.calc-input:focus { border-color: var(--accent); }
+.calc-input.r { text-align: right; font-family: var(--font-num); }
+.calc-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.calc-grid-2.mb { margin-bottom: 12px; }
+.calc-ac { position: relative; }
+.calc-drop { position: absolute; top: 100%; left: 0; right: 0; z-index: 50; background: var(--bg-nav); border: 1px solid var(--border); border-radius: var(--r-chip); box-shadow: var(--shadow); margin-top: 4px; overflow: hidden; }
+.calc-drop-item { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+.calc-drop-item:last-child { border-bottom: none; }
+.calc-drop-item:hover { background: var(--bg-elevated); }
+.calc-drop-name { font-size: 13px; color: var(--text-1); font-weight: 600; }
+.calc-drop-sector { font-size: 11px; color: var(--text-3); margin-left: 6px; }
+.calc-drop-ticker { font-size: 12px; color: var(--accent); font-family: var(--font-mono); font-weight: 700; }
+.calc-drop-price { font-size: 11px; color: var(--text-3); font-family: var(--font-num); text-align: right; }
+.calc-meta { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+.calc-buy-grid { display: grid; grid-template-columns: 56px 1fr 1fr 84px; gap: 6px 10px; align-items: center; }
+.calc-buy-grid + .calc-buy-grid { margin-top: 6px; }
+.calc-buy-head { margin-bottom: 8px; }
+.calc-buy-head .calc-label { margin-bottom: 0; text-align: right; }
+.calc-stage { font-size: 12px; color: var(--text-3); font-weight: 700; }
+.calc-sub { font-size: 12px; color: var(--text-3); text-align: right; font-family: var(--font-num); }
+.calc-hint { font-size: 11px; color: var(--text-3); margin-bottom: 10px; }
+.calc-avg-box { background: var(--bg-base); border-radius: var(--r-chip); padding: 10px 14px; }
+.calc-avg-row { display: flex; justify-content: space-between; align-items: center; }
+.calc-avg-cap { font-size: 12px; color: var(--text-3); }
+.calc-avg-val { font-size: 15px; font-weight: 700; color: var(--premium); font-family: var(--font-num); }
+.calc-avg-note { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+.calc-empty { font-size: 12px; color: var(--text-4); text-align: center; padding: 8px 0; }
+.calc-rrow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.calc-rrow-label { font-size: 12px; color: var(--text-3); }
+.calc-rrow-val { font-size: 13px; font-weight: 600; color: var(--text-2); font-family: var(--font-num); }
+.calc-divider { height: 1px; background: var(--border); margin: 10px 0; }
+.calc-avg-block { margin-bottom: 8px; }
+.calc-avg-big { font-size: 22px; font-weight: 800; font-family: var(--font-num); letter-spacing: -0.5px; color: var(--text-1); }
+.calc-avg-big.empty { color: var(--text-4); }
+.calc-targets { display: flex; flex-direction: column; gap: 8px; }
+.calc-target { display: flex; justify-content: space-between; align-items: center; }
+.calc-target-label { font-size: 11px; color: var(--text-3); }
+.calc-target-val { font-size: 14px; font-weight: 700; font-family: var(--font-num); color: var(--tc, var(--text-4)); }
+.calc-pnl { font-size: 18px; font-weight: 700; font-family: var(--font-num); color: var(--pc, var(--text-3)); }
+.calc-pnl-note { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.calc-principles { font-size: 11px; color: var(--text-3); line-height: 1.7; }
+.calc-principles b { display: block; font-weight: 700; color: var(--text-3); margin-bottom: 6px; }
+.calc-principles .gap { margin-top: 6px; }
 
 /* ── Mobile responsive ─────────────────────────────────── */
 @media (max-width: 768px) {

@@ -30,68 +30,45 @@ export default function PremiumPage() {
     navigate('/')
   }
 
-  if (loading) return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center',
-      height: '100vh', color: 'var(--text-3)', background: 'var(--bg-nav)' }}>
-      로딩 중...
-    </div>
-  )
+  if (loading) return <div className="prem-loading">로딩 중...</div>
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-nav)', color: 'var(--text-1)' }}>
+    <div className="prem-page">
       {/* Header */}
-      <div style={{
-        borderBottom: '1px solid var(--border)', padding: '12px 28px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'var(--bg-nav)',
-      }}>
-        <button onClick={() => navigate('/')}
-          style={{ color: 'var(--text-2)', fontSize: 14, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'var(--font-mono)', letterSpacing: '0.5px' }}>
-          ← NEXT<span style={{ color: 'var(--accent)' }}>PICK</span>
+      <div className="prem-header">
+        <button onClick={() => navigate('/')} className="prem-back">
+          ← NEXT<em>PICK</em>
         </button>
         {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 13, color: '#6b7280' }}>{user.email}</span>
-            <button onClick={handleLogout}
-              style={{ fontSize: 12, color: 'var(--text-3)', background: 'none', border: '1px solid var(--border)',
-                borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}>
-              로그아웃
-            </button>
+          <div className="prem-user">
+            <span className="prem-email">{user.email}</span>
+            <button onClick={handleLogout} className="prem-logout">로그아웃</button>
           </div>
         )}
       </div>
 
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: '40px 28px 80px' }}>
+      <div className="prem-body">
         {/* 현재 플랜 */}
-        <div style={{
-          background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 12,
-          padding: '28px 28px', marginBottom: 32,
-        }}>
+        <div className="prem-plan">
           {user ? (
             <>
-              <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>현재 플랜</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: user.plan === 'premium' ? '#fabd44' : 'var(--text-1)' }}>
+              <div className="prem-plan-cap">현재 플랜</div>
+              <div className="prem-plan-row">
+                <div className={`prem-plan-name${user.plan === 'premium' ? ' gold' : ''}`}>
                   {user.plan === 'premium' ? '✦ 프리미엄' : '무료 플랜'}
                 </div>
                 {user.plan === 'premium' && user.expiresAt && (
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>
+                  <div className="prem-plan-exp">
                     만료: {new Date(user.expiresAt).toLocaleDateString('ko-KR')}
                   </div>
                 )}
               </div>
-              <div style={{ fontSize: 13, color: '#6b7280', marginTop: 6 }}>{user.email}</div>
+              <div className="prem-plan-email">{user.email}</div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>
-                로그인이 필요합니다
-              </div>
-              <button onClick={() => navigate('/auth')}
-                style={{
-                  padding: '8px 20px', background: 'var(--accent)', border: 'none',
-                  borderRadius: 6, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                }}>
+              <div className="prem-login-title">로그인이 필요합니다</div>
+              <button onClick={() => navigate('/auth')} className="btn-fill prem-cta-btn">
                 로그인 / 회원가입
               </button>
             </>
@@ -99,40 +76,26 @@ export default function PremiumPage() {
         </div>
 
         {/* 혜택 비교 */}
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em', marginBottom: 14 }}>
-          플랜 비교
-        </div>
-        <div style={{
-          background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10,
-          overflow: 'hidden', marginBottom: 32,
-        }}>
+        <div className="prem-sec-title">플랜 비교</div>
+        <div className="prem-table">
           {/* 컬럼 헤더 */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-            padding: '12px 16px', borderBottom: '1px solid var(--border)',
-            background: 'var(--bg-nav)',
-          }}>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>기능</div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, textAlign: 'center' }}>무료</div>
-            <div style={{ fontSize: 12, color: '#fabd44', fontWeight: 700, textAlign: 'center' }}>✦ 프리미엄</div>
+          <div className="prem-trow prem-thead">
+            <div className="prem-th">기능</div>
+            <div className="prem-th c">무료</div>
+            <div className="prem-th c gold">✦ 프리미엄</div>
           </div>
 
-          {BENEFITS.map((b, i) => (
-            <div key={b.title} style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-              padding: '12px 16px',
-              borderBottom: i < BENEFITS.length - 1 ? '1px solid var(--border)' : 'none',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 15 }}>{b.icon}</span>
-                <span style={{ fontSize: 13, color: '#c9d1d9', fontWeight: 600 }}>{b.title}</span>
+          {BENEFITS.map(b => (
+            <div key={b.title} className="prem-trow">
+              <div className="prem-feat">
+                <span className="prem-feat-icon">{b.icon}</span>
+                <span className="prem-feat-name">{b.title}</span>
               </div>
-              <div style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {b.free === '미지원' ? <span style={{ color: '#374151' }}>✕</span> : b.free}
+              <div className="prem-free">
+                {b.free === '미지원' ? <span className="x">✕</span> : b.free}
               </div>
-              <div style={{ fontSize: 12, color: '#4ade80', textAlign: 'center', fontWeight: 600,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                <span style={{ color: '#4ade80' }}>✓</span> {b.premium}
+              <div className="prem-prem">
+                <span>✓</span> {b.premium}
               </div>
             </div>
           ))}
@@ -140,45 +103,25 @@ export default function PremiumPage() {
 
         {/* 업그레이드 CTA */}
         {user?.plan !== 'premium' && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(31,111,235,0.15) 0%, rgba(250,189,68,0.08) 100%)',
-            border: '1px solid rgba(31,111,235,0.3)', borderRadius: 10,
-            padding: '28px 28px', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-1)', marginBottom: 8 }}>
-              프리미엄 업그레이드
-            </div>
-            <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 20, lineHeight: 1.7 }}>
+          <div className="prem-cta">
+            <div className="prem-cta-title">프리미엄 업그레이드</div>
+            <div className="prem-cta-desc">
               NEXTPICK의 분석 도구를 최대한 활용하세요.<br />
               고급 분석 도구와 무제한 알림으로 투자 엣지를 확보하세요.
             </div>
-            <a
-              href="mailto:contact@nextpick.kr?subject=프리미엄 구독 문의"
-              style={{
-                display: 'inline-block',
-                padding: '12px 32px', background: 'var(--accent)', border: 'none',
-                borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 700,
-                textDecoration: 'none', cursor: 'pointer',
-              }}>
+            <a href="mailto:contact@nextpick.kr?subject=프리미엄 구독 문의" className="prem-cta-btn">
               문의하기 (Toss Payments 연동 예정)
             </a>
-            <div style={{ fontSize: 11, color: '#374151', marginTop: 12 }}>
+            <div className="prem-cta-note">
               현재 베타 서비스 중 — 출시 시 별도 안내 예정
             </div>
           </div>
         )}
 
         {user?.plan === 'premium' && (
-          <div style={{
-            background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)',
-            borderRadius: 10, padding: '20px 24px', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#4ade80', marginBottom: 6 }}>
-              ✦ 프리미엄 멤버
-            </div>
-            <div style={{ fontSize: 13, color: '#6b7280' }}>
-              모든 프리미엄 기능을 이용하실 수 있습니다.
-            </div>
+          <div className="prem-member">
+            <div className="prem-member-title">✦ 프리미엄 멤버</div>
+            <div className="prem-member-desc">모든 프리미엄 기능을 이용하실 수 있습니다.</div>
           </div>
         )}
       </div>

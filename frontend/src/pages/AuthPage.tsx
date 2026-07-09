@@ -36,109 +36,61 @@ export default function AuthPage() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh', background: 'var(--bg-nav)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <div style={{
-        width: '100%', maxWidth: 400, margin: '0 16px',
-        background: 'var(--bg-surface)', border: '1px solid var(--border)',
-        borderRadius: 12, padding: '36px 32px',
-      }}>
+    <div className="auth-page">
+      <div className="auth-card">
         {/* 로고 */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 800, letterSpacing: '1.5px',
-            display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 10, height: 10, background: 'var(--accent)', borderRadius: 2, display: 'inline-block' }} />
-            NEXT<span style={{ color: 'var(--accent)' }}>PICK</span>
+        <div className="auth-logo">
+          <div className="auth-brand">
+            <span className="auth-brand-dot" />
+            NEXT<em>PICK</em>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6, letterSpacing: '0.04em' }}>주도주 스코어 스크리너</div>
+          <div className="auth-tagline">주도주 스코어 스크리너</div>
         </div>
 
         {/* 탭 */}
-        <div style={{
-          display: 'flex', marginBottom: 24,
-          border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden',
-        }}>
+        <div className="auth-tabs">
           {(['login', 'register'] as Tab[]).map(t => (
             <button key={t} onClick={() => { setTab(t); setError(null); setSuccess(null) }}
-              style={{
-                flex: 1, padding: '8px 0', fontSize: 14, fontWeight: 600, border: 'none',
-                cursor: 'pointer', transition: 'all 0.15s',
-                background: tab === t ? 'var(--accent)' : 'transparent',
-                color: tab === t ? '#fff' : '#6b7280',
-              }}>
+              className={`auth-tab${tab === t ? ' on' : ''}`}>
               {t === 'login' ? '로그인' : '회원가입'}
             </button>
           ))}
         </div>
 
         {/* 폼 */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <form onSubmit={handleSubmit} className="auth-form">
           <div>
-            <label style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 600, display: 'block', marginBottom: 5 }}>
-              이메일
-            </label>
+            <label className="auth-label">이메일</label>
             <input
+              className="auth-input"
               type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com" required autoComplete="email"
-              style={{
-                width: '100%', padding: '9px 12px', fontSize: 14,
-                background: 'var(--bg-nav)', border: '1px solid var(--border-sub)', borderRadius: 6,
-                color: 'var(--text-1)', outline: 'none', boxSizing: 'border-box',
-              }}
-              onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-              onBlur={e => (e.target.style.borderColor = 'var(--border-sub)')}
             />
           </div>
 
           <div>
-            <label style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 600, display: 'block', marginBottom: 5 }}>
-              비밀번호 {tab === 'register' && <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>(6자 이상)</span>}
+            <label className="auth-label">
+              비밀번호 {tab === 'register' && <small>(6자 이상)</small>}
             </label>
             <input
+              className="auth-input"
               type="password" value={password} onChange={e => setPassword(e.target.value)}
               placeholder="••••••••" required minLength={tab === 'register' ? 6 : 1}
               autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
-              style={{
-                width: '100%', padding: '9px 12px', fontSize: 14,
-                background: 'var(--bg-nav)', border: '1px solid var(--border-sub)', borderRadius: 6,
-                color: 'var(--text-1)', outline: 'none', boxSizing: 'border-box',
-              }}
-              onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-              onBlur={e => (e.target.style.borderColor = 'var(--border-sub)')}
             />
           </div>
 
-          {error && (
-            <div style={{
-              background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)',
-              borderRadius: 6, padding: '8px 12px', fontSize: 13, color: '#f87171',
-            }}>{error}</div>
-          )}
+          {error && <div className="auth-alert err">{error}</div>}
+          {success && <div className="auth-alert ok">{success}</div>}
 
-          {success && (
-            <div style={{
-              background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)',
-              borderRadius: 6, padding: '8px 12px', fontSize: 13, color: '#4ade80',
-            }}>{success}</div>
-          )}
-
-          <button type="submit" disabled={loading}
-            style={{
-              padding: '10px 0', fontSize: 14, fontWeight: 700, border: 'none',
-              borderRadius: 6, cursor: loading ? 'not-allowed' : 'pointer',
-              background: loading ? 'var(--border-sub)' : 'var(--accent)', color: '#fff',
-              marginTop: 4, transition: 'background 0.15s',
-            }}>
+          <button type="submit" disabled={loading} className="btn-fill auth-submit">
             {loading ? '처리 중...' : tab === 'login' ? '로그인' : '회원가입'}
           </button>
         </form>
 
         {/* 하단 링크 */}
-        <div style={{ marginTop: 20, textAlign: 'center' }}>
-          <button onClick={() => navigate('/')}
-            style={{ fontSize: 12, color: 'var(--text-3)', background: 'none', border: 'none', cursor: 'pointer' }}>
+        <div className="auth-back-wrap">
+          <button onClick={() => navigate('/')} className="auth-back">
             ← 스크리너로 돌아가기
           </button>
         </div>
