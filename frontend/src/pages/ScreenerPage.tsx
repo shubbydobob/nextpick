@@ -479,7 +479,7 @@ export default function ScreenerPage() {
         </td>
         <td className={'scr-td scr-rate' + (flash ? ` flash-${flash}` : '')}
           style={{ ['--sc-rate' as string]: changeColor(item.changeRate) }}>
-          {fmtRate(item.changeRate)}
+          <span>{fmtRate(item.changeRate)}</span>
         </td>
         <td className="scr-td scr-muted mono">{fmtVolume(item.volume)}</td>
         <td className="scr-td scr-muted">{fmtAmt(item.turnover)}</td>
@@ -519,9 +519,12 @@ export default function ScreenerPage() {
               onClick={e => toggleWatch(item.securityId, e)}>
               {isWatched ? '★' : '☆'}
             </span>
-            <div className="scard-score" style={{ ['--sc-grade' as string]: grade.color }}>
-              <div className="scard-score-num">{Math.round(item.compositeScore)}</div>
-              <div className="scard-score-label">{grade.label}</div>
+            <div className="score-ring" style={{
+              ['--v' as string]: item.compositeScore,
+              ['--gc' as string]: grade.color,
+              ['--sr' as string]: '56px',
+            }}>
+              <b>{Math.round(item.compositeScore)}<small>{grade.label}</small></b>
             </div>
           </div>
         </div>

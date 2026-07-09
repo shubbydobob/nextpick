@@ -311,7 +311,13 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
         </div>
         <div className="det-hero-right">
           <div className="det-hero-score-label">COMPOSITE SCORE</div>
-          <div className="det-hero-score" style={{ ['--dc' as string]: cColor }}>{composite.toFixed(2)}</div>
+          <div className="score-ring" style={{
+            ['--v' as string]: composite,
+            ['--gc' as string]: cColor,
+            ['--ring-bg' as string]: 'var(--bg-base)',
+          }}>
+            <b>{Math.round(composite)}<small>{scoreGrade(composite).label}</small></b>
+          </div>
           <div className="det-hero-rank">
             Rank <b>{stock.marketRank}</b>{' · '}Top <b>{(100 - stock.marketPercentile * 100).toFixed(1)}%</b>
           </div>
