@@ -4,7 +4,7 @@ import { scoreGrade } from '../utils/factors'
 import { isPremium, isLoggedIn } from '../api/auth'
 import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, AreaChart, Area,
+  ResponsiveContainer, Legend, Area,
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   ComposedChart, Line,
 } from 'recharts'
@@ -25,6 +25,8 @@ const FACTORS: { key: ScoreKey; label: string; desc: string; color: string }[] =
   { key: 'iScore', label: '6', desc: '기관수급',  color: '#63b3ed' },
   { key: 'mScore', label: '7', desc: '시장방향',  color: '#d6bcfa' },
 ]
+
+const COMPOSITE_COLOR = '#3b82f6'
 
 function FactorCard({ label, desc, value, color }: {
   label: string; desc: string; value: number | null; color: string
@@ -129,6 +131,7 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
   const [live, setLive] = useState<LiveQuote | null>(null)
   const [investor, setInvestor] = useState<InvestorFlow | null>(null)
   const [priceFlash, setPriceFlash] = useState<'up' | 'down' | null>(null)
+  const [shownFactors, setShownFactors] = useState<Set<ScoreKey>>(new Set())
   const prevPxRef = useRef<number | null>(null)
   const userIsPremium = isPremium()
   const userIsLoggedIn = isLoggedIn()
@@ -711,29 +714,44 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
       {history.length > 1 && (
         <Card>
           <SectionTitle>스코어 히스토리</SectionTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={history} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart data={history} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
               <defs>
-                {FACTORS.map(f => (
-                  <linearGradient key={f.key} id={`grad-panel-${f.key}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={f.color} stopOpacity={0.15} />
-                    <stop offset="95%" stopColor={f.color} stopOpacity={0} />
-                  </linearGradient>
-                ))}
+                <linearGradient id="grad-panel-composite" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={COMPOSITE_COLOR} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={COMPOSITE_COLOR} stopOpacity={0} />
+                </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="scoreDate" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="scoreDate" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} minTickGap={48} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} axisLine={false} />
               <Tooltip content={<ScoreTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }}
-                formatter={v => <span style={{ color: 'var(--text-3)' }}>{v}</span>} />
-              {FACTORS.map(f => (
-                <Area key={f.key} type="monotone" dataKey={f.key} name={f.desc}
-                  stroke={f.color} fill={`url(#grad-panel-${f.key})`}
-                  strokeWidth={1.5} dot={false} connectNulls />
+              <Area type="monotone" dataKey="compositeScore" name="종합점수"
+                stroke={COMPOSITE_COLOR} fill="url(#grad-panel-composite)"
+                strokeWidth={2.5} dot={false} connectNulls />
+              {FACTORS.filter(f => shownFactors.has(f.key)).map(f => (
+                <Line key={f.key} type="monotone" dataKey={f.key} name={f.desc}
+                  stroke={f.color} strokeWidth={1.5} dot={false} connectNulls />
               ))}
-            </AreaChart>
+            </ComposedChart>
           </ResponsiveContainer>
+          <div className="factor-toggle-row">
+            {FACTORS.map(f => {
+              const on = shownFactors.has(f.key)
+              return (
+                <button key={f.key} type="button"
+                  className={`factor-chip${on ? ' on' : ''}`}
+                  style={{ ['--chip' as string]: f.color }}
+                  onClick={() => setShownFactors(prev => {
+                    const next = new Set(prev)
+                    if (next.has(f.key)) next.delete(f.key); else next.add(f.key)
+                    return next
+                  })}>
+                  {f.desc}
+                </button>
+              )
+            })}
+          </div>
         </Card>
       )}
     </div>

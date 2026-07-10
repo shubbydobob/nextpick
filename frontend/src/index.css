@@ -233,6 +233,11 @@ body {
 .chip-btn.on { background: #1f3a5f; color: #58a6ff; border-color: var(--accent-strong); }
 .chip-btn.on.purple { background: #2d1a4a; color: #c084fc; border-color: #7c3aed; }
 .chip-btn.on.green { background: #052e16; color: #4ade80; border-color: #16a34a; }
+.factor-toggle-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.factor-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; font-size: 11px; font-weight: 600; border-radius: 999px; background: transparent; color: var(--text-3); border: 1px solid var(--border); cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.factor-chip::before { content: ''; width: 8px; height: 8px; border-radius: 999px; background: var(--chip); opacity: 0.4; }
+.factor-chip.on { color: var(--chip); border-color: var(--chip); background: color-mix(in srgb, var(--chip) 14%, transparent); }
+.factor-chip.on::before { opacity: 1; }
 .filter-cell-label { background: var(--bg-nav); padding: 8px 12px; display: flex; align-items: center; border-right: 1px solid var(--border); }
 .filter-cell-label > span { font-size: 11px; font-weight: 700; color: var(--text-4); letter-spacing: 0.06em; white-space: nowrap; }
 .filter-cell-body { background: var(--bg-base); padding: 8px 12px; display: flex; align-items: center; border-right: 1px solid var(--border); }
