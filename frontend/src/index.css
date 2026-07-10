@@ -240,8 +240,9 @@ body {
 /* ── 스코어 히스토리 히트맵 (팩터 × 시간) · 대시보드 .heatmap과 이름 충돌 방지 위해 .sh- 프리픽스 ── */
 .sh-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sh-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); white-space: nowrap; }
+/* 팩터별 색이 달라 특정 색 범례는 의미 혼동 → 중립 회색 농도 램프(진할수록 높음) */
 .sh-legend-bar { width: 56px; height: 8px; border-radius: 999px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), var(--accent)); }
+  background: linear-gradient(90deg, var(--border), var(--text-2)); }
 .sh-map { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .sh-row { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; --c: var(--accent); }
 .sh-label { font-size: 12px; font-weight: 600; color: var(--text-2); white-space: nowrap; }

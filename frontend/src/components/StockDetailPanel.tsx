@@ -581,7 +581,8 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
             {tech && (
               <div className="tech-block">
                 <div className="tech-head">
-                  <span className="tech-head-label">이동평균 (현재가 대비)</span>
+                  <span className="tech-head-label">이동평균선</span>
+                  <span className="tech-sub">현재가 {px != null ? fmtPrice(Math.round(px)) + '원' : '—'} 기준</span>
                 </div>
                 <div className="tech-ma-grid">
                   {maRows.map(([lab, val]) => {
@@ -589,10 +590,10 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
                     const up = diff != null && diff >= 0
                     return (
                       <div key={lab} className="tech-ma-cell">
-                        <span className="tech-ma-lab">{lab}일선</span>
-                        <span className="tech-ma-val num">{val != null ? fmtPrice(Math.round(val)) : '—'}</span>
+                        <span className="tech-ma-lab">{lab}일 평균가</span>
+                        <span className="tech-ma-val num">{val != null ? fmtPrice(Math.round(val)) + '원' : '—'}</span>
                         <span className={`tech-ma-diff num${diff == null ? '' : up ? ' up' : ' down'}`}>
-                          {diff == null ? '—' : (up ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(1) + '%'}
+                          {diff == null ? '—' : `현재가 ${up ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%`}
                         </span>
                       </div>
                     )

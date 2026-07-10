@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "serve:prd": "vite --mode prd",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
