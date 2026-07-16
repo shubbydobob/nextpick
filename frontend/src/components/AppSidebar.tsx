@@ -62,7 +62,7 @@ const NAV_ITEMS: { id: MainTab; label: string; icon: React.ReactNode }[] = [
   },
 ]
 
-export default function AppSidebar({ activeTab, onTabChange, watchlistCount, topSector, totalStocks }: Props) {
+export default function AppSidebar({ activeTab, onTabChange, watchlistCount, totalStocks }: Props) {
   const isMobile = useIsMobile()
 
   // 모바일/앱: 좌측 사이드바 대신 하단 고정 탭바 (앱 관례)
@@ -85,8 +85,6 @@ export default function AppSidebar({ activeTab, onTabChange, watchlistCount, top
       </nav>
     )
   }
-
-  const secColor = topSector && topSector.change >= 0 ? 'var(--up)' : 'var(--down)'
 
   return (
     <aside className="sidebar">
@@ -113,22 +111,6 @@ export default function AppSidebar({ activeTab, onTabChange, watchlistCount, top
       <div className="sb-divider" />
 
       <div className="sb-bottom">
-        <div className="sb-label tight">오늘의 주도 섹터</div>
-
-        {topSector ? (
-          <div className="sb-sector-card" style={{ ['--sec-color' as string]: secColor, ['--sec-w' as string]: `${Math.min(100, Math.abs(topSector.change) * 20)}%` }}>
-            <div className="sb-sector-head">
-              <span className="sb-sector-name">{topSector.name}</span>
-              <span className="sb-sector-chg">
-                {topSector.change >= 0 ? '+' : ''}{topSector.change.toFixed(1)}%
-              </span>
-            </div>
-            <div className="sb-sector-bar"><div className="sb-sector-bar-fill" /></div>
-          </div>
-        ) : (
-          <div className="sb-sector-empty" />
-        )}
-
         <div className="sb-total">
           <span className="sb-total-dot" />
           {totalStocks.toLocaleString()}개 종목 · 종합 스코어

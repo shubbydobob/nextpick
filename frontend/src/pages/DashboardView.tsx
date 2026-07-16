@@ -20,30 +20,9 @@ interface Props {
   onStockClick: (id: number) => void
 }
 
-function computeMarketLabel(marketStates: Props['marketStates'], items: ScreenerItem[], loading: boolean): { label: string; color: string; bg: string } {
-  const kospi = marketStates.find(m => m.market === 'KOSPI')
-
-  // items가 아직 로딩 중이면 marketStates만으로 판단 (avgM=0 로 잘못 계산 방지)
-  if (loading || items.length === 0) {
-    if (kospi?.marketPhase === 'BULL') return { label: '위험선호 우위', color: '#4ade80', bg: 'rgba(74,222,128,0.12)' }
-    if (kospi?.marketPhase === 'BEAR') return { label: '하락 조심', color: '#f87171', bg: 'rgba(248,113,113,0.12)' }
-    return { label: '선별적 접근', color: '#fabd44', bg: 'rgba(250,189,68,0.12)' }
-  }
-
-  const avgM = items.reduce((s, i) => s + (i.mScore ?? 0), 0) / items.length
-  if (kospi?.marketPhase === 'BULL' && avgM >= 40) {
-    return { label: '위험선호 우위', color: '#4ade80', bg: 'rgba(74,222,128,0.12)' }
-  }
-  if (kospi?.marketPhase === 'BEAR' || avgM < 20) {
-    return { label: '하락 조심', color: '#f87171', bg: 'rgba(248,113,113,0.12)' }
-  }
-  return { label: '선별적 접근', color: '#fabd44', bg: 'rgba(250,189,68,0.12)' }
-}
-
 export default function DashboardView({
   items,
   loading,
-  marketStates,
   onViewRanking,
   onSectorClick,
   onStockClick,
@@ -110,7 +89,6 @@ export default function DashboardView({
   const avgScore  = stats ? Math.round(stats.avgScore) : 0
   const upCount   = stats?.upCount ?? 0
   const total     = stats?.total ?? 0
-  const marketLabel = computeMarketLabel(marketStates, items, loading)
 
   // TOP 15 for ranking panel
   const topItems = [...items]
@@ -129,13 +107,6 @@ export default function DashboardView({
           subtext="7팩터 가중 합산" accent="var(--accent)" valueColor="var(--accent)" />
         <StatCard label="상승 종목" value={upCount.toLocaleString()} unit={`/ ${total.toLocaleString()}`}
           subtext={total > 0 ? `${Math.round((upCount / total) * 100)}% 상승` : ''} accent="var(--up)" valueColor="var(--up)" />
-
-        {/* 시장 상태 */}
-        <div className="stat-card market" style={{ ['--mk-bg' as string]: marketLabel.bg, ['--mk-color' as string]: marketLabel.color }}>
-          <div className="stat-market-label">시장 상태</div>
-          <div className="stat-market-val">{marketLabel.label}</div>
-          <div className="stat-market-date">{marketStates.find(m => m.market === 'KOSPI')?.stateDate ?? '—'}</div>
-        </div>
       </div>
 
       {/* ── 상한가·급등 섹션 (당일 +29%↑) ──────────────────────── */}

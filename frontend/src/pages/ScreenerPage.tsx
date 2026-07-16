@@ -710,12 +710,8 @@ export default function ScreenerPage() {
           />
         </div>
 
-        {/* Right: date, theme toggle, gacha, visitor */}
+        {/* Right: theme toggle, gacha, visitor */}
         <div className="nav-right">
-          {items[0] && (
-            <span className="nav-meta">매일 갱신 · {items[0].scoreDate}</span>
-          )}
-
           {/* Gacha */}
           <button onClick={() => setShowGacha(true)} className="nav-gacha">PICK</button>
 
