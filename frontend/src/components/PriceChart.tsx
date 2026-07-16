@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts'
 import { fetchStockPrices } from '../api/client'
 import type { LiveQuote } from '../api/client'
@@ -8,10 +8,11 @@ interface Props {
   securityId: number
   height?: number
   bars?: PriceBar[]        // 부모가 이미 받은 일별 가격 (있으면 재사용해 중복 fetch 방지)
-  live?: LiveQuote | null  // 실시간 시세 (마지막/오늘 캔들 갱신)
+  live?: LiveQuote | null  // 실시간 시세 (마지막/오늘·이번주·이번달 캔들 갱신)
 }
 
 type Range = '3m' | '6m' | '1y' | '3y' | 'all'
+type Interval = 'D' | 'W' | 'M'
 
 const RANGES: [Range, string, number][] = [
   ['3m',  '3개월',  90],
@@ -19,6 +20,12 @@ const RANGES: [Range, string, number][] = [
   ['1y',  '1년',    365],
   ['3y',  '3년',    1095],
   ['all', '전체',   9999],
+]
+
+const INTERVALS: [Interval, string][] = [
+  ['D', '일'],
+  ['W', '주'],
+  ['M', '월'],
 ]
 
 // 이동평균선 색 (기술적 분석 이동평균 배열과 동일 개념)
@@ -40,15 +47,52 @@ function sma(bars: PriceBar[], period: number): { time: string; value: number }[
   return out
 }
 
+// 해당 날짜가 속한 주의 월요일(YYYY-MM-DD) — 주봉 그룹 키.
+function mondayOf(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  const day = d.getUTCDay()               // 0=일 … 6=토
+  d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day))
+  return d.toISOString().slice(0, 10)
+}
+
+// 일봉 → 주봉/월봉 집계. 각 캔들 time = 해당 기간의 마지막 거래일(고유·오름차순).
+// (allData는 날짜 오름차순 가정 — sma()도 동일 가정.)
+function aggregate(bars: PriceBar[], interval: Interval): PriceBar[] {
+  if (interval === 'D') return bars
+  const keyOf = (d: string) => (interval === 'W' ? mondayOf(d) : d.slice(0, 7))
+  const groups = new Map<string, PriceBar[]>()
+  for (const b of bars) {
+    if (b.close == null || b.open == null) continue
+    const k = keyOf(b.date)
+    const g = groups.get(k)
+    if (g) g.push(b); else groups.set(k, [b])
+  }
+  return [...groups.keys()].sort().map(k => {
+    const g = groups.get(k)!
+    const first = g[0], last = g[g.length - 1]
+    return {
+      date: last.date,
+      open: Number(first.open),
+      high: Math.max(...g.map(x => Number(x.high))),
+      low: Math.min(...g.map(x => Number(x.low))),
+      close: Number(last.close),
+      volume: g.reduce((s, x) => s + (Number(x.volume) || 0), 0),
+    } as PriceBar
+  })
+}
+
 const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
 
 export default function PriceChart({ securityId, height = 480, bars, live }: Props) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const candleRef = useRef<ReturnType<ReturnType<typeof createChart>['addSeries']> | null>(null)
   const lastBarRef = useRef<Candle | null>(null)
+  const intervalRef = useRef<Interval>('D')
   const [allData, setAllData] = useState<PriceBar[]>([])
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<Range>('1y')
+  const [interval, setIntervalKind] = useState<Interval>('D')
+  intervalRef.current = interval
 
   // 데이터: 부모가 bars를 주면 그대로, 아니면 자체 fetch
   useEffect(() => {
@@ -57,15 +101,18 @@ export default function PriceChart({ securityId, height = 480, bars, live }: Pro
     fetchStockPrices(securityId, 9999).then(d => setAllData(d)).finally(() => setLoading(false))
   }, [securityId, bars])
 
-  // 차트 (데이터/레인지 변경 시 재생성)
+  // 인터벌별 집계 (일봉이면 그대로)
+  const intervalData = useMemo(() => aggregate(allData, interval), [allData, interval])
+
+  // 차트 (데이터/레인지/인터벌 변경 시 재생성)
   useEffect(() => {
-    if (!chartContainerRef.current || !allData.length) return
+    if (!chartContainerRef.current || !intervalData.length) return
 
     const days = RANGES.find(r => r[0] === range)?.[2] ?? 365
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - days)
     const cutoffStr = cutoff.toISOString().slice(0, 10)
-    const filtered = range === 'all' ? allData : allData.filter(d => d.date >= cutoffStr)
+    const filtered = range === 'all' ? intervalData : intervalData.filter(d => d.date >= cutoffStr)
 
     const css = getComputedStyle(document.documentElement)
     const cssVar = (n: string, fallback: string) => css.getPropertyValue(n).trim() || fallback
@@ -108,7 +155,7 @@ export default function PriceChart({ securityId, height = 480, bars, live }: Pro
       const line = chart.addSeries(LineSeries, {
         color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
       })
-      const maData = sma(allData, period).filter(p => range === 'all' || p.time >= cutoffStr)
+      const maData = sma(intervalData, period).filter(p => range === 'all' || p.time >= cutoffStr)
       line.setData(maData as never)
     }
 
@@ -140,23 +187,29 @@ export default function PriceChart({ securityId, height = 480, bars, live }: Pro
       lastBarRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allData, range, height])
+  }, [intervalData, range, height])
 
-  // 실시간 시세 → 마지막(오늘) 캔들 갱신
+  // 실시간 시세 → 현재(오늘·이번주·이번달) 캔들 갱신
   function applyLive(price: number | null) {
     const s = candleRef.current, lb = lastBarRef.current
     if (!s || price == null || !isFinite(price)) return
-    const today = kstToday()
+    const iv = intervalRef.current
     let next: Candle
-    if (lb && lb.time === today) {
-      // 오늘 캔들 존재 → 종가/고저 갱신
+    if (iv === 'D') {
+      const today = kstToday()
+      if (lb && lb.time === today) {
+        next = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price }
+      } else if (lb && today > lb.time) {
+        // 오늘 캔들 미생성(EOD 배치 전) → 전일 종가를 시가로 새 캔들 추가
+        next = { time: today, open: lb.close, high: Math.max(lb.close, price), low: Math.min(lb.close, price), close: price }
+      } else if (lb) {
+        next = { ...lb, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price }
+      } else return
+    } else {
+      // 주봉·월봉: 마지막(현재 기간) 캔들의 종가/고저를 실시간으로 갱신
+      if (!lb) return
       next = { time: lb.time, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price }
-    } else if (lb && today > lb.time) {
-      // 오늘 캔들 미생성(EOD 배치 전) → 전일 종가를 시가로 새 캔들 추가
-      next = { time: today, open: lb.close, high: Math.max(lb.close, price), low: Math.min(lb.close, price), close: price }
-    } else if (lb) {
-      next = { ...lb, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price }
-    } else return
+    }
     ;(s as { update: (b: Candle) => void }).update(next)
     lastBarRef.current = next
   }
@@ -180,6 +233,13 @@ export default function PriceChart({ securityId, height = 480, bars, live }: Pro
     <div className="pchart">
       <div className="pchart-bar">
         <div className="pchart-ranges">
+          <span className="pchart-ivgroup">
+            {INTERVALS.map(([key, label]) => (
+              <button key={key} onClick={() => setIntervalKind(key)}
+                className={interval === key ? 'pchart-range on' : 'pchart-range'}>{label}</button>
+            ))}
+          </span>
+          <span className="pchart-bar-sep" />
           {RANGES.map(([key, label]) => (
             <button key={key} onClick={() => setRange(key)}
               className={range === key ? 'pchart-range on' : 'pchart-range'}>{label}</button>

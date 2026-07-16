@@ -295,7 +295,9 @@ body {
 /* ── 주가 차트 (PriceChart) ── */
 .pchart { background: var(--bg-surface); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
 .pchart-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); }
-.pchart-ranges { display: flex; gap: 4px; }
+.pchart-ranges { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pchart-ivgroup { display: inline-flex; gap: 4px; }
+.pchart-bar-sep { width: 1px; align-self: stretch; min-height: 18px; background: var(--border); margin: 0 4px; }
 .pchart-range { padding: 3px 11px; font-size: 12px; font-weight: 600; border-radius: 8px; background: transparent; color: var(--text-2); border: 1px solid var(--border-sub); cursor: pointer; }
 .pchart-range.on { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
 .pchart-ma-legend { display: flex; align-items: center; gap: 10px; }
