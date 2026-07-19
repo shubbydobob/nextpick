@@ -240,6 +240,37 @@ def upsert_investor_flow(rows: list[dict]) -> int:
     return len(rows)
 
 
+def upsert_us_institutional(rows: list[dict]) -> int:
+    """
+    derived_metrics의 US 13F 기관 컬럼만 upsert.
+    행이 없으면 INSERT, 있으면 세 컬럼만 UPDATE (재무·가격·KR수급 컬럼 불변).
+    rows: [{'security_id', 'as_of_date', 'inst_pct_held', 'inst_holders_count', 'inst_accum_breadth'}]
+    """
+    if not rows:
+        return 0
+
+    sql = text("""
+        INSERT INTO derived_metrics (
+            security_id, as_of_date,
+            inst_pct_held, inst_holders_count, inst_accum_breadth,
+            created_at
+        ) VALUES (
+            :security_id, :as_of_date,
+            :inst_pct_held, :inst_holders_count, :inst_accum_breadth,
+            NOW()
+        )
+        ON CONFLICT (security_id, as_of_date) DO UPDATE SET
+            inst_pct_held      = EXCLUDED.inst_pct_held,
+            inst_holders_count = EXCLUDED.inst_holders_count,
+            inst_accum_breadth = EXCLUDED.inst_accum_breadth
+    """)
+
+    with get_session() as session:
+        for i in range(0, len(rows), 500):
+            session.execute(sql, rows[i:i + 500])
+    return len(rows)
+
+
 def upsert_security_status(rows: list[dict]) -> tuple[int, int]:
     """
     security_status_daily 스냅샷 upsert.

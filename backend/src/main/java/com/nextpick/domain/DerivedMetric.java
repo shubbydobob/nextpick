@@ -69,6 +69,14 @@ public class DerivedMetric {
     @Column(name = "inst_trend_flag")
     private Short instTrendFlag;
 
+    // US 13F 기관 스폰서십(분기). KR 일별 순매수 컬럼과 상호배타(마켓별 채워짐).
+    @Column(name = "inst_pct_held")
+    private BigDecimal instPctHeld;           // 기관 보유비중 0~1
+    @Column(name = "inst_holders_count")
+    private Integer instHoldersCount;         // 13F 기관 수
+    @Column(name = "inst_accum_breadth")
+    private Short instAccumBreadth;           // 상위보유기관 증가수-감소수 (분기 순매집 breadth)
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -87,4 +95,7 @@ public class DerivedMetric {
     public BigDecimal getInstNetBuy10d() { return instNetBuy10d; }
     public BigDecimal getForeignNetBuy10d() { return foreignNetBuy10d; }
     public Short getInstTrendFlag() { return instTrendFlag; }
+    public BigDecimal getInstPctHeld() { return instPctHeld; }
+    public Integer getInstHoldersCount() { return instHoldersCount; }
+    public Short getInstAccumBreadth() { return instAccumBreadth; }
 }

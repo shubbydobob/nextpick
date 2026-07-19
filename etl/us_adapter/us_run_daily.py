@@ -7,10 +7,11 @@ US 일별 ETL 진입점 — OS/서버 스케줄러에서 호출
 파이프라인 순서 (KR run_daily 미러, 수급 단계 제외):
   1. 종목 목록 갱신 (월요일 / 백필 시)   — us_instrument_loader
   2. 가격 수집 (price_daily)              — us_price_loader (yfinance)
-  3. [수급 스킵 — US MVP 미지원]
+  3. [일별 수급 스킵 — US엔 한국식 외인/기관 일별 순매수 공시 없음]
   4. 재무 수집 (financials)               — edgar_financial_loader (SEC EDGAR, 월1회 갱신)
   5. financial_normalizer (EPS/ROE → derived_metrics)   ← KR 로직 재사용(단독분기 분기)
   6. derived_metrics 가격 컬럼 계산 (rs_percentile 등)  ← KR 로직 재사용
+  6b. 기관 스폰서십(13F) 적재 — us_institutional_loader (yfinance, 종목 갱신 주기에만) → I 팩터
   7. market_state 갱신 (SPX/NDX 국면)      — us_market_state (yfinance)
   8. 스코어링 트리거 (Spring Boot REST)    — 엔진이 KR·US 전체 재채점
 
@@ -153,6 +154,17 @@ def _run_pipeline(target_date: date, *, backfill: bool, refresh_universe: bool,
         logger.info("[6/8] derived_metrics 계산 완료: %d 행", updated)
     except Exception as e:
         logger.warning("[6/8] derived_metrics 계산 실패(비치명적): %s", e)
+
+    # ── 6b. 기관 스폰서십(13F, yfinance) — 종목 갱신 주기에만 ──
+    #   13F는 분기 공시라 매일 조회 불필요. as_of=최신 US 거래일(채점 정렬).
+    if refresh_universe:
+        logger.info("[6b/8] 기관(13F) 적재 시작")
+        try:
+            from .us_institutional_loader import load as load_institutional
+            n = load_institutional(as_of=as_of)
+            logger.info("[6b/8] 기관(13F) 적재 완료: %d행", n)
+        except Exception as e:
+            logger.warning("[6b/8] 기관(13F) 적재 실패(비치명적): %s", e)
 
     # ── 7. market_state (SPX/NDX) ────────────────────────────
     logger.info("[7/8] market_state 갱신 시작")
