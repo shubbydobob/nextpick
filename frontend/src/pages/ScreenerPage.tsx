@@ -195,12 +195,22 @@ export default function ScreenerPage() {
   const isPopRef = useRef(false)         // popstate로 인한 뷰 변경은 history push 생략
   const histMountedRef = useRef(false)   // 최초 마운트는 replaceState로 현재 엔트리에 심음
 
-  const CAP_PARAMS: Record<string, { minCap?: number; maxCap?: number }> = {
-    all:   {},
-    large: { minCap: 1_000_000_000_000 },
-    mid:   { minCap: 200_000_000_000, maxCap: 1_000_000_000_000 },
-    small: { maxCap: 200_000_000_000 },
-  }
+  // 시총 임계값: KR=원(1조/2천억), US=달러($10B/$2B). marketCap은 close_adj×total_shares라 통화가 시장별로 다름.
+  const CAP_PARAMS: Record<string, { minCap?: number; maxCap?: number }> = IS_US
+    ? {
+        all:   {},
+        large: { minCap: 10_000_000_000 },
+        mid:   { minCap: 2_000_000_000, maxCap: 10_000_000_000 },
+        small: { maxCap: 2_000_000_000 },
+      }
+    : {
+        all:   {},
+        large: { minCap: 1_000_000_000_000 },
+        mid:   { minCap: 200_000_000_000, maxCap: 1_000_000_000_000 },
+        small: { maxCap: 200_000_000_000 },
+      }
+  // 대형 프리셋 라벨(시장별 통화 표기)
+  const capLargeLabel = IS_US ? '대형($10B↑)' : '대형(1조↑)'
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -858,7 +868,7 @@ export default function ScreenerPage() {
               <div className="chip-row">
                 {(['all', 'large', 'mid', 'small'] as const).map(k => (
                   <ChipBtn key={k} on={capRange === k} onClick={() => { setCapRange(k); setPage(0) }}
-                    label={k === 'all' ? '전체' : k === 'large' ? '대형(1조↑)' : k === 'mid' ? '중형' : '소형'} />
+                    label={k === 'all' ? '전체' : k === 'large' ? capLargeLabel : k === 'mid' ? '중형' : '소형'} />
                 ))}
               </div>
             </FilterCell>
@@ -983,7 +993,7 @@ export default function ScreenerPage() {
 
       {/* ── 활성 필터 칩 ─────────────────────────────────────── */}
       {hasActiveFilter && (() => {
-        const capLabel: Record<string, string> = { large: '대형(1조↑)', mid: '중형', small: '소형' }
+        const capLabel: Record<string, string> = { large: capLargeLabel, mid: '중형', small: '소형' }
         const chips: { label: string; clear: () => void }[] = []
         if (query) chips.push({ label: `검색 "${query}"`, clear: () => handleQuery('') })
         if (sector) chips.push({ label: `섹터 · ${sector}`, clear: () => { setSector(''); setPage(0) } })
