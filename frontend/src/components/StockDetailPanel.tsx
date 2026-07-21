@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
-import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt, fmtFinAmt, fmtVol, fmtFlow } from '../utils/format'
+import { fmtPrice, fmtRate, fmtMarketCap, fmtAmt, fmtFinAmt, fmtVol, fmtFlow, isUsMarketHours } from '../utils/format'
 import { scoreGrade } from '../utils/factors'
 import { isPremium, isLoggedIn } from '../api/auth'
 import {
@@ -27,8 +27,8 @@ const FACTORS: { key: ScoreKey; label: string; desc: string; color: string; tip:
   { key: 'mScore', label: '7', desc: '시장방향',  color: '#d6bcfa', tip: '시장방향(M) — 전체 시장의 추세(강세/약세). 종목과 무관한 시장 전반 신호.' },
 ]
 
-function FactorCard({ label, desc, value, color }: {
-  label: string; desc: string; value: number | null; color: string
+function FactorCard({ label, desc, value, color, live }: {
+  label: string; desc: string; value: number | null; color: string; live?: boolean
 }) {
   const pct = value ?? 0
   const { label: grade, color: gc } = scoreGrade(value)
@@ -45,7 +45,7 @@ function FactorCard({ label, desc, value, color }: {
       <div className="factor-card-head">
         <div>
           <span className="factor-badge">{label}</span>
-          <div className="factor-desc">{desc}</div>
+          <div className="factor-desc">{desc}{live && <span className="det-live-tag">● 실시간</span>}</div>
         </div>
         <div className="factor-val-wrap">
           <div className="factor-val">
@@ -282,6 +282,21 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
     if (onSelectStock) onSelectStock(peerId)
   }
 
+  // ── US 장중 I 실시간 넛지 ──────────────────────────────────────────────
+  // 미국은 무료 일별 기관순매수가 없어 저장 I는 EOD(13F+A/D). 장중엔 오늘의 라이브 가격방향×
+  // 상대거래량으로 '오늘의 매집/분산'을 추정해 I·매집강도를 소폭 보정(추정치, 배지로 표시).
+  const usLiveActive = stock.market === 'US' && isUsMarketHours() && live?.changeRate != null
+  const intradayNudge = (() => {
+    if (!usLiveActive || live?.changeRate == null) return 0
+    const relVol = (live.volume != null && stock.volume) ? live.volume / stock.volume : 0
+    const volW = Math.max(0.3, Math.min(1.3, relVol / 0.8))   // 오늘 거래량/전일 → 활발할수록 강한 보정
+    return 10 * Math.tanh(live.changeRate / 4) * volW          // ±약10점, 등락률 부호=매집(+)/분산(−)
+  })()
+  const nudge01 = (v: number | null | undefined) =>
+    v == null ? null : Math.max(0, Math.min(100, v + intradayNudge))
+  const iLive = usLiveActive ? nudge01(stock.iScore) : (stock.iScore ?? null)
+  const accumLive = usLiveActive ? nudge01(stock.accumDistScore) : (stock.accumDistScore ?? null)
+
   return (
     <div className="detail-panel">
       {/* ── Top info bar ── */}
@@ -515,7 +530,9 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
       {/* ── 팩터 카드 ── */}
       <div className="detail-factors hide-scrollbar">
         {FACTORS.map(f => (
-          <FactorCard key={f.key} label={f.label} desc={f.desc} value={stock[f.key]} color={f.color} />
+          <FactorCard key={f.key} label={f.label} desc={f.desc}
+            value={f.key === 'iScore' ? iLive : stock[f.key]} color={f.color}
+            live={f.key === 'iScore' && usLiveActive} />
         ))}
       </div>
 
@@ -524,7 +541,7 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
         <Card className="grow">
           <SectionTitle>지표 레이더</SectionTitle>
           <ResponsiveContainer width="100%" height={200}>
-            <RadarChart data={FACTORS.map(f => ({ factor: f.desc, score: stock[f.key] ?? 0 }))}>
+            <RadarChart data={FACTORS.map(f => ({ factor: f.desc, score: (f.key === 'iScore' ? iLive : stock[f.key]) ?? 0 }))}>
               <PolarGrid stroke="var(--border)" />
               <PolarAngleAxis dataKey="factor" tick={{ fontSize: 10, fill: 'var(--text-3)' }} />
               <Radar name="점수" dataKey="score" stroke="#58a6ff" fill="#58a6ff" fillOpacity={0.15} strokeWidth={2} />
@@ -535,10 +552,12 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
           {stock.market === 'US' ? (() => {
             // US: 외인/기관/프로그램 일별 순매수 공시가 없음 → 13F 기관보유% + A/D 매집강도 + RS로 표시.
             const instPct = stock.instPctHeld != null ? stock.instPctHeld * 100 : null
-            const accum = stock.accumDistScore ?? null
+            const accum = accumLive   // 장중이면 오늘 매집/분산 추정 반영, 장외면 저장 A/D
             const accumColor = accum == null ? '#a0aec0' : accum >= 55 ? '#4ade80' : accum <= 45 ? '#f87171' : '#a0aec0'
             return <>
-            <SectionTitle>기관·매집<span className="det-live-tag batch">13F·A/D</span></SectionTitle>
+            <SectionTitle>기관·매집{usLiveActive
+              ? <span className="det-live-tag">● 실시간 추정</span>
+              : <span className="det-live-tag batch">13F·A/D</span>}</SectionTitle>
             <div className="det-flow-list">
               <div>
                 <div className="det-flow-head"><span className="det-flow-label">기관 보유</span><span className="det-flow-tag">13F</span></div>
@@ -546,7 +565,7 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
                 <div className="det-flow-track">{instPct != null && <div className="det-flow-fill" style={{ ['--fw' as string]: `${Math.min(100, instPct)}%`, ['--ff' as string]: '#63b3ed' }} />}</div>
               </div>
               <div>
-                <div className="det-flow-head"><span className="det-flow-label">매집강도</span><span className="det-flow-tag">A/D</span></div>
+                <div className="det-flow-head"><span className="det-flow-label">매집강도</span><span className="det-flow-tag">{usLiveActive ? '실시간' : 'A/D'}</span></div>
                 <div className="det-flow-val" style={{ ['--fv' as string]: accumColor }}>{accum != null ? `${accum.toFixed(0)} / 100` : '—'}</div>
                 <div className="det-flow-track">{accum != null && <div className="det-flow-fill" style={{ ['--fw' as string]: `${Math.min(100, accum)}%`, ['--ff' as string]: accum >= 50 ? '#4ade80' : '#f87171' }} />}</div>
               </div>
