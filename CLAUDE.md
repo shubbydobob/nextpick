@@ -84,6 +84,7 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 - **시간외 종가**: pykrx 종가는 정규장(15:30) 기준. 시간외 단일가는 `after_hours_loader`(20:05)가 `derived_metrics.after_hours_close`에 별도 적재. **표시 정책(2026-07-22 변경)**: 메인 종가·등락률·시총은 **정규장 종가(price_daily.close_adj) 기준**(키움 등 증권사 헤드라인과 일치). 시간외는 `after_hours_close`/`after_hours_change_pct`로 **별도 필드**(오버레이 안 함). 과거 `loadPriceAndFlow`가 `COALESCE(after_hours_close, close)`를 종가·등락률에 오버레이해, 시간외가 정규장과 다른 종목의 등락률을 전일 정규장 종가 대비로 계산→부풀리던 버그 수정(예 엘티씨 170920: 시간외56,000 vs 정규55,100·전일51,600 → 화면 +8.53% 오표기, 실제 +6.78%). `updatePriceSnapshot`(배치)는 처음부터 정규장 기준이라 무관.
 
 ### 미해결/주의
+- **수급(외인/기관) 통합·누적 한계 (2026-07-22 조사)**: ① **통합 불가** — 키움은 KRX+NXT 통합 투자자 순매수(예 에이피알 278470 07-21 외인 **+13,012**/기관 -11,955), 네이버(공식 KRX)·KIS 확정 `inquire-investor`(UN·J·NX 실측 **동일값** = KRX만)는 외인 **+10,244**/기관 -12,567. 차이=NXT 투자자분인데 **KIS가 NXT 투자자 데이터를 제공하지 않아 키움 통합 수급 재현 불가**. 우리 값=공식 KRX(네이버 정확 일치)이므로 정상으로 간주. (가격·거래량은 KIS UN이 통합 제공→키움 일치, 수급만 KIS 한계.) ② **누적 5/10/20/60/120/250일 요청 미구현** — 투자자 일별 이력 소스가 환경 내 **최대 30일**(KIS `inquire-investor` 30행, 네이버 trend API 10행, **pykrx 투자자 함수 전부 빈결과**)라 5/10/20만 즉시 가능, **60/120/250은 백필 소스 부재** → 별도 `investor_daily` 테이블에 일별 누적 저장으로 시간 경과 시 채워야 함. 노출 경로가 `ScreenerController`(동시 세션 리팩터링 중)라 충돌 주의.
 - **KIS 쿼터**: 레이트리밋(15/s)+병렬로 완화. 그래도 동시 접속 많으면 압박 → 시세 폴링 5초로 상향 여지. `/api/realtime/debug` 진단.
 - **정렬 앵커**: 표시는 통일했으나 정렬 '순서'는 여전히 nextpick_scores 기준(채점 지연 시 stale). 프론트 재정렬이 장중 보정. 완전 통일은 성능 트레이드오프로 보류.
 - **진짜 실시간 1초/WebSocket**: REST 폴링은 쿼터상 3~5초가 한계. 초단위는 KIS WebSocket(41종목 제한) 필요 — 별도 과제.
