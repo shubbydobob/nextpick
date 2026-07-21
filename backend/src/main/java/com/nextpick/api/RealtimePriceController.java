@@ -62,6 +62,8 @@ public class RealtimePriceController {
     // 국내 분봉 — 당일(FHKST03010200, 30개/호출)·과거일(FHKST03010230, 120개/호출). 1분 단위, 시각 역순.
     private static final String MIN_TODAY_PATH = "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice";
     private static final String MIN_PAST_PATH  = "/uapi/domestic-stock/v1/quotations/inquire-time-dailychartprice";
+    // US 해외 분봉 (KIS HHDFS76950200). NMIN 분단위·NREC 120개·KEYB(xymd+xhms) 연속조회.
+    private static final String OVERSEAS_MIN_PATH = "/uapi/overseas-price/v1/quotations/inquire-time-itemchartprice";
     private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter YMDHMS = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -707,19 +709,21 @@ public class RealtimePriceController {
     @GetMapping("/minute")
     public ResponseEntity<List<Map<String, Object>>> getMinute(
             @RequestParam("ticker") String ticker,
-            @RequestParam(value = "days", defaultValue = "1") int days) {
+            @RequestParam(value = "days", defaultValue = "1") int days,
+            @RequestParam(value = "market", defaultValue = "KR") String market) {
+        boolean us = "US".equalsIgnoreCase(market);
         try {
             int d = Math.max(1, Math.min(MINUTE_MAX_DAYS, days));
-            String key = ticker + "|" + d;
+            String key = (us ? "US:" : "") + ticker + "|" + d;
             long now = System.currentTimeMillis();
             CachedList c = minuteCache.get(key);
             if (c != null && now - c.ts() < MINUTE_TTL_MS) return ResponseEntity.ok(c.data());
 
-            List<Map<String, Object>> bars = fetchMinuteBars(ticker, d);
+            List<Map<String, Object>> bars = us ? fetchUsMinuteBars(ticker, d) : fetchMinuteBars(ticker, d);
             minuteCache.put(key, new CachedList(bars, now));
             return ResponseEntity.ok(bars);
         } catch (Exception e) {
-            log.warn("KIS 분봉 조회 실패 ({}): {}", ticker, e.getMessage());
+            log.warn("KIS 분봉 조회 실패 ({}, {}): {}", ticker, market, e.getMessage());
             return ResponseEntity.ok(List.of());
         }
     }
@@ -822,6 +826,95 @@ public class RealtimePriceController {
             LocalTime prev = t.minusMinutes(1);
             return String.format("%02d%02d%02d", prev.getHour(), prev.getMinute(), prev.getSecond());
         } catch (Exception e) { return "090000"; }
+    }
+
+    /**
+     * US 해외 1분봉을 최근 days 거래일치 수집(정규장 09:30~16:00 ET). KEYB(xymd+xhms) 연속조회로 역방향 페이징.
+     * 시각은 ET 벽시계를 그대로 epoch초(UTC 취급)로 인코딩 → 축이 ET 장시간으로 보임. 값은 소수(USD).
+     */
+    private List<Map<String, Object>> fetchUsMinuteBars(String ticker, int days) throws Exception {
+        Map<String, Object> cfg = kis.getConfig();
+        String token = kis.getToken();
+        String excd = usExcd(ticker);
+        Map<Long, Map<String, Object>> byTime = new java.util.TreeMap<>();
+        java.util.TreeSet<String> dates = new java.util.TreeSet<>();  // 수집된 거래일(오름차순)
+        String keyb = "", next = "";
+        int cap = Math.min(24, days * 5 + 2);
+        boolean triedFallback = false;
+        for (int i = 0; i < cap; i++) {
+            List<Map<String, Object>> page = callUsMinute(excd, ticker, keyb, next, cfg, token);
+            if ((page == null || page.isEmpty()) && i == 0 && !triedFallback) {
+                triedFallback = true;
+                for (String ex : List.of("NAS", "NYS", "AMS")) {
+                    if (ex.equals(excd)) continue;
+                    page = callUsMinute(ex, ticker, keyb, next, cfg, token);
+                    if (page != null && !page.isEmpty()) { excd = ex; break; }
+                }
+            }
+            if (page == null || page.isEmpty()) break;
+
+            String oldXymd = null, oldXhms = null;
+            for (Map<String, Object> b : page) {   // KIS는 최신→과거 순 → 마지막 반복 = 최과거
+                String xymd = String.valueOf(b.get("xymd"));
+                String xhms = String.valueOf(b.get("xhms"));
+                oldXymd = xymd; oldXhms = xhms;
+                if (xymd.length() != 8 || xhms.length() != 6) continue;
+                if (xhms.compareTo("093000") < 0 || xhms.compareTo("160000") > 0) continue;  // 정규장만
+                long epoch;
+                try { epoch = LocalDateTime.parse(xymd + xhms, YMDHMS).toEpochSecond(ZoneOffset.UTC); }
+                catch (Exception e) { continue; }
+                dates.add(xymd);
+                if (byTime.containsKey(epoch)) continue;
+                Map<String, Object> bar = new LinkedHashMap<>();
+                bar.put("time",   epoch);
+                bar.put("open",   parseDouble((String) b.getOrDefault("open", "0")));
+                bar.put("high",   parseDouble((String) b.getOrDefault("high", "0")));
+                bar.put("low",    parseDouble((String) b.getOrDefault("low", "0")));
+                bar.put("close",  parseDouble((String) b.getOrDefault("last", "0")));
+                bar.put("volume", parseLong((String) b.getOrDefault("evol", "0")));
+                byTime.put(epoch, bar);
+            }
+            // 충분한 거래일 확보 + 최과거가 이미 장 시작 이전이면 종료
+            if (dates.size() >= days && oldXhms != null && oldXhms.compareTo("093000") <= 0) break;
+            if (oldXymd == null) break;
+            String nk = oldXymd + oldXhms;
+            if (nk.equals(keyb)) break;   // 진전 없음
+            keyb = nk; next = "1";
+        }
+        // 최근 days개 거래일만 유지
+        if (dates.size() > days) {
+            java.util.List<String> all = new java.util.ArrayList<>(dates);
+            java.util.Set<String> keep = new java.util.HashSet<>(all.subList(all.size() - days, all.size()));
+            byTime.keySet().removeIf(ep ->
+                    !keep.contains(LocalDateTime.ofEpochSecond(ep, 0, ZoneOffset.UTC).format(YMD)));
+        }
+        return new ArrayList<>(byTime.values());
+    }
+
+    /** 해외 분봉 1콜(NMIN=1, 120개) → output2. keyb/next로 연속조회. 실패 시 null. */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> callUsMinute(
+            String excd, String symb, String keyb, String next, Map<String, Object> cfg, String token) {
+        if (!acquireRate()) return null;
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("authorization", "Bearer " + token);
+        headers.set("appkey",   (String) cfg.get("app_key"));
+        headers.set("appsecret", (String) cfg.get("app_secret"));
+        headers.set("tr_id",    "HHDFS76950200");
+        headers.set("custtype", "P");
+        String symbParam = symb.replace("-", "/");   // 클래스주 하이픈→슬래시(KIS 해외 규약)
+        String url = KIS_BASE + OVERSEAS_MIN_PATH + "?AUTH=&EXCD=" + excd + "&SYMB=" + symbParam
+                + "&NMIN=1&PINC=1&NEXT=" + next + "&NREC=120&FILL=&KEYB=" + keyb;
+        try {
+            ResponseEntity<Map> resp = rest.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) return null;
+            if (!"0".equals(String.valueOf(resp.getBody().get("rt_cd")))) return null;
+            Object o2 = resp.getBody().get("output2");
+            return (o2 instanceof List) ? (List<Map<String, Object>>) o2 : null;
+        } catch (Exception e) {
+            log.debug("KIS 해외분봉 조회 실패 ({}, excd={}): {}", symb, excd, e.getMessage());
+            return null;
+        }
     }
 
     private long parseLong(String s) {

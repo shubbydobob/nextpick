@@ -219,10 +219,10 @@ export interface MinuteBar {
   volume: number
 }
 
-/** KR 국내 1분봉 (최근 days 거래일, 1~5). KIS on-demand — 분봉 인터벌 선택 시에만 호출. */
-export async function fetchMinuteBars(ticker: string, days = 1): Promise<MinuteBar[]> {
+/** 1분봉 (최근 days 거래일, 1~5). KR=국내(KST축), US=해외(ET축). 분봉 인터벌 선택 시에만 호출. */
+export async function fetchMinuteBars(ticker: string, days = 1, market = 'KR'): Promise<MinuteBar[]> {
   try {
-    const res = await fetch(`${BASE}/realtime/minute?ticker=${encodeURIComponent(ticker)}&days=${days}`)
+    const res = await fetch(`${BASE}/realtime/minute?ticker=${encodeURIComponent(ticker)}&days=${days}&market=${market}`)
     if (!res.ok) return []
     return res.json()
   } catch { return [] }

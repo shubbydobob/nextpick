@@ -106,8 +106,18 @@ function aggregateMinute(bars: MinuteBar[], step: number): Bar[] {
 }
 
 const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
-// KST 벽시계 epoch초 (분봉 time 인코딩과 일치 — 실시간 현재봉 버킷 계산용)
+// KST 벽시계 epoch초 (KR 분봉 time 인코딩과 일치 — 실시간 현재봉 버킷 계산용)
 const kstNowSec = () => Math.floor((Date.now() + 9 * 3600 * 1000) / 1000)
+// ET 벽시계 epoch초 (US 분봉 인코딩과 일치). DST는 Intl(America/New_York)로 정확 반영.
+const etNowSec = () => {
+  const p = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(new Date())
+  const o: Record<string, string> = {}
+  for (const x of p) o[x.type] = x.value
+  return Math.floor(Date.UTC(+o.year, +o.month - 1, +o.day % 32, +o.hour % 24, +o.minute, +o.second) / 1000)
+}
 
 export default function PriceChart({ securityId, height = 480, bars, live, ticker, market }: Props) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
@@ -123,7 +133,8 @@ export default function PriceChart({ securityId, height = 480, bars, live, ticke
   const [minLoading, setMinLoading] = useState(false)
   intervalRef.current = interval
 
-  const showMinute = !!ticker && (market || '').toUpperCase() !== 'US'
+  const isUs = (market || '').toUpperCase() === 'US'
+  const showMinute = !!ticker         // KR=국내 분봉, US=해외 분봉 (둘 다 지원)
   const isMinute = isMinuteIv(interval)
   const ivList: [Interval, string][] = showMinute
     ? [['1', '1분'], ['5', '5분'], ['D', '일'], ['W', '주'], ['M', '월']]
@@ -141,11 +152,11 @@ export default function PriceChart({ securityId, height = 480, bars, live, ticke
     if (!isMinute || !showMinute || !ticker) return
     let cancelled = false
     setMinLoading(true)
-    fetchMinuteBars(ticker, minDays)
+    fetchMinuteBars(ticker, minDays, isUs ? 'US' : 'KR')
       .then(d => { if (!cancelled) setMinuteBars(d) })
       .finally(() => { if (!cancelled) setMinLoading(false) })
     return () => { cancelled = true }
-  }, [isMinute, showMinute, ticker, minDays])
+  }, [isMinute, showMinute, ticker, minDays, isUs])
 
   // 표시 시리즈(인터벌별). 분봉이면 분봉 집계, 아니면 일/주/월 집계.
   const series = useMemo<Bar[]>(() => {
@@ -252,7 +263,7 @@ export default function PriceChart({ securityId, height = 480, bars, live, ticke
     if (isMinuteIv(iv)) {
       if (!lb || typeof lb.time !== 'number') return
       const stepSec = iv === '5' ? 300 : 60
-      const bucket = Math.floor(kstNowSec() / stepSec) * stepSec
+      const bucket = Math.floor((isUs ? etNowSec() : kstNowSec()) / stepSec) * stepSec
       const lbt = lb.time
       if (bucket === lbt) {
         next = { time: lbt, open: lb.open, high: Math.max(lb.high, price), low: Math.min(lb.low, price), close: price, volume: lb.volume }
