@@ -69,7 +69,7 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 - **실시간 수급**: 외인·기관·프로그램 당일 실시간화(위 실시간 섹션). 단위 버그(KIS `_tr_pbmn`는 백만원 → ×1e6 원) 정정. 리스트 거래량 컬럼 + '억'/'만주' 단위 표기.
 - **스크리너 등락률/수급 정렬**: 백엔드 배치 정렬 vs 프론트 실시간 표시 불일치 → `LIVE_SORT_KEYS` + `liveSortVal`(당일 우선)로 페이지 재정렬.
 - **정렬 앵커 정합성**: `screenByPriceSort` 표시가격을 `loadPriceAndFlow`(price_daily 최신 앵커)로 통일(정렬은 nextpick_scores 인덱스 유지, coalesce 보존).
-- **시간외 단일가**: `after_hours_loader` TR 정정(FHPST02300000/inquire-overtime-price, `ovtm_untp_prpr`/`ovtm_untp_prdy_ctrt`) + run_daily 7c 편입. 정규장 종가 불변, `after_hours_close`만 적재(COALESCE 오버레이).
+- **시간외 단일가**: `after_hours_loader` TR 정정(FHPST02300000/inquire-overtime-price, `ovtm_untp_prpr`/`ovtm_untp_prdy_ctrt`) + run_daily 7c 편입. 정규장 종가 불변, `after_hours_close`만 적재. (표시는 별도 필드 — 오버레이 제거됨, 아래 "시간외 종가" 함정 참조.)
 - **성능**: 코드 스플릿(App 라우트 lazy + StockDetailPanel/recharts lazy + vite manualChunks vendor-react/charts) → 945KB 단일청크 분할. `useMemo`(displayItems·sectorStats).
 - **진단**: `kis-probe.yml`(workflow_dispatch) — KIS TR 후보 실호출로 필드 확인(읽기 전용).
 - **채점 프리즈 근본 픽스 (nextpick_scores가 07-07에 고정)**: `updatePriceSnapshot`의 `:scoreDate - INTERVAL '14 days'`에서 LocalDate가 JPA `@Query`에 `unknown` 타입으로 바인딩 → PG가 `unknown - interval`을 interval로 해석해 `operator does not exist: date >= interval` → 채점 트랜잭션 오염 → catch("비치명적")에도 커밋 시점에 **KR 전 종목 롤백**. `CAST(:scoreDate AS date)`로 파라미터 타입 명시해 해결. (`NextpickScoreRepository`. `ScreenerController`의 `? - INTERVAL`은 JdbcTemplate이 date로 바인딩해 정상 — JPA `@Query`만 문제였음.)
@@ -80,7 +80,7 @@ ETL(Python) → PostgreSQL → Scoring Engine(Spring Boot) → Screener UI(React
 - **거래정지 종목**: 정지 기간 종가 고정+거래량 0, 재개일 폭등. "상한가" 아님. 재개일 등락률을 정지 전 stale 종가로 계산하면 허위 폭등(예: 금호에이치티 214330 정지 2555→재개 9030 = **+253%**, KIS는 재산정 기준가 6950 대비 +29.93%). **픽스(2026-07-08)**: `ScreenerController`의 `loadPriceAndFlow`(리스트/상세 표시)·`/limit-up`·`/stats`(상승종목수·섹터 평균등락) 모두 **전일 거래량>0** 조건으로 정지 갭 배제 → 정지 종목은 등락률 null. 정상 상한가(전일 거래량>0)는 영향 없음. 장중엔 실시간 오버레이가 KIS 정확값 표시. (nextpick_scores.change_rate 정렬 앵커엔 배치값 잔존 — 표시는 loadPriceAndFlow로 교정되나 정렬 순서는 재채점 전까지 stale 가능.)
 - **채점 지연**: 가격은 최신일인데 nextpick_scores는 이전일일 수 있음. 헤더 "매일 갱신" 날짜 = 최신 채점일.
 - **프로그램 10일 누적 불가**: KIS에 "종목별" 프로그램매매 일별 API 없음(시장별 종합만). → 배치 `program_net_buy_10d`는 null, 장중 실시간(`pgtr_ntby_qty`)만 제공. 프론트도 이 전제로 표시.
-- **시간외 종가**: pykrx 종가는 정규장(15:30) 기준. 시간외 단일가는 `after_hours_loader`(20:05)가 별도 컬럼에 적재 → COALESCE 오버레이로만 표시(운영 첫 배치 후 `derived_metrics.after_hours_close` 확인 권장).
+- **시간외 종가**: pykrx 종가는 정규장(15:30) 기준. 시간외 단일가는 `after_hours_loader`(20:05)가 `derived_metrics.after_hours_close`에 별도 적재. **표시 정책(2026-07-22 변경)**: 메인 종가·등락률·시총은 **정규장 종가(price_daily.close_adj) 기준**(키움 등 증권사 헤드라인과 일치). 시간외는 `after_hours_close`/`after_hours_change_pct`로 **별도 필드**(오버레이 안 함). 과거 `loadPriceAndFlow`가 `COALESCE(after_hours_close, close)`를 종가·등락률에 오버레이해, 시간외가 정규장과 다른 종목의 등락률을 전일 정규장 종가 대비로 계산→부풀리던 버그 수정(예 엘티씨 170920: 시간외56,000 vs 정규55,100·전일51,600 → 화면 +8.53% 오표기, 실제 +6.78%). `updatePriceSnapshot`(배치)는 처음부터 정규장 기준이라 무관.
 
 ### 미해결/주의
 - **KIS 쿼터**: 레이트리밋(15/s)+병렬로 완화. 그래도 동시 접속 많으면 압박 → 시세 폴링 5초로 상향 여지. `/api/realtime/debug` 진단.
@@ -101,7 +101,9 @@ PYTHONUTF8=1 python etl/kr_adapter/run_backfill_10yr.py       # 10년 백필
 
 ### Spring Boot
 ```bash
-cd backend && DB_PASSWORD=1234 mvn spring-boot:run
+# 빌드툴 = Gradle (mvn 아님). 로컬 PATH에 mvn/gradle 없으면 래퍼(./gradlew) 사용.
+# 로컬 컴파일 검증: JAVA_HOME=<jdk21> ./gradlew compileJava --offline -q  (backend 디렉토리에서)
+cd backend && DB_PASSWORD=1234 ./gradlew bootRun
 curl -s -X POST http://localhost:8080/api/admin/scoring/run   # 스코어링 실행
 ```
 
