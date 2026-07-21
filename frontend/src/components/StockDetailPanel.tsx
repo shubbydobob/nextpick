@@ -547,7 +547,9 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
           <SectionTitle>
             수급
             {hasLiveFlow
-              ? <span className="det-live-tag">● {estStage ? `잠정 ${estStage}차` : '실시간'}</span>
+              ? <span className={'det-live-tag' + (investor?.source === 'confirmed' ? ' batch' : '')}>
+                  ● {estStage ? `잠정 ${estStage}차` : investor?.source === 'confirmed' ? '당일 확정' : '실시간'}
+                </span>
               : <span className="det-live-tag batch">10일 누적</span>}
           </SectionTitle>
           <div className="det-flow-list">
