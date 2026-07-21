@@ -113,6 +113,18 @@ export interface LiveQuote {
   pbr?: number | null                 // KIS 주가순자산비율
   eps?: number | null                 // KIS 주당순이익(원)
   bps?: number | null                 // KIS 주당순자산(원)
+  marginRate?: number | null          // 증거금 비율(%) — KR 전용
+  creditAble?: boolean | null         // 신용거래 가능 여부 — KR 전용
+}
+
+/** 단일 종목 실시간 시세(비게이트 /price) — 장외에도 KIS 통합(KRX+NXT) 최근 시세 반환.
+ *  상세 패널이 배치(pykrx=KRX 정규장만) 대신 통합 종가·등락률·거래량·증거금/신용을 받도록. */
+export async function fetchLiveQuote(ticker: string, market = MARKET): Promise<LiveQuote | null> {
+  try {
+    const res = await fetch(`${BASE}/realtime/price?ticker=${encodeURIComponent(ticker)}&market=${market}`)
+    if (!res.ok) return null
+    return res.json()
+  } catch { return null }
 }
 
 /** 당일 외인·기관 순매수(원, 장중 잠정) — 시세와 분리해 느린 폴링(15초). */

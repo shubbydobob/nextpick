@@ -277,6 +277,8 @@ public class RealtimePriceController {
         q.put("pbr",        parseDouble((String) output.getOrDefault("pbr", "0")));            // 주가순자산비율
         q.put("eps",        parseDouble((String) output.getOrDefault("eps", "0")));            // 주당순이익(원)
         q.put("bps",        parseDouble((String) output.getOrDefault("bps", "0")));            // 주당순자산(원)
+        q.put("marginRate", parseDouble((String) output.getOrDefault("marg_rate", "0")));      // 증거금 비율(%) — KR 전용
+        q.put("creditAble", "Y".equalsIgnoreCase(String.valueOf(output.getOrDefault("crdt_able_yn", "")))); // 신용거래 가능
         q.put("statuses",   deriveStatuses(output));                                          // 거래정지·주의·과열 등 특이사항 뱃지
         return q;
     }

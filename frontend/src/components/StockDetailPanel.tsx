@@ -8,7 +8,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   ComposedChart, Line,
 } from 'recharts'
-import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations, fetchLiveQuotes, fetchInvestorFlow, fetchStockPrices } from '../api/client'
+import { fetchStockScore, fetchStockHistory, fetchStockFinancials, fetchStockNews, fetchSectorPeers, fetchCorrelations, fetchLiveQuote, fetchInvestorFlow, fetchStockPrices } from '../api/client'
 import type { NewsItem, SectorPeer, CorrelationStock, LiveQuote, InvestorFlow } from '../api/client'
 import PriceChart from './PriceChart'
 import TradingViewChart from './TradingViewChart'
@@ -174,9 +174,10 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
     if (!ticker) return
     let cancelled = false
     const load = () => {
-      fetchLiveQuotes([ticker]).then(m => {
+      // 비게이트 단일 시세(/price) — 장외에도 KIS 통합(KRX+NXT) 최근 종가·거래량·증거금/신용 반영
+      // (배치 pykrx는 KRX 정규장만이라 장외엔 키움과 어긋남).
+      fetchLiveQuote(ticker, stock.market).then(q => {
         if (cancelled) return
-        const q = m[ticker] ?? null
         const np = q?.price
         const pp = prevPxRef.current
         if (np != null && pp != null && np !== pp) {
@@ -431,6 +432,35 @@ export default function StockDetailPanel({ securityId, onSelectStock, onBack }: 
                   <div className={'metric-cell-value' + (mono ? ' mono' : '') + (pos ? ' pos' : '')}>{value}</div>
                 </div>
               ))}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── 거래 조건 (증거금율·신용) — KR 전용, KIS 실시간 ── */}
+      {stock.market !== 'US' && live && ((live.marginRate != null && live.marginRate > 0) || live.creditAble != null) && (() => {
+        const mr = live.marginRate != null && live.marginRate > 0 ? live.marginRate : null
+        // 신용등급: 증거금율 기반 매핑(낮을수록 우량). KIS는 등급 문자를 주지 않아 증거금율로 환산.
+        const grade = mr == null ? '—' : mr <= 20 ? 'A' : mr <= 30 ? 'B' : mr <= 40 ? 'C' : mr <= 50 ? 'D' : 'E'
+        return (
+          <div className="metric-block">
+            <div className="metric-section-head">
+              <span className="metric-section-title">거래 조건</span>
+              <span className="metric-section-sub" title="증거금율=현금매수 시 필요한 최소 증거금 비율(낮을수록 레버리지 여력↑). 신용거래=신용융자 매수 가능 여부. 신용등급=증거금율 환산(20%↓ A · 30% B · 40% C · 50% D · 초과 E). KIS 실시간.">증거금·신용 ⓘ</span>
+            </div>
+            <div className="metric-strip">
+              <div className="metric-cell">
+                <div className="metric-cell-label">증거금율</div>
+                <div className="metric-cell-value mono">{mr != null ? `${Math.round(mr)}%` : '—'}</div>
+              </div>
+              <div className="metric-cell">
+                <div className="metric-cell-label">신용거래</div>
+                <div className="metric-cell-value">{live.creditAble == null ? '—' : live.creditAble ? '가능' : '불가'}</div>
+              </div>
+              <div className="metric-cell">
+                <div className="metric-cell-label" title="증거금율 환산 등급(20%↓ A · 30% B · 40% C · 50% D · 초과 E)">신용등급</div>
+                <div className="metric-cell-value">{grade}</div>
+              </div>
             </div>
           </div>
         )
