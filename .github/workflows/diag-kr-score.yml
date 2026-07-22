@@ -1,0 +1,44 @@
+name: Diagnose KR score (manual, read-only)
+
+# 국장 점수/가격 이상 진단 — 읽기 전용.
+# SK하이닉스(000660)·삼성전자(005930)·삼성전기(009150) 원천값 + 시장 전반 kis_close 괴리.
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    name: Diagnose KR scores
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query DB via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            PSQL="docker exec nextpick-postgres psql -U nextpick_user -d nextpick -A"
+
+            echo "===== 대상 3종목: instruments (total_shares) ====="
+            $PSQL -c "SELECT id, ticker, name, total_shares FROM instruments WHERE ticker IN ('000660','005930','009150');"
+
+            echo "===== price_daily 최근 4거래일 (정규장 close / close_adj / volume) ====="
+            $PSQL -c "SELECT i.ticker, p.trade_date, p.close, p.close_adj, p.volume FROM price_daily p JOIN instruments i ON i.id=p.security_id WHERE i.ticker IN ('000660','005930','009150') AND p.trade_date >= CURRENT_DATE - INTERVAL '10 days' ORDER BY i.ticker, p.trade_date DESC;"
+
+            echo "===== derived_metrics 최신 (kis_close/kis_change_pct/kis_volume, pct_from_52w_high, after_hours, per/eps) ====="
+            $PSQL -c "SELECT i.ticker, d.as_of_date, d.kis_close, d.kis_change_pct, d.kis_volume, d.pct_from_52w_high, d.after_hours_close, d.after_hours_change_pct, d.per, d.eps FROM derived_metrics d JOIN instruments i ON i.id=d.security_id WHERE i.ticker IN ('000660','005930','009150') AND d.as_of_date=(SELECT max(as_of_date) FROM derived_metrics) ORDER BY i.ticker;"
+
+            echo "===== nextpick_scores 최신 (composite + 팩터 + 표시가격 스냅샷) ====="
+            $PSQL -c "SELECT i.ticker, s.score_date, s.composite_score, s.c_score, s.a_score, s.n_score, s.s_score, s.l_score, s.i_score, s.m_score, s.close_price, s.change_rate, s.market_cap FROM nextpick_scores s JOIN instruments i ON i.id=s.security_id WHERE i.ticker IN ('000660','005930','009150') AND s.score_date=(SELECT max(score_date) FROM nextpick_scores) ORDER BY i.ticker;"
+
+            echo "===== [시장전반] kis_close 대 price_daily.close_adj 괴리 규모 ====="
+            echo "-- 최신 kis_close가 최신 close_adj 대비 2배 이상 튀는 종목 수 + 상위 예시 --"
+            $PSQL -c "WITH latest_price AS (SELECT DISTINCT ON (security_id) security_id, close_adj FROM price_daily ORDER BY security_id, trade_date DESC), d AS (SELECT security_id, kis_close, kis_change_pct FROM derived_metrics WHERE as_of_date=(SELECT max(as_of_date) FROM derived_metrics) AND kis_close IS NOT NULL) SELECT count(*) AS kis_gt_2x_count FROM d JOIN latest_price lp ON lp.security_id=d.security_id WHERE lp.close_adj>0 AND d.kis_close/lp.close_adj >= 2;"
+            $PSQL -c "WITH latest_price AS (SELECT DISTINCT ON (security_id) security_id, close_adj FROM price_daily ORDER BY security_id, trade_date DESC), d AS (SELECT security_id, kis_close, kis_change_pct FROM derived_metrics WHERE as_of_date=(SELECT max(as_of_date) FROM derived_metrics) AND kis_close IS NOT NULL) SELECT i.ticker, i.name, lp.close_adj, d.kis_close, round((d.kis_close/lp.close_adj)::numeric,2) AS ratio, d.kis_change_pct FROM d JOIN latest_price lp ON lp.security_id=d.security_id JOIN instruments i ON i.id=d.security_id WHERE lp.close_adj>0 AND d.kis_close/lp.close_adj >= 2 ORDER BY ratio DESC LIMIT 20;"
+
+            echo "===== [시장전반] kis_change_pct 분포 (이상치) ====="
+            $PSQL -c "SELECT count(*) total, count(*) FILTER (WHERE kis_change_pct > 30) gt30, count(*) FILTER (WHERE kis_change_pct >= 9.9 AND kis_change_pct <= 10.1) near10, round(min(kis_change_pct)::numeric,2) mn, round(max(kis_change_pct)::numeric,2) mx FROM derived_metrics WHERE as_of_date=(SELECT max(as_of_date) FROM derived_metrics) AND kis_change_pct IS NOT NULL;"
+
+            echo "===== 최신 채점일/파생일/가격일 ====="
+            $PSQL -c "SELECT (SELECT max(score_date) FROM nextpick_scores) AS score_date, (SELECT max(as_of_date) FROM derived_metrics) AS derived_date, (SELECT max(trade_date) FROM price_daily) AS price_date;"
